@@ -19,13 +19,17 @@ pub struct Cli {
     #[structopt(default_value = ".", short, long)]
     pub dir: Vec<PathBuf>,
 
+    /// progress unless episode exist
+    #[structopt(short = "c", long = "continue")]
+    pub auto: bool,
+
+    /// download in async mode
+    #[structopt(short = "a", long = "async")]
+    pub asyn: bool,
+
     /// mark anime as finished
     #[structopt(short, long)]
     pub finished: bool,
-
-    /// progress unless episode exist
-    #[structopt(short, long)]
-    pub auto: bool,
 }
 
 impl Cli {

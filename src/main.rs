@@ -1,91 +1,77 @@
+mod anime;
 mod cli;
+
+use anime::Anime;
+use anime::Error;
 use cli::Cli;
+
 use exitfailure::ExitFailure;
 use futures::future::join_all;
-use reqwest;
-use reqwest::header::{CONTENT_LENGTH, RANGE};
-use reqwest::Url;
-use std::thread;
-use tokio::task;
-use tokio::task::JoinHandle;
 
-mod my_async;
-mod range;
-use range::Error;
-
-#[tokio::main]
-async fn main() -> Result<(), ExitFailure> {
-    // fn main() -> Error<()> {
-    let _args = Cli::new();
-    // println!("{:?}", args);
+fn main() -> Result<(), ExitFailure> {
+    let args = Cli::new();
+    println!("{:?}", args);
 
     let urls = vec![
-        "http://eurybia.feralhosting.com/animeworlds3/DDL/ANIME/IshuzokuReviewers/IshuzokuReviewers_Ep_01_SUB_ITA.mp4",
-        "http://eurybia.feralhosting.com/animeworlds3/DDL/ANIME/IshuzokuReviewers/IshuzokuReviewers_Ep_02_SUB_ITA.mp4",
-        "http://eurybia.feralhosting.com/animeworlds3/DDL/ANIME/IshuzokuReviewers/IshuzokuReviewers_Ep_03_SUB_ITA.mp4",
-        "http://eurybia.feralhosting.com/animeworlds3/DDL/ANIME/IshuzokuReviewers/IshuzokuReviewers_Ep_04_SUB_ITA.mp4",
-        "http://eurybia.feralhosting.com/animeworlds3/DDL/ANIME/IshuzokuReviewers/IshuzokuReviewers_Ep_05_SUB_ITA.mp4",
-        "http://eurybia.feralhosting.com/animeworlds3/DDL/ANIME/IshuzokuReviewers/IshuzokuReviewers_Ep_06_SUB_ITA.mp4",
-        "http://eurybia.feralhosting.com/animeworlds3/DDL/ANIME/IshuzokuReviewers/IshuzokuReviewers_Ep_07_SUB_ITA.mp4",
-        "http://eurybia.feralhosting.com/animeworlds3/DDL/ANIME/IshuzokuReviewers/IshuzokuReviewers_Ep_08_SUB_ITA.mp4",
-        "http://eurybia.feralhosting.com/animeworlds3/DDL/ANIME/IshuzokuReviewers/IshuzokuReviewers_Ep_09_SUB_ITA.mp4",
-        "http://eurybia.feralhosting.com/animeworlds3/DDL/ANIME/IshuzokuReviewers/IshuzokuReviewers_Ep_10_SUB_ITA.mp4",
-        "http://eurybia.feralhosting.com/animeworlds3/DDL/ANIME/IshuzokuReviewers/IshuzokuReviewers_Ep_11_SUB_ITA.mp4",
-        "http://eurybia.feralhosting.com/animeworlds3/DDL/ANIME/IshuzokuReviewers/IshuzokuReviewers_Ep_12_SUB_ITA.mp4"
+        String::from("http://eurybia.feralhosting.com/animeworlds3/DDL/ANIME/IshuzokuReviewers/IshuzokuReviewers_Ep_01_SUB_ITA.mp4"),
+        String::from("http://eurybia.feralhosting.com/animeworlds3/DDL/ANIME/IshuzokuReviewers/IshuzokuReviewers_Ep_02_SUB_ITA.mp4"),
+        String::from("http://eurybia.feralhosting.com/animeworlds3/DDL/ANIME/IshuzokuReviewers/IshuzokuReviewers_Ep_03_SUB_ITA.mp4"),
+        String::from("http://eurybia.feralhosting.com/animeworlds3/DDL/ANIME/IshuzokuReviewers/IshuzokuReviewers_Ep_04_SUB_ITA.mp4"),
+        String::from("http://eurybia.feralhosting.com/animeworlds3/DDL/ANIME/IshuzokuReviewers/IshuzokuReviewers_Ep_05_SUB_ITA.mp4"),
+        String::from("http://eurybia.feralhosting.com/animeworlds3/DDL/ANIME/IshuzokuReviewers/IshuzokuReviewers_Ep_06_SUB_ITA.mp4"),
+        String::from("http://eurybia.feralhosting.com/animeworlds3/DDL/ANIME/IshuzokuReviewers/IshuzokuReviewers_Ep_07_SUB_ITA.mp4"),
+        String::from("http://eurybia.feralhosting.com/animeworlds3/DDL/ANIME/IshuzokuReviewers/IshuzokuReviewers_Ep_08_SUB_ITA.mp4"),
+        String::from("http://eurybia.feralhosting.com/animeworlds3/DDL/ANIME/IshuzokuReviewers/IshuzokuReviewers_Ep_09_SUB_ITA.mp4"),
+        String::from("http://eurybia.feralhosting.com/animeworlds3/DDL/ANIME/IshuzokuReviewers/IshuzokuReviewers_Ep_10_SUB_ITA.mp4"),
+        String::from("http://eurybia.feralhosting.com/animeworlds3/DDL/ANIME/IshuzokuReviewers/IshuzokuReviewers_Ep_11_SUB_ITA.mp4"),
+        String::from("http://eurybia.feralhosting.com/animeworlds3/DDL/ANIME/IshuzokuReviewers/IshuzokuReviewers_Ep_12_SUB_ITA.mp4")
         ];
 
-    let mut tasks: Vec<JoinHandle<Error<()>>> = vec![];
-    // let mut t_tasks: Vec<thread::JoinHandle<Error<()>>> = vec![];
-    for url in urls {
-        tasks.push(task::spawn(my_async::as_download_episode(url)));
-        // t_tasks.push(thread::spawn(move || download_episode(url)));
-    }
+    let anime = Anime::new(urls)?;
 
-    join_all(tasks).await;
-    // for t in t_tasks {
-    //     let _ = t.join();
-    // }
-    Ok(())
-}
+    if !args.asyn {
+        let mut t_tasks: Vec<std::thread::JoinHandle<Error<()>>> = vec![];
 
-fn download_episode(url: &str) -> Error<()> {
-    // 1024^2 = 1MB
-    const CHUNK_SIZE: usize = 1024 * 1024;
+        for url in anime.url_episodes()? {
+            t_tasks.push(std::thread::spawn(move || Anime::download(&url)));
+        }
 
-    let r_url = Url::parse(url)?;
-    let filename = r_url
-        .path_segments()
-        .and_then(|segments| segments.last())
-        .unwrap_or("tmp.bin");
+        println!("{:#?}", anime);
 
-    let client = reqwest::blocking::Client::new();
-    let response = client.head(url).send()?;
+        for t in t_tasks {
+            let _ = t.join();
+        }
+    } else {
+        let mut rt = tokio::runtime::Runtime::new()?;
+        rt.block_on(async {
+            let mut _tasks: Vec<tokio::task::JoinHandle<Error<()>>> = vec![];
 
-    let total_size: u64 = response
-        .headers()
-        .get(CONTENT_LENGTH)
-        .and_then(|ct_len| ct_len.to_str().ok())
-        .and_then(|ct_len| ct_len.parse().ok())
-        .unwrap_or(0);
+            for url in anime.url_episodes() {
+                println!("{:#?}", url);
 
-    let mut outfile = std::fs::File::create(format!("prova/{}", filename))?;
-
-    println!(
-        "---\nDownloading {}\nsize = {:?}MB -- {:?}B",
-        filename,
-        total_size / 1024u64.pow(2),
-        total_size,
-    );
-
-    for range in range::PartialRangeIter::new(0, total_size - 1, CHUNK_SIZE)? {
-        let mut response = client
-            .get(url)
-            .header(RANGE, range)
-            .send()?
-            .error_for_status()?;
-
-        std::io::copy(&mut response, &mut outfile)?;
+                // tasks.push(tokio::task::spawn(Anime::async_download(&url)));
+            }
+            join_all(_tasks).await;
+        })
     }
 
     Ok(())
 }
+
+// fn find_path(path: &PathBuf) -> Error<String> {
+//     let content = std::fs::read_to_string(path)
+//         .with_context(|_| format!("Could not read file `{}`", path.display()))?;
+
+//     Ok(content)
+// }
+
+// fn find_matches(content: &str, pattern: &str, mut writer: impl std::io::Write) -> Error<()> {
+//     for line in content.lines() {
+//         let curr_line = line;
+//         if curr_line.contains(pattern) {
+//             writeln!(writer, "{}", curr_line).with_context(|_| format!("Could print on writer"))?;
+//         }
+//     }
+
+//     Ok(())
+// }
