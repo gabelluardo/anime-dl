@@ -4,28 +4,62 @@ use futures::stream::TryStreamExt;
 use reqwest::header::{HeaderValue, CONTENT_LENGTH, RANGE};
 use reqwest::Url;
 
+use regex::Regex;
+
+use std::path::{Path, PathBuf};
+
 use tokio_util::compat::FuturesAsyncReadCompatExt;
 
 pub type Error<T> = Result<T, failure::Error>;
 
 // 1024^2 = 1MB
 const CHUNK_SIZE: usize = 1024 * 1024;
+const REGEX_VALUE: &str = "_{}_";
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Anime {
-    urls: Vec<String>,
+    url: String,
+    start: u32,
+    end: u32,
+    path: PathBuf,
 }
 
 impl Anime {
-    pub fn new(urls: Vec<String>) -> Error<Self> {
-        Ok(Anime { urls })
+    pub fn new(url: &str, start: u32, path: PathBuf) -> Error<Self> {
+        let (url, end) = extract(&url)?;
+
+        Ok(Anime {
+            url,
+            start,
+            end,
+            path,
+        })
+    }
+    pub fn path(&self) -> Error<String> {
+        Ok(format!("{}", self.path.display()))
     }
 
     pub fn url_episodes(&self) -> Error<Vec<String>> {
-        Ok(self.urls.clone())
+        let mut all: Vec<String> = vec![];
+        let num_episodes = self.end;
+
+        for i in 1..num_episodes + 1 {
+            let num = {
+                let mut num = i.to_string();
+                if num.len() < 2 {
+                    num = format!("0{}", num);
+                }
+                num
+            };
+
+            let url = self.url.replace(REGEX_VALUE, &format!("_{}_", num));
+            all.push(url);
+        }
+
+        Ok(all)
     }
 
-    pub fn download(url: &str) -> Error<()> {
+    pub fn download(url: &str, path: &str) -> Error<()> {
         let r_url = Url::parse(url)?;
         let filename = r_url
             .path_segments()
@@ -42,7 +76,12 @@ impl Anime {
             .and_then(|ct_len| ct_len.parse().ok())
             .unwrap_or(0);
 
-        let mut outfile = std::fs::File::create(format!("prova/{}", filename))?;
+        let dir = Path::new(&path);
+        if !dir.exists() {
+            std::fs::create_dir_all(dir)?;
+        }
+
+        let mut outfile = std::fs::File::create(format!("{}/{}", path, filename))?;
 
         println!(
             "---\nDownloading {}\nsize = {:?}MB -- {:?}B",
@@ -150,4 +189,14 @@ impl Iterator for PartialRangeIter {
             )
         }
     }
+}
+
+fn extract(url: &str) -> Error<(String, u32)> {
+    let re = Regex::new(r"_\d+_")?;
+    let end = re.captures(url).unwrap();
+
+    let url = re.replace_all(url, REGEX_VALUE).to_string();
+    let end: u32 = end[0].replace("_", "").parse()?;
+
+    Ok((url, end))
 }
