@@ -1,20 +1,15 @@
 use failure::bail;
-use futures::stream::TryStreamExt;
 
 use reqwest::header::{HeaderValue, CONTENT_LENGTH, RANGE};
 use reqwest::Url;
 
-use regex::Regex;
-
+use crate::utils::{extract, REGEX_VALUE};
 use std::path::{Path, PathBuf};
-
-use tokio_util::compat::FuturesAsyncReadCompatExt;
 
 pub type Error<T> = Result<T, failure::Error>;
 
 // 1024^2 = 1MB
 const CHUNK_SIZE: usize = 1024 * 1024;
-const REGEX_VALUE: &str = "_{}_";
 
 #[derive(Debug, Clone)]
 pub struct Anime {
@@ -102,54 +97,6 @@ impl Anime {
 
         Ok(())
     }
-
-    pub async fn _async_download(url: &str) -> Error<()> {
-        let r_url = Url::parse(url)?;
-        let filename = r_url
-            .path_segments()
-            .and_then(|segments| segments.last())
-            .unwrap_or("tmp.bin");
-
-        let client = reqwest::Client::new();
-        let response = client.head(url).send().await?;
-
-        let total_size: u64 = response
-            .headers()
-            .get(CONTENT_LENGTH)
-            .and_then(|ct_len| ct_len.to_str().ok())
-            .and_then(|ct_len| ct_len.parse().ok())
-            .unwrap_or(0);
-
-        let mut outfile = tokio::fs::File::create(format!("prova/{}", filename)).await?;
-
-        println!(
-            "---\nDownloading {}\nsize = {:?}MB -- {:?}B",
-            filename,
-            total_size / 1024u64.pow(2),
-            total_size,
-        );
-
-        for range in PartialRangeIter::new(0, total_size - 1, CHUNK_SIZE)? {
-            let response = client
-                .get(url)
-                .header(RANGE, range)
-                .send()
-                .await?
-                .error_for_status()?;
-
-            let response = response.bytes_stream();
-            let response = response
-                .map_err(|e| futures::io::Error::new(futures::io::ErrorKind::Other, e))
-                .into_async_read();
-
-            let mut response = response.compat();
-
-            // println!("range {:?}MB -- {:?}B", range / 1024u64.pow(2), range);
-            tokio::io::copy(&mut response, &mut outfile).await?;
-        }
-
-        Ok(())
-    }
 }
 
 pub struct PartialRangeIter {
@@ -189,14 +136,4 @@ impl Iterator for PartialRangeIter {
             )
         }
     }
-}
-
-fn extract(url: &str) -> Error<(String, u32)> {
-    let re = Regex::new(r"_\d+_")?;
-    let end = re.captures(url).unwrap();
-
-    let url = re.replace_all(url, REGEX_VALUE).to_string();
-    let end: u32 = end[0].replace("_", "").parse()?;
-
-    Ok((url, end))
 }
