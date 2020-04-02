@@ -21,7 +21,7 @@ pub struct Anime {
 
 impl Anime {
     pub fn new(url: &str, start: u32, path: PathBuf) -> Error<Self> {
-        let (url, end) = extract(&url).context(format!("Unable to extract {}", url))?;
+        let (url, end) = extract(&url)?;
 
         Ok(Anime {
             url,
@@ -61,7 +61,7 @@ impl Anime {
             .head(url)
             .send()?
             .error_for_status()
-            .context(format!("Unable to download {}", filename))?;
+            .context(format!("Error: Unable to download `{}`", filename))?;
 
         let total_size: u64 = response
             .headers()

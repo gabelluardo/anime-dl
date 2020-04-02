@@ -1,17 +1,27 @@
 use crate::Error;
 use regex::Regex;
 
+use failure::bail;
+
 pub const REGEX_VALUE: &str = "_{}_";
 pub const CHUNK_SIZE: usize = 1024 * 1024; // 1024^2 = 1MB
 
 pub fn extract(url: &str) -> Error<(String, u32)> {
     let re = Regex::new(r"_\d+_")?;
-    let end = re.captures(url).unwrap();
+    let cap = match re.captures(url) {
+        Some(c) => c,
+        None => bail!("Error: Unable parse `{}`", url),
+    };
 
     let url = re.replace_all(url, REGEX_VALUE).to_string();
-    let end: u32 = end[0].replace("_", "").parse()?;
+    let last: u32 = cap
+        .get(cap.len() - 1)
+        .map(|c| c.as_str())
+        .unwrap()
+        .replace("_", "")
+        .parse()?;
 
-    Ok((url, end))
+    Ok((url, last))
 }
 
 pub fn fix_num_episode(num: u32) -> String {

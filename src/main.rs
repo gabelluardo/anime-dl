@@ -18,7 +18,10 @@ fn main() {
         let url = &args.urls[i];
         let path = args.dir[i].clone();
 
-        all_anime.push(Anime::new(url, args.start, path).unwrap());
+        match Anime::new(url, args.start, path) {
+            Ok(a) => all_anime.push(a),
+            Err(e) => println!("{}", format!("{}", e).red()),
+        }
     }
 
     let mut tasks: Vec<JoinHandle<Error<String>>> = vec![];
@@ -32,7 +35,7 @@ fn main() {
 
     for t in tasks {
         match t.join().unwrap() {
-            Ok(s) => println!("{}", format!("Completed {}", s).green()),
+            Ok(s) => println!("{}", format!("Completed `{}`", s).green()),
             Err(e) => println!("{}", format!("{}", e).red()),
         }
     }
