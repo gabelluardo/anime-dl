@@ -21,7 +21,7 @@ pub struct Anime {
 
 impl Anime {
     pub fn new(url: &str, start: u32, path: PathBuf) -> Error<Self> {
-        let (url, end) = extract(&url)?;
+        let (url, end) = extract(&url).context(format!("Unable to extract {}", url))?;
 
         Ok(Anime {
             url,
