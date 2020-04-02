@@ -77,7 +77,7 @@ impl Anime {
 
         let mut outfile = std::fs::File::create(format!("{}/{}", path, filename))?;
 
-        println!("[INFO] Download {}", filename);
+        println!("[INFO] Downloading {}", filename);
 
         // println!(
         //     "---\nDownloading {}\nsize = {:?}MB -- {:?}B",

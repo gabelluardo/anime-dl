@@ -35,7 +35,7 @@ fn main() {
 
     for t in tasks {
         match t.join().unwrap() {
-            Ok(s) => println!("{}", format!("Completed `{}`", s).green()),
+            Ok(s) => println!("{}", format!("[INFO] Completed {}", s).green()),
             Err(e) => println!("{}", format!("{}", e).red()),
         }
     }
