@@ -61,7 +61,7 @@ impl Anime {
             .head(url)
             .send()?
             .error_for_status()
-            .context(format!("Error: Unable to download `{}`", filename))?;
+            .context(format!("[ERROR] Unable to download `{}`", filename))?;
 
         let total_size: u64 = response
             .headers()
@@ -76,6 +76,8 @@ impl Anime {
         }
 
         let mut outfile = std::fs::File::create(format!("{}/{}", path, filename))?;
+
+        println!("[INFO] Download {}", filename);
 
         // println!(
         //     "---\nDownloading {}\nsize = {:?}MB -- {:?}B",
@@ -109,7 +111,7 @@ pub struct PartialRangeIter {
 impl PartialRangeIter {
     pub fn new(start: u64, end: u64, buffer_size: usize) -> Error<Self> {
         if buffer_size == 0 {
-            bail!("invalid buffer_size, give a value greater than zero.");
+            bail!("[ERROR] Invalid buffer_size, give a value greater than zero.");
         }
 
         Ok(PartialRangeIter {

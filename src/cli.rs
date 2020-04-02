@@ -7,23 +7,23 @@ use structopt::StructOpt;
     about = "Efficient cli app for downloading anime"
 )]
 pub struct Cli {
-    /// source url
+    /// Source url
     #[structopt()]
     pub urls: Vec<String>,
 
-    /// where start the downloads
+    /// Where start the downloads
     #[structopt(default_value = "1", short, long)]
     pub start: u32,
 
-    /// path folder where save files
+    /// Path folder where save files
     #[structopt(default_value = ".", short, long)]
     pub dir: Vec<PathBuf>,
 
-    /// progress unless episode exist [WIP]
+    /// Progress unless episode exist [WIP]
     #[structopt(short = "c", long = "continue")]
     pub auto: bool,
 
-    /// mark anime as finished [WIP]
+    /// Mark anime as finished [WIP]
     #[structopt(short, long)]
     pub finished: bool,
 }
