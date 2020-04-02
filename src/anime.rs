@@ -1,15 +1,15 @@
 use failure::bail;
+use failure::ResultExt;
 
+use crate::utils::{extract, fix_num_episode, CHUNK_SIZE, REGEX_VALUE};
+
+use reqwest::blocking::Client;
 use reqwest::header::{HeaderValue, CONTENT_LENGTH, RANGE};
 use reqwest::Url;
 
-use crate::utils::{extract, REGEX_VALUE};
 use std::path::{Path, PathBuf};
 
 pub type Error<T> = Result<T, failure::Error>;
-
-// 1024^2 = 1MB
-const CHUNK_SIZE: usize = 1024 * 1024;
 
 #[derive(Debug, Clone)]
 pub struct Anime {
@@ -36,18 +36,14 @@ impl Anime {
 
     pub fn url_episodes(&self) -> Error<Vec<String>> {
         let mut all: Vec<String> = vec![];
+
         let num_episodes = self.end;
+        let start = self.start;
 
-        for i in 1..num_episodes + 1 {
-            let num = {
-                let mut num = i.to_string();
-                if num.len() < 2 {
-                    num = format!("0{}", num);
-                }
-                num
-            };
+        for i in start..num_episodes + 1 {
+            let episode = fix_num_episode(i);
 
-            let url = self.url.replace(REGEX_VALUE, &format!("_{}_", num));
+            let url = self.url.replace(REGEX_VALUE, &format!("_{}_", episode));
             all.push(url);
         }
 
@@ -61,8 +57,12 @@ impl Anime {
             .and_then(|segments| segments.last())
             .unwrap_or("tmp.bin");
 
-        let client = reqwest::blocking::Client::new();
-        let response = client.head(url).send()?;
+        let client = Client::new();
+        let response = client
+            .head(url)
+            .send()?
+            .error_for_status()
+            .context(format!("Unable to download {}", filename))?;
 
         let total_size: u64 = response
             .headers()
@@ -78,19 +78,21 @@ impl Anime {
 
         let mut outfile = std::fs::File::create(format!("{}/{}", path, filename))?;
 
-        println!(
-            "---\nDownloading {}\nsize = {:?}MB -- {:?}B",
-            filename,
-            total_size / 1024u64.pow(2),
-            total_size,
-        );
+        // println!(
+        //     "---\nDownloading {}\nsize = {:?}MB -- {:?}B",
+        //     filename,
+        //     total_size / 1024u64.pow(2),
+        //     total_size,
+        // );
 
         for range in PartialRangeIter::new(0, total_size - 1, CHUNK_SIZE)? {
             let mut response = client
                 .get(url)
-                .header(RANGE, range)
+                .header(RANGE, &range)
                 .send()?
                 .error_for_status()?;
+
+            // println!("range {:?} total {}", range, total_size);
 
             std::io::copy(&mut response, &mut outfile)?;
         }

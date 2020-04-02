@@ -9,7 +9,7 @@ use exitfailure::ExitFailure;
 
 fn main() -> Result<(), ExitFailure> {
     let args = Cli::new();
-    println!("{:?}", args);
+    // println!("{:?}", args);
 
     // let urls = vec![
     //     String::from("http://eurybia.feralhosting.com/animeworlds3/DDL/ANIME/IshuzokuReviewers/IshuzokuReviewers_Ep_12_SUB_ITA.mp4")
@@ -33,7 +33,7 @@ fn main() -> Result<(), ExitFailure> {
     }
 
     for t in tasks {
-        let _ = t.join();
+        t.join().unwrap()?;
     }
 
     Ok(())
