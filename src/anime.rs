@@ -1,7 +1,7 @@
 use failure::bail;
 use failure::ResultExt;
 
-use crate::utils::{extract, fix_num_episode, CHUNK_SIZE, REGEX_VALUE};
+use crate::utils::*;
 
 use reqwest::blocking::Client;
 use reqwest::header::{HeaderValue, CONTENT_LENGTH, RANGE};
@@ -30,11 +30,11 @@ impl Anime {
             path,
         })
     }
-    pub fn path(&self) -> Error<String> {
-        Ok(format!("{}", self.path.display()))
+    pub fn path(&self) -> String {
+        self.path.display().to_string()
     }
 
-    pub fn url_episodes(&self) -> Error<Vec<String>> {
+    pub fn url_episodes(&self) -> Vec<String> {
         let mut all: Vec<String> = vec![];
 
         let num_episodes = self.end;
@@ -46,11 +46,10 @@ impl Anime {
             let url = self.url.replace(REGEX_VALUE, &format!("_{}_", episode));
             all.push(url);
         }
-
-        Ok(all)
+        all
     }
 
-    pub fn download(url: &str, path: &str) -> Error<()> {
+    pub fn download(url: &str, path: &str) -> Error<String> {
         let r_url = Url::parse(url)?;
         let filename = r_url
             .path_segments()
@@ -97,7 +96,7 @@ impl Anime {
             std::io::copy(&mut response, &mut outfile)?;
         }
 
-        Ok(())
+        Ok(filename.to_string())
     }
 }
 
