@@ -16,8 +16,8 @@ pub struct Cli {
     pub start: u32,
 
     /// Max number of thread
-    #[structopt(default_value = "8", short, long)]
-    pub jobs: usize,
+    #[structopt(default_value = "32", short = "M", long)]
+    pub max_threads: usize,
 
     /// Path folder where save files
     #[structopt(default_value = ".", short, long)]

@@ -31,7 +31,7 @@ fn main() {
 
             tasks.push(spawn(move || Anime::download(&url, &path)));
 
-            if tasks.len() >= args.jobs {
+            if tasks.len() >= args.max_threads {
                 print_result(tasks.remove(0));
             }
         }
