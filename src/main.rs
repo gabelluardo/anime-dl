@@ -11,7 +11,6 @@ use cli::Cli;
 
 fn main() {
     let args = Cli::new();
-    // println!("{:?}", args);
 
     let mut all_anime: Vec<Anime> = vec![];
     for i in 0..args.urls.len() {
@@ -20,7 +19,7 @@ fn main() {
 
         match Anime::new(url, args.start, path) {
             Ok(a) => all_anime.push(a),
-            Err(e) => println!("{}", format!("{}", e).red()),
+            Err(e) => println!("{}", format!("[ERROR] {}", e).red()),
         }
     }
 
@@ -45,6 +44,6 @@ fn main() {
 fn print_result(t: JoinHandle<Error<String>>) {
     match t.join().unwrap() {
         Ok(s) => println!("{}", format!("[INFO] Completed {}", s).green()),
-        Err(e) => println!("{}", format!("{}", e).red()),
+        Err(e) => println!("{}", format!("[ERROR] {}", e).red()),
     }
 }

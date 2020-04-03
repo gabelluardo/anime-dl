@@ -10,7 +10,7 @@ pub fn extract(url: &str) -> Error<(String, u32)> {
     let re = Regex::new(r"_\d+_")?;
     let cap = match re.captures(url) {
         Some(c) => c,
-        None => bail!("[ERROR] Unable parse `{}`", url),
+        None => bail!("Unable parse `{}`", url),
     };
 
     let url = re.replace_all(url, REGEX_VALUE).to_string();
