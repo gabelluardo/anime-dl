@@ -24,9 +24,8 @@ fn main() {
         }
     }
 
+    let mut tasks: Vec<JoinHandle<Error<String>>> = vec![];
     for anime in &all_anime {
-        let mut tasks: Vec<JoinHandle<Error<String>>> = vec![];
-
         for url in anime.url_episodes() {
             let path = anime.path();
 
@@ -36,10 +35,10 @@ fn main() {
                 print_result(tasks.remove(0));
             }
         }
+    }
 
-        for t in tasks {
-            print_result(t);
-        }
+    for t in tasks {
+        print_result(t);
     }
 }
 
