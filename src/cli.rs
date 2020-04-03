@@ -15,6 +15,10 @@ pub struct Cli {
     #[structopt(default_value = "1", short, long)]
     pub start: u32,
 
+    /// Max number of thread
+    #[structopt(default_value = "8", short, long)]
+    pub jobs: usize,
+
     /// Path folder where save files
     #[structopt(default_value = ".", short, long)]
     pub dir: Vec<PathBuf>,

@@ -24,19 +24,28 @@ fn main() {
         }
     }
 
-    let mut tasks: Vec<JoinHandle<Error<String>>> = vec![];
     for anime in &all_anime {
+        let mut tasks: Vec<JoinHandle<Error<String>>> = vec![];
+
         for url in anime.url_episodes() {
             let path = anime.path();
 
             tasks.push(spawn(move || Anime::download(&url, &path)));
+
+            if tasks.len() >= args.jobs {
+                print_result(tasks.remove(0));
+            }
+        }
+
+        for t in tasks {
+            print_result(t);
         }
     }
+}
 
-    for t in tasks {
-        match t.join().unwrap() {
-            Ok(s) => println!("{}", format!("[INFO] Completed {}", s).green()),
-            Err(e) => println!("{}", format!("{}", e).red()),
-        }
+fn print_result(t: JoinHandle<Error<String>>) {
+    match t.join().unwrap() {
+        Ok(s) => println!("{}", format!("[INFO] Completed {}", s).green()),
+        Err(e) => println!("{}", format!("{}", e).red()),
     }
 }
