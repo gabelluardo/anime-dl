@@ -2,6 +2,7 @@ use failure::bail;
 use failure::ResultExt;
 
 use crate::utils::*;
+use colored::Colorize;
 
 use reqwest::blocking::Client;
 use reqwest::header::{HeaderValue, CONTENT_LENGTH, RANGE};
@@ -20,8 +21,13 @@ pub struct Anime {
 }
 
 impl Anime {
-    pub fn new(url: &str, start: u32, path: PathBuf) -> Error<Self> {
-        let (url, end) = extract(&url)?;
+    pub fn new(url: &str, start: u32, end: u32, path: PathBuf) -> Error<Self> {
+        let (url, url_num) = extract(&url)?;
+
+        let end = match end {
+            0 => url_num,
+            _ => end,
+        };
 
         Ok(Anime {
             url,
@@ -34,19 +40,52 @@ impl Anime {
         self.path.display().to_string()
     }
 
-    pub fn url_episodes(&self) -> Vec<String> {
-        let mut all: Vec<String> = vec![];
+    pub fn url_episodes(&self, auto: bool) -> Error<Vec<String>> {
+        let mut episodes = vec![];
+        let mut last: u32 = 0;
 
-        let num_episodes = self.end;
-        let start = self.start;
+        let mut error: Vec<u32> = vec![];
+        let mut error_counter = 0;
+        let mut counter: u32 = self.start;
 
-        for i in start..num_episodes + 1 {
-            let episode = fix_num_episode(i);
+        let client = Client::new();
+        let num_episodes = match auto {
+            true => u8::max_value() as u32,
+            _ => self.end,
+        };
 
-            let url = self.url.replace(REGEX_VALUE, &format!("_{}_", episode));
-            all.push(url);
+        while error_counter < 3 && counter <= num_episodes {
+            let num = fix_num_episode(counter);
+            let url = self.url.replace(REGEX_VALUE, &num);
+
+            match client.head(&url).send()?.error_for_status() {
+                Err(_) => {
+                    error.push(counter);
+                    error_counter += 1
+                }
+                Ok(_) => {
+                    episodes.push(url.to_string());
+                    last = counter;
+                    error_counter = 0;
+                }
+            }
+            counter += 1;
         }
-        all
+
+        // TODO: making proper error print
+        error.retain(|&x| x < last);
+        if error.len() > 0 {
+            println!(
+                "{}",
+                format!(
+                    "[INFO] Problems with episodes {:?}, download it manually",
+                    error
+                )
+                .yellow()
+            );
+        }
+
+        Ok(episodes)
     }
 
     pub fn download(url: &str, path: &str) -> Error<String> {

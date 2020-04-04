@@ -11,19 +11,23 @@ pub struct Cli {
     #[structopt()]
     pub urls: Vec<String>,
 
-    /// Where start the downloads
+    /// Path folder where save files
+    #[structopt(default_value = ".", short, long)]
+    pub dir: Vec<PathBuf>,
+
+    /// First episode to download
     #[structopt(default_value = "1", short, long)]
     pub start: u32,
+
+    /// Last episode to download
+    #[structopt(default_value, short, long)]
+    pub end: u32,
 
     /// Max number of thread
     #[structopt(default_value = "32", short = "M", long)]
     pub max_threads: usize,
 
-    /// Path folder where save files
-    #[structopt(default_value = ".", short, long)]
-    pub dir: Vec<PathBuf>,
-
-    /// Progress unless episode exist [WIP]
+    /// Find automatically last episode
     #[structopt(short = "c", long = "continue")]
     pub auto: bool,
 

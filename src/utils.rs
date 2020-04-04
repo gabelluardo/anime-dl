@@ -1,7 +1,7 @@
 use crate::Error;
-use regex::Regex;
 
 use failure::bail;
+use regex::Regex;
 
 pub const REGEX_VALUE: &str = "_{}_";
 pub const CHUNK_SIZE: usize = 1024 * 1024; // 1024^2 = 1MB
@@ -29,7 +29,7 @@ pub fn fix_num_episode(num: u32) -> String {
     if episode.len() < 2 {
         episode = format!("0{}", episode);
     }
-    episode
+    format!("_{}_", episode)
 }
 
 // fn find_matches(content: &str, pattern: &str, mut writer: impl std::io::Write) -> Error<()> {
