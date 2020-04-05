@@ -1,4 +1,4 @@
-# Animeworld-d
+# Animeworld-dl
 
 Efficient cli app for downloading anime
 
