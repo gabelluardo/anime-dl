@@ -35,8 +35,9 @@ fn main() {
 
         for url in urls {
             let path = anime.path();
+            let force = args.force.clone();
 
-            tasks.push(spawn(move || Anime::download(&url, &path)));
+            tasks.push(spawn(move || Anime::download(&url, &path, &force)));
 
             if tasks.len() >= args.max_threads {
                 print_result(tasks.remove(0));

@@ -31,8 +31,12 @@ pub struct Cli {
     #[structopt(short = "c", long = "continue")]
     pub auto: bool,
 
-    /// Mark anime as finished [WIP]
+    /// Override existent files
     #[structopt(short, long)]
+    pub force: bool,
+
+    /// Mark anime as finished [WIP]
+    #[structopt(short = "F", long)]
     pub finished: bool,
 }
 

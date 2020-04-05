@@ -88,12 +88,14 @@ impl Anime {
         Ok(episodes)
     }
 
-    pub fn download(url: &str, path: &str) -> Error<String> {
+    pub fn download(url: &str, path: &str, force: &bool) -> Error<String> {
         let r_url = Url::parse(url)?;
         let filename = r_url
             .path_segments()
             .and_then(|segments| segments.last())
             .unwrap_or("tmp.bin");
+
+        let file_path = format!("{}/{}", path, filename);
 
         let client = Client::new();
         let response = client
@@ -114,8 +116,12 @@ impl Anime {
             std::fs::create_dir_all(dir)?;
         }
 
-        let mut outfile = std::fs::File::create(format!("{}/{}", path, filename))?;
+        let file = Path::new(&file_path);
+        if file.exists() && !force {
+            bail!("{} already exists", file_path);
+        }
 
+        let mut outfile = std::fs::File::create(file_path)?;
         println!("[INFO] Downloading {}", filename);
 
         // println!(
