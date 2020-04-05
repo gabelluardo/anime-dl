@@ -54,7 +54,7 @@ impl Anime {
             _ => self.end,
         };
 
-        while error_counter < 3 && counter <= num_episodes {
+        while error_counter < 12 && counter <= num_episodes {
             let num = fix_num_episode(counter);
             let url = self.url.replace(REGEX_VALUE, &num);
 
