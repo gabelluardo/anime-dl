@@ -8,7 +8,7 @@ use structopt::StructOpt;
 )]
 pub struct Cli {
     /// Source url
-    #[structopt()]
+    #[structopt(required = true)]
     pub urls: Vec<String>,
 
     /// Path folder where save files
