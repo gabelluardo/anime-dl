@@ -97,6 +97,7 @@ impl Anime {
         let client = Client::new();
         let response = client
             .head(url)
+            .timeout(std::time::Duration::from_secs(120))
             .send()?
             .error_for_status()
             .context(format!("Unable to download `{}`", filename))?;

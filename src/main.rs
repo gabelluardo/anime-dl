@@ -52,8 +52,9 @@ fn main() {
                 print_result(tasks.remove(0));
             }
         }
-        m.join().unwrap();
     }
+
+    m.join().unwrap();
 
     for t in tasks {
         print_result(t);
