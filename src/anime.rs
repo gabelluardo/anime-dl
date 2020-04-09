@@ -1,9 +1,10 @@
+use crate::utils::*;
+
 use failure::bail;
 use failure::ResultExt;
 
-use crate::utils::*;
 use colored::Colorize;
-
+use indicatif::ProgressBar;
 use reqwest::blocking::Client;
 use reqwest::header::{HeaderValue, CONTENT_LENGTH, RANGE};
 use reqwest::Url;
@@ -88,7 +89,7 @@ impl Anime {
         Ok(episodes)
     }
 
-    pub fn download(url: &str, path: &str, force: &bool) -> Error<String> {
+    pub fn download(url: &str, path: &str, force: &bool, pb: &ProgressBar) -> Error<String> {
         let r_url = Url::parse(url)?;
         let filename = r_url
             .path_segments()
@@ -121,15 +122,12 @@ impl Anime {
             bail!("{} already exists", file_path);
         }
 
-        let mut outfile = std::fs::File::create(file_path)?;
-        println!("[INFO] Downloading {}", filename);
+        let mut outfile = std::fs::File::create(&file_path)?;
 
-        // println!(
-        //     "---\nDownloading {}\nsize = {:?}MB -- {:?}B",
-        //     filename,
-        //     total_size / 1024u64.pow(2),
-        //     total_size,
-        // );
+        let (_, num) = extract(&filename)?;
+        pb.set_length(total_size);
+        pb.set_position(0);
+        pb.set_message(&format!("Ep. {}", num));
 
         for range in PartialRangeIter::new(0, total_size - 1, CHUNK_SIZE)? {
             let mut response = client
@@ -138,10 +136,12 @@ impl Anime {
                 .send()?
                 .error_for_status()?;
 
-            // println!("range {:?} total {}", range, total_size);
-
             std::io::copy(&mut response, &mut outfile)?;
+
+            pb.inc(CHUNK_SIZE as u64);
         }
+
+        pb.finish_with_message(&format!("Ep. {} 👍", num));
 
         Ok(filename.to_string())
     }

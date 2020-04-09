@@ -25,11 +25,7 @@ pub fn extract(url: &str) -> Error<(String, u32)> {
 }
 
 pub fn fix_num_episode(num: u32) -> String {
-    let mut episode = num.to_string();
-    if episode.len() < 2 {
-        episode = format!("0{}", episode);
-    }
-    format!("_{}_", episode)
+    format!("_{:0fill$}_", num, fill = 2)
 }
 
 // fn find_matches(content: &str, pattern: &str, mut writer: impl std::io::Write) -> Error<()> {
