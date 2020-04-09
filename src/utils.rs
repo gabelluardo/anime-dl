@@ -25,7 +25,7 @@ pub fn extract(url: &str) -> Error<(String, u32)> {
 }
 
 pub fn fix_num_episode(num: u32) -> String {
-    format!("_{:0fill$}_", num, fill = 2)
+    format!("_{:02}_", num)
 }
 
 // fn find_matches(content: &str, pattern: &str, mut writer: impl std::io::Write) -> Error<()> {

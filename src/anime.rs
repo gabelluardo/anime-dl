@@ -73,16 +73,12 @@ impl Anime {
             counter += 1;
         }
 
-        // TODO: making proper error print
+        // TODO: making better error print
         error.retain(|&x| x < last);
         if error.len() > 0 {
             println!(
                 "{}",
-                format!(
-                    "[INFO] Problems with episodes {:?}, download it manually",
-                    error
-                )
-                .yellow()
+                format!("[INFO] Problems with ep. {:?}, download it manually", error).yellow()
             );
         }
 
@@ -125,9 +121,11 @@ impl Anime {
         let mut outfile = std::fs::File::create(&file_path)?;
 
         let (_, num) = extract(&filename)?;
+        let msg = format!("Ep. {:02}", num);
+
         pb.set_length(total_size);
         pb.set_position(0);
-        pb.set_message(&format!("Ep. {}", num));
+        pb.set_message(&msg);
 
         for range in PartialRangeIter::new(0, total_size - 1, CHUNK_SIZE)? {
             let mut response = client
@@ -141,7 +139,7 @@ impl Anime {
             pb.inc(CHUNK_SIZE as u64);
         }
 
-        pb.finish_with_message(&format!("Ep. {} 👍", num));
+        pb.finish_with_message(&format!("{} 👍", msg));
 
         Ok(filename.to_string())
     }
