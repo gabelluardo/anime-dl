@@ -131,6 +131,7 @@ impl Anime {
             let mut response = client
                 .get(url)
                 .header(RANGE, &range)
+                .timeout(std::time::Duration::from_secs(120))
                 .send()?
                 .error_for_status()?;
 
