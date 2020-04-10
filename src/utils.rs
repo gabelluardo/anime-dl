@@ -28,19 +28,6 @@ pub fn fix_num_episode(num: u32) -> String {
     format!("_{:02}_", num)
 }
 
-// fn find_matches(content: &str, pattern: &str, mut writer: impl std::io::Write) -> Error<()> {
-//     for line in content.lines() {
-//         let curr_line = line;
-//         if curr_line.contains(pattern) {
-//             writeln!(writer, "{}", curr_line).with_context(|_| format!("Could print on writer"))?;
-//         }
-//     }
-
-//     Ok(())
-// }
-//
-// ==========================================================================================
-
 // download in async mode [WIP]
 // #[structopt(short = "a", long = "async")]
 // pub asyn: bool,

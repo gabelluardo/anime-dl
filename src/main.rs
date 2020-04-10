@@ -12,7 +12,7 @@ use std::thread::{spawn, JoinHandle};
 
 fn main() {
     let args = Cli::new();
-    // println!("{:#?}", args);
+
     let m = MultiProgress::new();
     let sty = ProgressStyle::default_bar()
         .template(
@@ -48,9 +48,10 @@ fn main() {
 
             tasks.push(spawn(move || Anime::download(&url, &path, &force, &pb)));
 
-            if tasks.len() >= args.max_threads {
-                print_result(tasks.remove(0));
-            }
+            // TODO: making it compatible with `MultiProgress`
+            // if tasks.len() >= args.max_threads {
+            //     print_result(tasks.remove(0));
+            // }
         }
     }
 
