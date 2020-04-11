@@ -76,7 +76,7 @@ impl Anime {
         // TODO: making better error print
         error.retain(|&x| x < last);
         if error.len() > 0 {
-            println!(
+            eprintln!(
                 "{}",
                 format!("[INFO] Problems with ep. {:?}, download it manually", error).yellow()
             );
@@ -85,7 +85,7 @@ impl Anime {
         Ok(episodes)
     }
 
-    pub fn download(url: &str, path: &str, force: &bool, pb: &ProgressBar) -> Error<String> {
+    pub fn download(url: &str, path: &str, force: &bool, pb: &ProgressBar) -> Error<()> {
         let r_url = Url::parse(url)?;
         let filename = r_url
             .path_segments()
@@ -143,7 +143,7 @@ impl Anime {
 
         pb.finish_with_message(&format!("{} 👍", msg));
 
-        Ok(filename.to_string())
+        Ok(())
     }
 }
 
