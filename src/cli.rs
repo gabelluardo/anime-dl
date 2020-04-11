@@ -23,7 +23,7 @@ pub struct Cli {
     #[structopt(default_value, short, long)]
     pub end: u32,
 
-    /// Max number of concurrent downlaod
+    /// Max number of concurrent download
     #[structopt(default_value = "32", short = "M", long)]
     pub max_threads: usize,
 
