@@ -46,20 +46,28 @@ fn main() {
             let pb = m.add(ProgressBar::new(0));
             pb.set_style(sty.clone());
 
-            tasks.push(spawn(move || Anime::download(&url, &path, &force, &pb)));
-
-            // TODO: making it compatible with `MultiProgress`
-            // if tasks.len() >= args.max_threads {
-            //     print_result(tasks.remove(0));
-            // }
+            tasks.push(spawn(move || {
+                std::thread::park();
+                Anime::download(&url, &path, &force, &pb)
+            }));
         }
     }
 
-    m.join().unwrap();
+    let progress = spawn(move || m.join().unwrap());
 
-    for t in tasks {
-        print_result(t);
+    let mut active: Vec<JoinHandle<Error<String>>> = vec![];
+    for _ in 0..tasks.len() {
+        let t = tasks.remove(0);
+
+        t.thread().unpark();
+        active.push(t);
+
+        if active.len() >= args.max_threads {
+            print_result(active.remove(0));
+        }
     }
+
+    progress.join().unwrap();
 }
 
 fn print_result(t: JoinHandle<Error<String>>) {
