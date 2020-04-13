@@ -19,7 +19,7 @@ impl Tasks {
         self.tasks.push(task)
     }
 
-    pub fn join(&mut self, max_threads: usize) {
+    pub fn unpark_and_join(&mut self, max_threads: usize) {
         let mut actived: Vec<Task> = vec![];
 
         for _ in 0..self.tasks.len() {

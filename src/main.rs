@@ -62,5 +62,5 @@ fn main() {
 
     thread::spawn(move || m.join().unwrap());
 
-    tasks.join(args.max_threads)
+    tasks.unpark_and_join(args.max_threads)
 }
