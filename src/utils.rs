@@ -1,7 +1,7 @@
-use crate::Error;
-
 use failure::bail;
 use regex::Regex;
+
+pub type Error<T> = Result<T, failure::Error>;
 
 pub const REGEX_VALUE: &str = "_{}_";
 pub const CHUNK_SIZE: usize = 1024 * 1024; // 1024^2 = 1MB

@@ -1,16 +1,16 @@
 mod anime;
 mod cli;
+mod tasks;
 mod utils;
 
-use crate::anime::{Anime, Error};
-use cli::Cli;
+use crate::anime::Anime;
+use crate::cli::Cli;
+use crate::tasks::Tasks;
 
 use colored::Colorize;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 
-use std::thread::{spawn, JoinHandle};
-
-type Task = JoinHandle<Error<()>>;
+use std::thread;
 
 fn main() {
     let args = Cli::new();
@@ -37,14 +37,15 @@ fn main() {
         }
     }
 
-    let mut tasks: Vec<Task> = vec![];
+    let mut tasks = Tasks::new();
     for anime in &all_anime {
-        let mut urls = vec![];
-
-        match anime.url_episodes(args.auto) {
-            Ok(u) => urls = u,
-            Err(e) => eprintln!("{}", format!("[ERROR] {}", e).red()),
-        }
+        let urls = match anime.url_episodes(args.auto) {
+            Ok(u) => u,
+            Err(e) => {
+                eprintln!("{}", format!("[ERROR] {}", e).red());
+                vec![]
+            }
+        };
 
         for url in urls {
             let path = anime.path();
@@ -52,35 +53,14 @@ fn main() {
             let pb = m.add(ProgressBar::new(0));
             pb.set_style(sty.clone());
 
-            tasks.push(spawn(move || {
-                std::thread::park();
+            tasks.add(thread::spawn(move || {
+                thread::park();
                 Anime::download(&url, &path, &force, &pb)
             }));
         }
     }
 
-    spawn(move || m.join().unwrap());
+    thread::spawn(move || m.join().unwrap());
 
-    let mut active: Vec<Task> = vec![];
-    for _ in 0..tasks.len() {
-        let t = tasks.remove(0);
-
-        t.thread().unpark();
-        active.push(t);
-
-        if active.len() >= args.max_threads {
-            print_result(active.remove(0));
-        }
-    }
-
-    for t in active {
-        print_result(t)
-    }
-}
-
-fn print_result(t: Task) {
-    match t.join().unwrap() {
-        Ok(_) => (),
-        Err(e) => eprintln!("{}", format!("[ERROR] {}", e).red()),
-    }
+    tasks.join(args.max_threads)
 }

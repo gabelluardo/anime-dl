@@ -11,8 +11,6 @@ use reqwest::Url;
 
 use std::path::{Path, PathBuf};
 
-pub type Error<T> = Result<T, failure::Error>;
-
 #[derive(Debug, Clone)]
 pub struct Anime {
     url: String,
