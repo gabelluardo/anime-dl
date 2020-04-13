@@ -4,7 +4,11 @@ Efficient cli app for downloading anime
 
 ### Install
 
-Build the binary form source ans install it in `.cargo/bin` folder:
+```
+cargo install --git https://github.com/gabelluardo/animeworld-dl
+```
+
+or build the binary form source and install it in `.cargo/bin` folder:
 
 ```
 git clone https://github.com/gabelluardo/animeworld-dl
