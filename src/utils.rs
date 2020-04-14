@@ -8,18 +8,14 @@ pub const CHUNK_SIZE: usize = 1024 * 1024; // 1024^2 = 1MB
 
 pub fn extract(url: &str) -> Error<(String, u32)> {
     let re = Regex::new(r"_\d+_")?;
-    let cap = match re.captures(url) {
+    let cap = match re.captures_iter(url).last() {
         Some(c) => c,
         None => bail!("Unable to parse `{}`", url),
     };
+    let res = &cap[0];
 
-    let url = re.replace_all(url, REGEX_VALUE).to_string();
-    let last: u32 = cap
-        .get(cap.len() - 1)
-        .map(|c| c.as_str())
-        .unwrap()
-        .replace("_", "")
-        .parse()?;
+    let url = url.replace(res, REGEX_VALUE);
+    let last: u32 = res.replace("_", "").parse()?;
 
     Ok((url, last))
 }
