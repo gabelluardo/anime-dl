@@ -9,6 +9,8 @@ use reqwest::blocking::Client;
 use reqwest::header::{HeaderValue, CONTENT_LENGTH, RANGE};
 use reqwest::Url;
 
+use std::fs;
+use std::io;
 use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone)]
@@ -100,6 +102,7 @@ impl Anime {
             .error_for_status()
             .context(format!("Unable to download `{}`", filename))?;
 
+        let mut start: u64 = 0;
         let total_size: u64 = response
             .headers()
             .get(CONTENT_LENGTH)
@@ -114,19 +117,28 @@ impl Anime {
 
         let file = Path::new(&file_path);
         if file.exists() && !force {
-            bail!("{} already exists", file_path);
+            let file_size = fs::File::open(&file_path)?.metadata()?.len();
+
+            if file_size < total_size {
+                start = file_size;
+            } else {
+                bail!("{} already exists", file_path);
+            }
         }
 
-        let mut outfile = std::fs::File::create(&file_path)?;
+        let mut outfile = fs::OpenOptions::new()
+            .append(true)
+            .create(true)
+            .open(&file_path)?;
 
         let (_, num) = extract(&filename)?;
         let msg = format!("Ep. {:02}", num);
 
         pb.set_length(total_size);
-        pb.set_position(0);
+        pb.set_position(start);
         pb.set_message(&msg);
 
-        for range in PartialRangeIter::new(0, total_size - 1, CHUNK_SIZE)? {
+        for range in PartialRangeIter::new(start, total_size - 1, CHUNK_SIZE)? {
             let mut response = client
                 .get(url)
                 .header(RANGE, &range)
@@ -134,7 +146,7 @@ impl Anime {
                 .send()?
                 .error_for_status()?;
 
-            std::io::copy(&mut response, &mut outfile)?;
+            io::copy(&mut response, &mut outfile)?;
 
             pb.inc(CHUNK_SIZE as u64);
         }
