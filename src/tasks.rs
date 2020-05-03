@@ -1,10 +1,9 @@
-use crate::utils::Error;
-
+use anyhow::Result;
 use colored::Colorize;
 
 use std::thread::JoinHandle;
 
-type Task = JoinHandle<Error<()>>;
+type Task = JoinHandle<Result<()>>;
 
 pub struct Tasks {
     tasks: Vec<Task>,

@@ -1,8 +1,6 @@
 use crate::utils::*;
 
-use failure::bail;
-use failure::ResultExt;
-
+use anyhow::{bail, Context, Result};
 use colored::Colorize;
 use indicatif::ProgressBar;
 use reqwest::blocking::Client;
@@ -22,7 +20,7 @@ pub struct Anime {
 }
 
 impl Anime {
-    pub fn new(url: &str, start: u32, end: u32, path: PathBuf) -> Error<Self> {
+    pub fn new(url: &str, start: u32, end: u32, path: PathBuf) -> Result<Self> {
         let (url, url_num) = extract(&url)?;
 
         let end = match end {
@@ -41,7 +39,7 @@ impl Anime {
         self.path.display().to_string()
     }
 
-    pub fn url_episodes(&self, auto: bool) -> Error<Vec<String>> {
+    pub fn url_episodes(&self, auto: bool) -> Result<Vec<String>> {
         let mut episodes = vec![];
         let mut last: u32 = 0;
 
@@ -73,7 +71,7 @@ impl Anime {
             counter += 1;
         }
 
-        // TODO: making better error print
+        // TODO: add ability to find different version: _v2_
         error.retain(|&x| x < last);
         if error.len() > 0 {
             eprintln!(
@@ -85,7 +83,7 @@ impl Anime {
         Ok(episodes)
     }
 
-    pub fn download(url: &str, path: &str, force: &bool, pb: &ProgressBar) -> Error<()> {
+    pub fn download(url: &str, path: &str, force: &bool, pb: &ProgressBar) -> Result<()> {
         let r_url = Url::parse(url)?;
         let filename = r_url
             .path_segments()
@@ -164,7 +162,7 @@ pub struct PartialRangeIter {
 }
 
 impl PartialRangeIter {
-    pub fn new(start: u64, end: u64, buffer_size: usize) -> Error<Self> {
+    pub fn new(start: u64, end: u64, buffer_size: usize) -> Result<Self> {
         if buffer_size == 0 {
             bail!("Invalid buffer_size, give a value greater than zero.");
         }
