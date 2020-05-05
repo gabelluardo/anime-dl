@@ -42,6 +42,12 @@ ARGS:
     <urls>...    Source url
 ```
 
+For parsing urls from a source file (es. `urls`):
+
+```
+animeworld-dl [FLAGS] [OPTIONS] $(cat urls)
+```
+
 ### License
 
 GPL v3
