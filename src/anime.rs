@@ -9,7 +9,7 @@ use reqwest::Url;
 
 use std::fs;
 use std::io;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 #[derive(Debug, Clone)]
 pub struct Anime {
@@ -35,8 +35,9 @@ impl Anime {
             path,
         })
     }
-    pub fn path(&self) -> String {
-        self.path.display().to_string()
+
+    pub fn path(&self) -> PathBuf {
+        self.path.clone()
     }
 
     pub fn url_episodes(&self, auto: bool) -> Result<Vec<String>> {
@@ -83,14 +84,12 @@ impl Anime {
         Ok(episodes)
     }
 
-    pub fn download(url: &str, path: &str, force: &bool, pb: &ProgressBar) -> Result<()> {
+    pub fn download(url: &str, dir_path: &PathBuf, force: &bool, pb: &ProgressBar) -> Result<()> {
         let r_url = Url::parse(url)?;
         let filename = r_url
             .path_segments()
             .and_then(|segments| segments.last())
             .unwrap_or("tmp.bin");
-
-        let file_path = format!("{}/{}", path, filename);
 
         let client = Client::new();
         let response = client
@@ -108,26 +107,27 @@ impl Anime {
             .and_then(|ct_len| ct_len.parse().ok())
             .unwrap_or(0);
 
-        let dir = Path::new(&path);
-        if !dir.exists() {
-            std::fs::create_dir_all(dir)?;
+        if !dir_path.exists() {
+            std::fs::create_dir_all(&dir_path)?;
         }
 
-        let file = Path::new(&file_path);
-        if file.exists() && !force {
-            let file_size = fs::File::open(&file_path)?.metadata()?.len();
+        let mut path = dir_path.to_owned();
+        path.push(filename);
+
+        if path.exists() && !force {
+            let file_size = fs::File::open(&path)?.metadata()?.len();
 
             if file_size < total_size {
                 start = file_size;
             } else {
-                bail!("{} already exists", file_path);
+                bail!("{} already exists", filename);
             }
         }
 
         let mut outfile = fs::OpenOptions::new()
             .append(true)
             .create(true)
-            .open(&file_path)?;
+            .open(&path)?;
 
         let (_, num) = extract(&filename)?;
         let msg = format!("Ep. {:02}", num);
