@@ -87,7 +87,9 @@ impl Anime {
         Ok(episodes)
     }
 
-    pub fn download(url: &str, dir_path: &PathBuf, force: &bool, pb: &ProgressBar) -> Result<()> {
+    pub fn download(url: &str, opts: &(PathBuf, bool, ProgressBar)) -> Result<()> {
+        let (dir_path, force, pb) = opts;
+
         let r_url = Url::parse(url)?;
         let filename = r_url
             .path_segments()

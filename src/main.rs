@@ -65,14 +65,14 @@ fn main() {
         };
 
         for url in urls.unwrap() {
-            let path = anime.path();
-            let force = args.force.to_owned();
-            let pb = m.add(ProgressBar::new(0));
+            let pb = ProgressBar::new(0);
             pb.set_style(sty.clone());
+
+            let opts = (anime.path(), args.force, m.add(pb));
 
             tasks.add(thread::spawn(move || {
                 thread::park();
-                Anime::download(&url, &path, &force, &pb)
+                Anime::download(&url, &opts)
             }));
         }
     }
