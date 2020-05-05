@@ -47,7 +47,8 @@ fn main() {
             }
         };
 
-        match Anime::new(url, args.start, args.end, path) {
+        let opts = (args.start, args.end, args.auto_episode);
+        match Anime::new(url, path, opts) {
             Ok(a) => all_anime.push(a),
             Err(e) => eprintln!("{}", format!("[ERROR] {}", e).red()),
         }
@@ -55,7 +56,7 @@ fn main() {
 
     let mut tasks = Tasks::new();
     for anime in &all_anime {
-        let urls = match anime.url_episodes(args.auto_episode) {
+        let urls = match anime.url_episodes() {
             Ok(u) => Some(u),
             Err(e) => {
                 eprintln!("{}", format!("[ERROR] {}", e).red());

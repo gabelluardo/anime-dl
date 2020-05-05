@@ -13,15 +13,17 @@ use std::path::PathBuf;
 
 #[derive(Debug, Clone)]
 pub struct Anime {
-    url: String,
-    start: u32,
     end: u32,
+    start: u32,
+    auto: bool,
+    url: String,
     path: PathBuf,
 }
 
 impl Anime {
-    pub fn new(url: &str, start: u32, end: u32, path: PathBuf) -> Result<Self> {
+    pub fn new(url: &str, path: PathBuf, opts: (u32, u32, bool)) -> Result<Self> {
         let (url, url_num) = extract(&url)?;
+        let (start, end, auto) = opts;
 
         let end = match end {
             0 => url_num,
@@ -30,9 +32,10 @@ impl Anime {
 
         Ok(Anime {
             url,
-            start,
             end,
             path,
+            auto,
+            start,
         })
     }
 
@@ -40,7 +43,7 @@ impl Anime {
         self.path.clone()
     }
 
-    pub fn url_episodes(&self, auto: bool) -> Result<Vec<String>> {
+    pub fn url_episodes(&self) -> Result<Vec<String>> {
         let mut episodes = vec![];
         let mut last: u32 = 0;
 
@@ -49,7 +52,7 @@ impl Anime {
         let mut counter: u32 = self.start;
 
         let client = Client::new();
-        let num_episodes = match auto {
+        let num_episodes = match self.auto {
             true => u8::max_value() as u32,
             _ => self.end,
         };

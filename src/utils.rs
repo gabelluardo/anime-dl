@@ -26,6 +26,7 @@ pub fn extract_name(url: &str) -> Result<String> {
     };
     let res = &cap[0];
     let name = to_title_case(res);
+
     Ok(name)
 }
 
