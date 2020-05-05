@@ -6,6 +6,7 @@ mod utils;
 use crate::anime::Anime;
 use crate::cli::Cli;
 use crate::tasks::Tasks;
+use crate::utils::extract_name;
 
 use colored::Colorize;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
@@ -25,10 +26,25 @@ fn main() {
     let mut all_anime: Vec<Anime> = vec![];
     for i in 0..args.urls.len() {
         let url = &args.urls[i];
+        let default_path = args.dir.last().unwrap().to_owned();
 
-        let path = match i >= args.dir.len() {
-            true => args.dir.last().unwrap().to_owned(),
-            _ => args.dir[i].to_owned(),
+        let path = if args.auto_dir {
+            let mut path = default_path;
+            let name = match extract_name(&url) {
+                Ok(n) => Some(n),
+                Err(e) => {
+                    eprintln!("{}", format!("[ERROR] {}", e).red());
+                    None
+                }
+            };
+
+            path.push(name.unwrap());
+            path.to_owned()
+        } else {
+            match i >= args.dir.len() {
+                true => default_path,
+                _ => args.dir[i].to_owned(),
+            }
         };
 
         match Anime::new(url, args.start, args.end, path) {
@@ -39,15 +55,15 @@ fn main() {
 
     let mut tasks = Tasks::new();
     for anime in &all_anime {
-        let urls = match anime.url_episodes(args.auto) {
-            Ok(u) => u,
+        let urls = match anime.url_episodes(args.auto_episode) {
+            Ok(u) => Some(u),
             Err(e) => {
                 eprintln!("{}", format!("[ERROR] {}", e).red());
-                vec![]
+                None
             }
         };
 
-        for url in urls {
+        for url in urls.unwrap() {
             let path = anime.path();
             let force = args.force.to_owned();
             let pb = m.add(ProgressBar::new(0));

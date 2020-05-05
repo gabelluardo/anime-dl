@@ -27,9 +27,13 @@ pub struct Cli {
     #[structopt(default_value = "32", short = "M", long)]
     pub max_threads: usize,
 
+    /// Find automatically output folder name (this overrides `-d` option)
+    #[structopt(short = "a", long = "auto")]
+    pub auto_dir: bool,
+
     /// Find automatically last episode (this overrides `-e` option)
     #[structopt(short = "c", long = "continue")]
-    pub auto: bool,
+    pub auto_episode: bool,
 
     /// Override existent files
     #[structopt(short, long)]

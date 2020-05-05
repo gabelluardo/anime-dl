@@ -25,6 +25,7 @@ USAGE:
     animeworld-dl [FLAGS] [OPTIONS] <urls>...
 
 FLAGS:
+    -a, --auto        Find automatically output folder name (this overrides `-d` option)
     -c, --continue    Find automatically last episode (this overrides `-e` option)
     -F, --finished    Mark anime as finished [WIP]
     -f, --force       Override existent files
