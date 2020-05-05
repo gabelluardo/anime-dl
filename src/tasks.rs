@@ -5,20 +5,24 @@ use std::thread::JoinHandle;
 
 type Task = JoinHandle<Result<()>>;
 
-pub struct Tasks {
+pub struct TaskPool {
     tasks: Vec<Task>,
+    max_tasks: usize,
 }
 
-impl Tasks {
-    pub fn new() -> Self {
-        Self { tasks: vec![] }
+impl TaskPool {
+    pub fn new(max_tasks: usize) -> Self {
+        Self {
+            tasks: vec![],
+            max_tasks,
+        }
     }
 
     pub fn add(&mut self, task: Task) {
         self.tasks.push(task)
     }
 
-    pub fn unpark_and_join(&mut self, max_threads: usize) {
+    pub fn unpark_and_join(&mut self) {
         let mut actived: Vec<Task> = vec![];
 
         for _ in 0..self.tasks.len() {
@@ -27,7 +31,7 @@ impl Tasks {
             t.thread().unpark();
             actived.push(t);
 
-            if actived.len() >= max_threads {
+            if actived.len() >= self.max_tasks {
                 self.print_result(actived.remove(0))
             }
         }

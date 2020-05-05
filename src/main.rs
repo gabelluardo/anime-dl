@@ -5,7 +5,7 @@ mod utils;
 
 use crate::anime::Anime;
 use crate::cli::Cli;
-use crate::tasks::Tasks;
+use crate::tasks::TaskPool;
 use crate::utils::extract_name;
 
 use colored::Colorize;
@@ -54,7 +54,7 @@ fn main() {
         }
     }
 
-    let mut tasks = Tasks::new();
+    let mut tasks = TaskPool::new(args.max_threads);
     for anime in &all_anime {
         let urls = match anime.url_episodes() {
             Ok(u) => Some(u),
@@ -79,5 +79,5 @@ fn main() {
 
     thread::spawn(move || m.join().unwrap());
 
-    tasks.unpark_and_join(args.max_threads)
+    tasks.unpark_and_join()
 }

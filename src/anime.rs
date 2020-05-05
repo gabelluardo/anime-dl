@@ -30,7 +30,7 @@ impl Anime {
             _ => end,
         };
 
-        Ok(Anime {
+        Ok(Self {
             url,
             end,
             path,
