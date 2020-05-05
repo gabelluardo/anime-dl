@@ -19,13 +19,15 @@ pub fn extract(url: &str) -> Result<(String, u32)> {
 }
 
 pub fn extract_name(url: &str) -> Result<String> {
-    let re = Regex::new(r"/\w+/")?;
+    let re = Regex::new(r"/\w+_")?;
     let cap = match re.captures_iter(&url).last() {
         Some(c) => c,
         None => bail!("Unable to parse `{}`", url),
     };
     let res = &cap[0];
-    let name = to_title_case(res);
+    let res: Vec<&str> = res.split("_").collect();
+
+    let name = to_title_case(res[0]);
 
     Ok(name)
 }
@@ -38,8 +40,8 @@ fn to_title_case(s: &str) -> String {
     let mut res = String::new();
 
     for c in s.chars() {
-        if c.is_alphabetic() {
-            if c.is_ascii_uppercase() {
+        if c.is_ascii_alphanumeric() {
+            if c.is_ascii_uppercase() || c.is_numeric() {
                 res.push(' ');
             }
             res.push(c);
