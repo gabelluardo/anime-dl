@@ -1,11 +1,11 @@
 use anyhow::{bail, Result};
 use regex::Regex;
 
-pub const REGEX_VALUE: &str = "_{}_";
+pub const REGEX_VALUE: &str = "_{}";
 pub const CHUNK_SIZE: usize = 1024 * 1024; // 1024^2 = 1MB
 
 pub fn extract(url: &str) -> Result<(String, u32)> {
-    let re = Regex::new(r"_\d+_")?;
+    let re = Regex::new(r"_\d{2,}")?;
     let cap = match re.captures_iter(url).last() {
         Some(c) => c,
         None => bail!("Unable to parse `{}`", url),
@@ -19,7 +19,7 @@ pub fn extract(url: &str) -> Result<(String, u32)> {
 }
 
 pub fn extract_name(url: &str) -> Result<String> {
-    let re = Regex::new(r"/\w+_")?;
+    let re = Regex::new(r"\w+_")?;
     let cap = match re.captures_iter(&url).last() {
         Some(c) => c,
         None => bail!("Unable to parse `{}`", url),
@@ -33,7 +33,7 @@ pub fn extract_name(url: &str) -> Result<String> {
 }
 
 pub fn fix_num_episode(num: u32) -> String {
-    format!("_{:02}_", num)
+    format!("_{:02}", num)
 }
 
 fn to_title_case(s: &str) -> String {
