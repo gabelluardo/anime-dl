@@ -77,7 +77,8 @@ fn main() {
         }
     }
 
-    thread::spawn(move || m.join().unwrap());
+    let bars = thread::spawn(move || m.join().unwrap());
 
-    tasks.unpark_and_join()
+    tasks.unpark_and_join();
+    bars.join().unwrap();
 }
