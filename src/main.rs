@@ -25,6 +25,16 @@ fn main() {
         )
         .progress_chars("#>-");
 
+    if args.single {
+        let pb = ProgressBar::new(0);
+        pb.set_style(sty.clone());
+
+        let opts = (args.dir.last().unwrap().to_owned(), args.force, pb);
+        Anime::download(&args.urls[0], &opts).ok();
+
+        return;
+    }
+
     let mut all_anime: Vec<Anime> = vec![];
     for i in 0..args.urls.len() {
         let url = &args.urls[i];

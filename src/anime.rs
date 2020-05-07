@@ -134,7 +134,7 @@ impl Anime {
             .create(true)
             .open(&path)?;
 
-        let (_, num) = extract(&filename)?;
+        let (_, num) = extract(&filename).unwrap_or_default();
         let msg = format!("Ep. {:02}", num);
 
         pb.set_length(total_size);
