@@ -1,3 +1,6 @@
+#[macro_use]
+mod macros;
+
 mod anime;
 mod cli;
 mod tasks;
@@ -8,7 +11,6 @@ use crate::cli::Cli;
 use crate::tasks::TaskPool;
 use crate::utils::extract_name;
 
-use colored::Colorize;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 
 use std::thread;
@@ -30,15 +32,9 @@ fn main() {
 
         let path = if args.auto_dir {
             let mut path = default_path;
-            let name = match extract_name(&url) {
-                Ok(n) => Some(n),
-                Err(e) => {
-                    eprintln!("{}", format!("[ERROR] {}", e).red());
-                    None
-                }
-            };
+            let name = unwrap_err!(extract_name(&url));
 
-            path.push(name.unwrap());
+            path.push(name);
             path.to_owned()
         } else {
             match i >= args.dir.len() {
@@ -48,23 +44,16 @@ fn main() {
         };
 
         let opts = (args.start, args.end, args.auto_episode);
-        match Anime::new(url, path, opts) {
-            Ok(a) => all_anime.push(a),
-            Err(e) => eprintln!("{}", format!("[ERROR] {}", e).red()),
-        }
+        let new_anime = unwrap_err!(Anime::new(url, path, opts));
+
+        all_anime.push(new_anime);
     }
 
     let mut tasks = TaskPool::new(args.max_threads);
     for anime in &all_anime {
-        let urls = match anime.url_episodes() {
-            Ok(u) => Some(u),
-            Err(e) => {
-                eprintln!("{}", format!("[ERROR] {}", e).red());
-                None
-            }
-        };
+        let urls = unwrap_err!(anime.url_episodes());
 
-        for url in urls.unwrap() {
+        for url in urls {
             let pb = ProgressBar::new(0);
             pb.set_style(sty.clone());
 

@@ -1,5 +1,4 @@
 use anyhow::Result;
-use colored::Colorize;
 
 use std::thread::JoinHandle;
 
@@ -32,19 +31,12 @@ impl TaskPool {
             actived.push(t);
 
             if actived.len() >= self.max_tasks {
-                self.print_result(actived.remove(0))
+                print_result!(actived.remove(0))
             }
         }
 
         for t in actived {
-            self.print_result(t)
-        }
-    }
-
-    fn print_result(&self, t: Task) {
-        match t.join().unwrap() {
-            Ok(_) => (),
-            Err(e) => eprintln!("{}", format!("[ERROR] {}", e).red()),
+            print_result!(t)
         }
     }
 }
