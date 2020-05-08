@@ -25,6 +25,9 @@ fn main() {
         )
         .progress_chars("#>-");
 
+    // for flickering bar bug (https://github.com/mitsuhiko/indicatif/issues/143)
+    m.set_move_cursor(cfg!(windows));
+
     if args.single {
         let pb = ProgressBar::new(0);
         pb.set_style(sty.clone());
