@@ -11,7 +11,6 @@ use std::fs;
 use std::io;
 use std::path::PathBuf;
 
-#[derive(Debug, Clone)]
 pub struct Anime {
     end: u32,
     start: u32,
@@ -131,9 +130,9 @@ impl Anime {
 }
 
 pub struct FileDest {
+    pub size: u64,
     pub root: PathBuf,
     pub file: PathBuf,
-    pub size: u64,
     pub overwrite: bool,
 }
 
@@ -180,9 +179,9 @@ impl FileDest {
 }
 
 pub struct WebSource {
-    pub name: String,
     pub url: Url,
     pub size: u64,
+    pub name: String,
 }
 
 impl WebSource {
