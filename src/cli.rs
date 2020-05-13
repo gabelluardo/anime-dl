@@ -27,7 +27,7 @@ pub struct Cli {
     #[structopt(default_value = "32", short = "M", long)]
     pub max_threads: usize,
 
-    /// Find automatically output folder name (this overrides `-d` option)
+    /// Find automatically output folder name
     #[structopt(short = "a", long = "auto")]
     pub auto_dir: bool,
 

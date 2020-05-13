@@ -88,60 +88,30 @@ impl Anime {
     }
 
     pub fn download(url: &str, opts: &(PathBuf, bool, ProgressBar)) -> Result<()> {
-        let (dir_path, force, pb) = opts;
+        let (root, overwrite, pb) = opts;
 
-        let r_url = Url::parse(url)?;
-        let filename = r_url
-            .path_segments()
-            .and_then(|segments| segments.last())
-            .unwrap_or("tmp.bin");
+        let source = WebSource::new(url)?;
+        let filename = source.name;
 
-        let client = Client::new();
-        let response = client
-            .head(url)
-            .timeout(std::time::Duration::from_secs(120))
-            .send()?
-            .error_for_status()
-            .context(format!("Unable to download `{}`", filename))?;
-
-        let mut start: u64 = 0;
-        let total_size: u64 = response
-            .headers()
-            .get(CONTENT_LENGTH)
-            .and_then(|ct_len| ct_len.to_str().ok())
-            .and_then(|ct_len| ct_len.parse().ok())
-            .unwrap_or(0);
-
-        if !dir_path.exists() {
-            std::fs::create_dir_all(&dir_path)?;
+        let file = FileDest::new(root, &filename, overwrite)?;
+        if file.size >= source.size {
+            bail!("{} already exists", &filename);
         }
 
-        let mut path = dir_path.to_owned();
-        path.push(filename);
-
-        if path.exists() && !force {
-            let file_size = fs::File::open(&path)?.metadata()?.len();
-
-            if file_size < total_size {
-                start = file_size;
-            } else {
-                bail!("{} already exists", filename);
-            }
-        }
-
-        let mut outfile = fs::OpenOptions::new()
-            .append(true)
-            .create(true)
-            .open(&path)?;
+        let mut outfile = file.open()?;
 
         let (_, num) = extract(&filename).unwrap_or_default();
         let msg = format!("Ep. {:02}", num);
 
-        pb.set_length(total_size);
-        pb.set_position(start);
+        let iter_start = file.size;
+        let iter_end = source.size;
+
+        pb.set_length(iter_end);
+        pb.set_position(iter_start);
         pb.set_message(&msg);
 
-        for range in PartialRangeIter::new(start, total_size - 1, CHUNK_SIZE)? {
+        let client = Client::new();
+        for range in PartialRangeIter::new(iter_start, iter_end - 1, CHUNK_SIZE)? {
             let mut response = client
                 .get(url)
                 .header(RANGE, &range)
@@ -160,6 +130,89 @@ impl Anime {
     }
 }
 
+pub struct FileDest {
+    pub root: PathBuf,
+    pub file: PathBuf,
+    pub size: u64,
+    pub overwrite: bool,
+}
+
+impl FileDest {
+    pub fn new(root: &PathBuf, filename: &str, overwrite: &bool) -> Result<Self> {
+        if !root.exists() {
+            std::fs::create_dir_all(&root)?;
+        }
+
+        let mut file = root.clone();
+        file.push(filename);
+
+        let size = match file.exists() && !overwrite {
+            true => fs::File::open(&file)?.metadata()?.len(),
+            _ => 0,
+        };
+
+        let root = root.to_owned();
+        let overwrite = overwrite.to_owned();
+
+        Ok(Self {
+            root,
+            file,
+            size,
+            overwrite,
+        })
+    }
+
+    pub fn open(&self) -> Result<fs::File> {
+        let file = if !self.overwrite {
+            fs::OpenOptions::new()
+                .append(true)
+                .create(true)
+                .open(&self.file)?
+        } else {
+            fs::OpenOptions::new()
+                .write(true)
+                .create(true)
+                .open(&self.file)?
+        };
+
+        Ok(file)
+    }
+}
+
+pub struct WebSource {
+    pub name: String,
+    pub url: Url,
+    pub size: u64,
+}
+
+impl WebSource {
+    pub fn new(str_url: &str) -> Result<Self> {
+        let url = Url::parse(str_url)?;
+        let name = url
+            .path_segments()
+            .and_then(|segments| segments.last())
+            .unwrap_or("tmp.bin")
+            .to_owned();
+
+        let client = Client::new();
+        let response = client
+            .head(str_url)
+            .timeout(std::time::Duration::from_secs(120))
+            .send()?
+            .error_for_status()
+            .context(format!("Unable to download `{}`", name))?;
+
+        let size: u64 = response
+            .headers()
+            .get(CONTENT_LENGTH)
+            .and_then(|ct_len| ct_len.to_str().ok())
+            .and_then(|ct_len| ct_len.parse().ok())
+            .unwrap_or_default();
+
+        Ok(Self { name, url, size })
+    }
+}
+
 pub struct PartialRangeIter {
     start: u64,
     end: u64,
@@ -172,7 +225,7 @@ impl PartialRangeIter {
             bail!("Invalid buffer_size, give a value greater than zero.");
         }
 
-        Ok(PartialRangeIter {
+        Ok(Self {
             start,
             end,
             buffer_size,

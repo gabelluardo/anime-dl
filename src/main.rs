@@ -33,9 +33,7 @@ fn main() {
         pb.set_style(sty.clone());
 
         let opts = (args.dir.last().unwrap().to_owned(), args.force, pb);
-        Anime::download(&args.urls[0], &opts).ok();
-
-        return;
+        return unwrap_err!(Anime::download(&args.urls[0], &opts));
     }
 
     let mut all_anime: Vec<Anime> = vec![];
