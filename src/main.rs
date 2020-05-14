@@ -1,9 +1,8 @@
 #[macro_use]
-mod macros;
+mod utils;
 
 mod anime;
 mod cli;
-mod utils;
 
 use crate::anime::Anime;
 use crate::cli::Cli;

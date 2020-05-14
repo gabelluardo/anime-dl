@@ -1,4 +1,5 @@
 use anyhow::{bail, Result};
+use colored::Colorize;
 use regex::Regex;
 
 pub const REGEX_VALUE: &str = "_{}";
@@ -50,4 +51,24 @@ fn to_title_case(s: &str) -> String {
     }
 
     res.trim().to_string()
+}
+
+pub fn format_err(s: anyhow::Error) -> colored::ColoredString {
+    format!("[ERROR] {}", s).red()
+}
+
+pub fn format_wrn(s: &str) -> colored::ColoredString {
+    format!("[WARNING] {}", s).yellow()
+}
+
+macro_rules! unwrap_err {
+    ($x:expr) => {
+        match $x {
+            Ok(item) => item,
+            Err(err) => {
+                eprintln!("{}", $crate::utils::format_err(err));
+                return;
+            }
+        }
+    };
 }
