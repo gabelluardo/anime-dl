@@ -15,12 +15,3 @@ macro_rules! unwrap_err {
         }
     };
 }
-
-macro_rules! print_result {
-    ($t:expr) => {
-        match $t.join().unwrap() {
-            Ok(_) => (),
-            Err(err) => eprintln!("{}", $crate::macros::format_err(err)),
-        }
-    };
-}

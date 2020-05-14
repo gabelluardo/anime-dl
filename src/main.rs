@@ -3,15 +3,14 @@ mod macros;
 
 mod anime;
 mod cli;
-mod tasks;
 mod utils;
 
 use crate::anime::Anime;
 use crate::cli::Cli;
-use crate::tasks::TaskPool;
 use crate::utils::extract_name;
 
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
+use threadpool::ThreadPool;
 
 use std::thread;
 
@@ -60,7 +59,7 @@ fn main() {
         all_anime.push(new_anime);
     }
 
-    let mut tasks = TaskPool::new(args.max_threads);
+    let pool = ThreadPool::new(args.max_threads);
     for anime in &all_anime {
         let urls = unwrap_err!(anime.url_episodes());
 
@@ -70,15 +69,12 @@ fn main() {
 
             let opts = (anime.path(), args.force, m.add(pb));
 
-            tasks.add(thread::spawn(move || {
-                thread::park();
-                Anime::download(&url, &opts)
-            }));
+            pool.execute(move || unwrap_err!(Anime::download(&url, &opts)));
         }
     }
 
     let bars = thread::spawn(move || m.join().unwrap());
 
-    tasks.unpark_and_join();
+    pool.join();
     bars.join().unwrap();
 }
