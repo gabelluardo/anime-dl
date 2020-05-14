@@ -99,8 +99,10 @@ impl Anime {
 
         let mut outfile = file.open()?;
 
-        let (_, num) = extract(&filename).unwrap_or_default();
-        let msg = format!("Ep. {:02}", num);
+        let (_, num) = extract(&filename)?;
+        let name = extract_name(&filename)?;
+
+        let msg = format!("Ep. {:02} {}", num, name);
 
         let iter_start = file.size;
         let iter_end = source.size;

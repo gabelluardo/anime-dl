@@ -21,7 +21,7 @@ fn main() {
     let m = MultiProgress::new();
     let sty = ProgressStyle::default_bar()
         .template(
-            "{spinner:.green} [{elapsed}] [{bar:35.cyan/blue}] {bytes}/{total_bytes} ({eta}) {msg}",
+            "{spinner:.green} [{elapsed}] [{bar:35.cyan/blue}] {bytes}/{total_bytes} ({eta}) {wide_msg}",
         )
         .progress_chars("#>-");
 
