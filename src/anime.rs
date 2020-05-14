@@ -1,7 +1,6 @@
 use crate::utils::*;
 
 use anyhow::{bail, Context, Result};
-use colored::Colorize;
 use indicatif::ProgressBar;
 use reqwest::blocking::Client;
 use reqwest::header::{HeaderValue, CONTENT_LENGTH, RANGE};
@@ -56,7 +55,7 @@ impl Anime {
             _ => self.end,
         };
 
-        while error_counter < 12 && counter <= num_episodes {
+        while error_counter < 6 && counter <= num_episodes {
             let num = fix_num_episode(counter);
             let url = self.url.replace(REGEX_VALUE, &num);
 
@@ -74,13 +73,13 @@ impl Anime {
             counter += 1;
         }
 
-        // TODO: add ability to find different version: _v2_
+        // TODO: add ability to find different version (es. _v2_, _v000_, ecc)
         error.retain(|&x| x < last);
         if error.len() > 0 {
-            eprintln!(
-                "{}",
-                format!("[INFO] Problems with ep. {:?}, download it manually", error).yellow()
-            );
+            format_wrn(&format!(
+                "Problems with ep. {:?}, download it manually",
+                error
+            ));
         }
 
         Ok(episodes)
