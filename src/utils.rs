@@ -5,22 +5,23 @@ use regex::Regex;
 pub const REGEX_VALUE: &str = "_{}";
 pub const CHUNK_SIZE: usize = 1024 * 1024; // 1024^2 = 1MB
 
-pub fn extract(url: &str) -> Result<(String, u32)> {
-    let res = find_first_match(url, r"_\d{2,}")?;
-
-    let url = url.replace(res.as_str(), REGEX_VALUE);
-    let last: u32 = res.replace("_", "").parse()?;
-
-    Ok((url, last))
+pub struct RegInfo {
+    pub name: String,
+    pub raw: String,
+    pub num: u32,
 }
 
-pub fn extract_name(url: &str) -> Result<String> {
-    let res = find_first_match(url, r"\w+_")?;
-    let res: Vec<&str> = res.split("_").collect();
+pub fn extract_info(string: &str) -> Result<RegInfo> {
+    let reg_num = find_first_match(string, r"_\d{2,}")?;
+    let reg_name = find_first_match(string, r"\w+_")?;
 
+    let res: Vec<&str> = reg_name.split("_").collect();
     let name = to_title_case(res[0]);
 
-    Ok(name)
+    let raw = string.replace(reg_num.as_str(), REGEX_VALUE);
+    let num: u32 = reg_num.replace("_", "").parse()?;
+
+    Ok(RegInfo { name, raw, num })
 }
 
 pub fn fix_num_episode(num: u32) -> String {

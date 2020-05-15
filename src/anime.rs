@@ -20,20 +20,20 @@ pub struct Anime {
 
 impl Anime {
     pub fn new(url: &str, path: PathBuf, opts: (u32, u32, bool)) -> Result<Self> {
-        let (url, url_num) = extract(&url)?;
         let (start, end, auto) = opts;
+        let info = extract_info(&url)?;
 
         let end = match end {
-            0 => url_num,
+            0 => info.num,
             _ => end,
         };
 
         Ok(Self {
-            url,
             end,
             path,
             auto,
             start,
+            url: info.raw,
         })
     }
 
@@ -98,10 +98,8 @@ impl Anime {
 
         let mut outfile = file.open()?;
 
-        let (_, num) = extract(&filename)?;
-        let name = extract_name(&filename)?;
-
-        let msg = format!("Ep. {:02} {}", num, name);
+        let info = extract_info(&filename)?;
+        let msg = format!("Ep. {:02} {}", info.num, info.name);
 
         let iter_start = file.size;
         let iter_end = source.size;

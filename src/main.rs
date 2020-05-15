@@ -6,7 +6,7 @@ mod cli;
 
 use crate::anime::Anime;
 use crate::cli::Cli;
-use crate::utils::extract_name;
+use crate::utils::*;
 
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use threadpool::ThreadPool;
@@ -41,9 +41,9 @@ fn main() {
 
         let path = if args.auto_dir {
             let mut path = default_path;
-            let name = unwrap_err!(extract_name(&url));
+            let info = unwrap_err!(extract_info(&url));
 
-            path.push(name);
+            path.push(info.name);
             path.to_owned()
         } else {
             match i >= args.dir.len() {
