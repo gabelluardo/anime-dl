@@ -34,7 +34,7 @@ fn main() {
         return unwrap_err!(Anime::download(&args.urls[0], &opts));
     }
 
-    let mut all_anime: Vec<Anime> = vec![];
+    let pool = ThreadPool::new(args.max_threads);
     for i in 0..args.urls.len() {
         let url = &args.urls[i];
         let default_path = args.dir.last().unwrap().to_owned();
@@ -53,21 +53,14 @@ fn main() {
         };
 
         let opts = (args.start, args.end, args.auto_episode);
-        let new_anime = unwrap_err!(Anime::new(url, path, opts));
+        let anime = unwrap_err!(Anime::new(url, path, opts));
 
-        all_anime.push(new_anime);
-    }
-
-    let pool = ThreadPool::new(args.max_threads);
-    for anime in &all_anime {
         let urls = unwrap_err!(anime.url_episodes());
-
         for url in urls {
             let pb = ProgressBar::new(0);
             pb.set_style(sty.clone());
 
             let opts = (anime.path(), args.force, m.add(pb));
-
             pool.execute(move || unwrap_err!(Anime::download(&url, &opts)));
         }
     }
