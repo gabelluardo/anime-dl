@@ -13,7 +13,7 @@ pub struct RegInfo {
 
 pub fn extract_info(string: &str) -> Result<RegInfo> {
     let reg_num = find_first_match(string, r"_\d{2,}")?;
-    let reg_name = find_first_match(string, r"\w+_")?;
+    let reg_name = find_first_match(string, r"\w+[^/]\w+_")?;
 
     let res: Vec<&str> = reg_name.split("_").collect();
     let name = to_title_case(res[0]);
@@ -43,7 +43,7 @@ fn to_title_case(s: &str) -> String {
     let mut res = String::new();
 
     for c in s.chars() {
-        if c.is_ascii_alphanumeric() {
+        if c.is_ascii_alphanumeric() || c.eq_ignore_ascii_case(&'-') {
             if c.is_ascii_uppercase() || c.is_numeric() {
                 res.push(' ');
             }
