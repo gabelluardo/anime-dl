@@ -18,7 +18,7 @@ anyhow = "1.0.31"
 indicatif = "0.14.0"
 structopt = "0.3.14"
 threadpool = "1.8.1"
-reqwest = { version = "0.10.4", features = ["blocking", "stream"] }
+reqwest = { version = "0.10.6", features = ["blocking", "stream"] }
 
 [package.metadata.release]
 no-dev-version = true
