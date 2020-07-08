@@ -8,7 +8,7 @@ Efficient cli app for downloading anime
 cargo install --git https://github.com/gabelluardo/anime-dl
 ```
 
-or build the binary form source and install it in `.cargo/bin` folder:
+or build the binary from source and install it in `.cargo/bin` folder:
 
 ```
 git clone https://github.com/gabelluardo/anime-dl
@@ -42,7 +42,7 @@ ARGS:
     <urls>...    Source url
 ```
 
-For parsing urls from a source file (es. `urls`):
+For parsing urls from a file (es. `urls`):
 
 ```
 anime-dl [FLAGS] [OPTIONS] $(cat urls)
