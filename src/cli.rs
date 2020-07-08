@@ -37,12 +37,8 @@ pub struct Cli {
     pub force: bool,
 
     /// Download only the file form the url (equivalent to `curl -O <url>`)
-    #[structopt(short = "S", long = "single-download")]
+    #[structopt(short = "S", long = "single")]
     pub single: bool,
-
-    /// Mark anime as finished [WIP]
-    #[structopt(short = "F", long)]
-    pub finished: bool,
 }
 
 impl Cli {

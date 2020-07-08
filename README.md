@@ -27,10 +27,9 @@ USAGE:
 FLAGS:
     -a, --auto               Find automatically output folder name
     -c, --continue           Find automatically last episode (this overrides `-e` option)
-    -F, --finished           Mark anime as finished [WIP]
     -f, --force              Override existent files
     -h, --help               Prints help information
-    -S, --single-download    Download only the file form the url (equivalent to `curl -O <url>`)
+    -S, --single             Download only the file form the url (equivalent to `curl -O <url>`)
     -V, --version            Prints version information
 
 OPTIONS:
