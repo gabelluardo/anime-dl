@@ -2,10 +2,7 @@ use std::path::PathBuf;
 use structopt::StructOpt;
 
 #[derive(Debug, StructOpt)]
-#[structopt(
-    name = "animeworld-dl",
-    about = "Efficient cli app for downloading anime"
-)]
+#[structopt(name = "anime-dl", about = "Efficient cli app for downloading anime")]
 pub struct Cli {
     /// Source url
     #[structopt(required = true)]

@@ -1,5 +1,5 @@
 [package]
-name = "animeworld-dl"
+name = "anime-dl"
 version = "0.10.6"
 authors = ["Gabriele Belluardo <gabriele.belluardo@outlook.it>"]
 edition = "2018"

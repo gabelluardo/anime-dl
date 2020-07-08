@@ -1,18 +1,18 @@
-# Animeworld-dl
+# Anime-dl
 
 Efficient cli app for downloading anime
 
 ### Install
 
 ```
-cargo install --git https://github.com/gabelluardo/animeworld-dl
+cargo install --git https://github.com/gabelluardo/anime-dl
 ```
 
 or build the binary form source and install it in `.cargo/bin` folder:
 
 ```
-git clone https://github.com/gabelluardo/animeworld-dl
-cd animeworld-dl
+git clone https://github.com/gabelluardo/anime-dl
+cd anime-dl
 
 cargo build --release
 cargo install --path .
@@ -22,7 +22,7 @@ cargo install --path .
 
 ```
 USAGE:
-    animeworld-dl [FLAGS] [OPTIONS] <urls>...
+    anime-dl [FLAGS] [OPTIONS] <urls>...
 
 FLAGS:
     -a, --auto               Find automatically output folder name
@@ -46,7 +46,7 @@ ARGS:
 For parsing urls from a source file (es. `urls`):
 
 ```
-animeworld-dl [FLAGS] [OPTIONS] $(cat urls)
+anime-dl [FLAGS] [OPTIONS] $(cat urls)
 ```
 
 ### License
