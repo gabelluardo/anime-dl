@@ -1,6 +1,6 @@
 [package]
 name = "anime-dl"
-version = "1.0.0-rc.0"
+version = "1.0.0-rc.1"
 authors = ["Gabriele Belluardo <gabriele.belluardo@outlook.it>"]
 edition = "2018"
 publish = false
