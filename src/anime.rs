@@ -240,9 +240,6 @@ impl Iterator for PartialRangeIter {
         } else {
             let prev_start = self.start;
             self.start += std::cmp::min(self.buffer_size as u64, self.end - self.start + 1);
-            // NOTE(unwrap): `HeaderValue::from_str` will fail only if the value is not made
-            // of visible ASCII characters. Since the format string is static and the two
-            // values are integers, that can't happen.
             Some(
                 HeaderValue::from_str(&format!("bytes={}-{}", prev_start, self.start - 1)).unwrap(),
             )
