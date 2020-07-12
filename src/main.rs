@@ -4,7 +4,7 @@ mod utils;
 mod anime;
 mod cli;
 
-use crate::anime::Anime;
+use crate::anime::{Anime, Scraper, Site};
 use crate::cli::Cli;
 use crate::utils::*;
 
@@ -15,6 +15,7 @@ use std::thread;
 
 fn main() {
     let args = Cli::new();
+    let mut anime_urls = args.urls;
 
     let m = MultiProgress::new();
     let sty = ProgressStyle::default_bar()
@@ -26,25 +27,34 @@ fn main() {
     // for flickering bar bug (https://github.com/mitsuhiko/indicatif/issues/143)
     m.set_move_cursor(cfg!(windows));
 
+    // Download only from first given url
     if args.single {
         let pb = ProgressBar::new(0);
         pb.set_style(sty.clone());
 
         let opts = (args.dir.last().unwrap().to_owned(), args.force, pb);
-        return unwrap_err!(Anime::download(&args.urls[0], &opts));
+        return unwrap_err!(Anime::download(&anime_urls[0], &opts));
     }
 
-    let pb = ProgressBar::new(args.urls.len() as u64);
-    pb.set_style(
-        ProgressStyle::default_bar()
-            .template("[{elapsed}] [{bar:35.cyan/blue}] {pos}/{len} {wide_msg}")
-            .progress_chars("##-"),
-    );
-    pb.set_message("Extracting links");
+    // Scrape from animeworld.tv and find correct urls
+    if args.aw {
+        let query = anime_urls.join("+");
+        let url = unwrap_err!(Scraper::new(Site::AnimeWord, query).run());
+
+        anime_urls = vec![url]
+    }
+
+    // let pb = ProgressBar::new(anime_urls.len() as u64);
+    // pb.set_style(
+    //     ProgressStyle::default_bar()
+    //         .template("[{elapsed}] [{bar:35.cyan/blue}] {pos}/{len} {wide_msg}")
+    //         .progress_chars("##-"),
+    // );
+    // pb.set_message("Extracting links");
 
     let pool = ThreadPool::new(args.max_threads);
-    for i in 0..args.urls.len() {
-        let url = &args.urls[i];
+    for i in 0..anime_urls.len() {
+        let url = &anime_urls[i];
         let default_path = args.dir.last().unwrap().to_owned();
 
         let path = if args.auto_dir {
@@ -71,9 +81,9 @@ fn main() {
             let opts = (anime.path(), args.force, m.add(pb));
             pool.execute(move || unwrap_err!(Anime::download(&url, &opts)));
         }
-        pb.inc(1);
+        // pb.inc(1);
     }
-    pb.finish_and_clear();
+    // pb.finish_and_clear();
 
     let bars = thread::spawn(move || m.join().unwrap());
 

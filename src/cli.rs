@@ -39,6 +39,10 @@ pub struct Cli {
     /// Download only the file form the url (equivalent to `curl -O <url>`)
     #[structopt(short = "S", long = "single")]
     pub single: bool,
+
+    /// Search anime from animeworld.tv
+    #[structopt(long = "AW")]
+    pub aw: bool,
 }
 
 impl Cli {

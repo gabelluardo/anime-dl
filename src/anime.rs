@@ -5,9 +5,11 @@ use indicatif::ProgressBar;
 use reqwest::blocking::Client;
 use reqwest::header::{HeaderValue, CONTENT_LENGTH, RANGE};
 use reqwest::Url;
+use soup::prelude::*;
 
 use std::fs;
 use std::io;
+use std::io::prelude::*;
 use std::path::PathBuf;
 
 pub struct Anime {
@@ -244,5 +246,100 @@ impl Iterator for PartialRangeIter {
                 HeaderValue::from_str(&format!("bytes={}-{}", prev_start, self.start - 1)).unwrap(),
             )
         }
+    }
+}
+pub enum Site {
+    AnimeWord,
+}
+
+pub struct Scraper {
+    site: Site,
+    query: String,
+}
+
+impl Scraper {
+    pub fn new(site: Site, query: String) -> Self {
+        Self { site, query }
+    }
+
+    pub fn run(&self) -> Result<String> {
+        // Concat string if is passed with "" in shell
+        let query = self.query.replace(" ", "+");
+
+        match self.site {
+            Site::AnimeWord => Self::animeworld(&query),
+        }
+    }
+
+    fn animeworld(query: &str) -> Result<String> {
+        let source = "https://www.animeworld.tv/search?keyword=";
+        let search_url = format!("{}{}", source, query);
+
+        // TODO: Better error handling
+
+        let client = Client::new();
+        let response = client
+            .get(&search_url)
+            .timeout(std::time::Duration::from_secs(120))
+            .send()?
+            .error_for_status()
+            .context(format!("Unable to get search query"))?;
+
+        let soup = Soup::from_reader(response)?
+            .tag("div")
+            .attr("class", "film-list")
+            .find()
+            .expect("ERR search page");
+
+        let results = Soup::new(&soup.display())
+            .tag("a")
+            .attr("class", "name")
+            .find_all()
+            .collect::<Vec<_>>();
+
+        // TODO: make it modular
+        let choice = if results.len() > 1 {
+            println!(
+                "There are {} results for `{}`",
+                results.len(),
+                query.replace("+", " ")
+            );
+            for i in 0..results.len() {
+                println!("[{}] {}", i + 1, &results[i].text());
+            }
+            print!("\nEnter a number [default=1]: ");
+            std::io::stdout().flush()?;
+
+            let mut line = String::new();
+            std::io::stdin().read_line(&mut line)?;
+            let value: usize = line.trim().parse().unwrap_or(1);
+
+            results[value - 1].get("href").expect("ERR search page")
+        } else {
+            results[0].get("href").expect("ERR search page")
+        };
+
+        println!("{}", choice);
+        let response = client
+            .get(&choice)
+            .timeout(std::time::Duration::from_secs(120))
+            .send()?
+            .error_for_status()
+            .context(format!("Unable to get anime page"))?;
+
+        let soup = Soup::from_reader(response)?;
+        let downloads = soup
+            .tag("a")
+            .attr("id", "downloadLink")
+            .find_all()
+            .map(|a| a.get("href").expect("ERR anime page"))
+            .collect::<Vec<_>>();
+
+        let url = match downloads.last() {
+            Some(u) => u,
+            _ => "",
+        };
+
+        Ok(url.to_string())
     }
 }
