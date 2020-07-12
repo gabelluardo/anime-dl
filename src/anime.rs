@@ -44,45 +44,59 @@ impl Anime {
     }
 
     pub fn url_episodes(&self) -> Result<Vec<String>> {
-        let mut episodes = vec![];
-        let mut last: u32 = 0;
+        let num_episodes = if !self.auto {
+            self.end
+        } else {
+            let client = Client::new();
+            // let mut error: Vec<u32> = vec![];
+            // let mut error_counter: u32 = 0;
+            let mut last_err: u32 = 0;
+            let mut counter: u32 = self.start;
+            let mut last: u32 = 0;
 
-        let mut error: Vec<u32> = vec![];
-        let mut error_counter = 0;
-        let mut counter: u32 = self.start;
+            // TODO: Improve performance of last episode research
+            while !(last_err == last + 1) {
+                let num = fix_num_episode(counter);
+                let url = self.url.replace(REGEX_VALUE, &num);
 
-        let client = Client::new();
-        let num_episodes = match self.auto {
-            true => u8::max_value() as u32,
-            _ => self.end,
-        };
+                // println!("le={} l={} c={}", last_err, last, counter);
 
-        while error_counter < 6 && counter <= num_episodes {
-            let num = fix_num_episode(counter);
-            let url = self.url.replace(REGEX_VALUE, &num);
-
-            match client.head(&url).send()?.error_for_status() {
-                Err(_) => {
-                    error.push(counter);
-                    error_counter += 1
+                match client.head(&url).send()?.error_for_status() {
+                    Err(_) => {
+                        last_err = counter;
+                        // error.push(counter);
+                        // error_counter += 1;
+                    }
+                    Ok(_) => {
+                        // episodes.push(url.to_string());
+                        last = counter;
+                        // error_counter = 0;
+                    }
                 }
-                Ok(_) => {
-                    episodes.push(url.to_string());
-                    last = counter;
-                    error_counter = 0;
+                if last_err == 0 {
+                    counter *= 2;
+                } else {
+                    counter = (last_err + last) / 2
                 }
             }
-            counter += 1;
+            last
+        };
+
+        let mut episodes = vec![];
+        for i in self.start..num_episodes {
+            let num = fix_num_episode(i);
+            let url = self.url.replace(REGEX_VALUE, &num);
+            episodes.push(url.to_string())
         }
 
         // TODO: add ability to find different version (es. _v2_, _v000_, ecc)
-        error.retain(|&x| x < last);
-        if error.len() > 0 {
-            format_wrn(&format!(
-                "Problems with ep. {:?}, download it manually",
-                error
-            ));
-        }
+        // error.retain(|&x| x < last);
+        // if error.len() > 0 {
+        //     format_wrn(&format!(
+        //         "Problems with ep. {:?}, download it manually",
+        //         error
+        //     ));
+        // }
 
         Ok(episodes)
     }
@@ -319,7 +333,6 @@ impl Scraper {
             results[0].get("href").expect("ERR search page")
         };
 
-        println!("{}", choice);
         let response = client
             .get(&choice)
             .timeout(std::time::Duration::from_secs(120))

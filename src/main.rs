@@ -44,14 +44,6 @@ fn main() {
         anime_urls = vec![url]
     }
 
-    // let pb = ProgressBar::new(anime_urls.len() as u64);
-    // pb.set_style(
-    //     ProgressStyle::default_bar()
-    //         .template("[{elapsed}] [{bar:35.cyan/blue}] {pos}/{len} {wide_msg}")
-    //         .progress_chars("##-"),
-    // );
-    // pb.set_message("Extracting links");
-
     let pool = ThreadPool::new(args.max_threads);
     for i in 0..anime_urls.len() {
         let url = &anime_urls[i];
@@ -81,9 +73,7 @@ fn main() {
             let opts = (anime.path(), args.force, m.add(pb));
             pool.execute(move || unwrap_err!(Anime::download(&url, &opts)));
         }
-        // pb.inc(1);
     }
-    // pb.finish_and_clear();
 
     let bars = thread::spawn(move || m.join().unwrap());
 

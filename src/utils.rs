@@ -58,7 +58,7 @@ pub fn format_err(s: anyhow::Error) -> colored::ColoredString {
     format!("[ERROR] {}", s).red()
 }
 
-pub fn format_wrn(s: &str) -> colored::ColoredString {
+pub fn _format_wrn(s: &str) -> colored::ColoredString {
     format!("[WARNING] {}", s).yellow()
 }
 
