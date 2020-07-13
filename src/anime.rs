@@ -7,7 +7,7 @@ use reqwest::header::{HeaderValue, CONTENT_LENGTH, RANGE};
 use reqwest::Url;
 
 use std::fs;
-use std::io;
+use std::io::Write;
 use std::path::PathBuf;
 
 pub struct Anime {
@@ -110,14 +110,14 @@ impl Anime {
 
         let client = Client::new();
         for range in PartialRangeIter::new(iter_start, iter_end - 1, CHUNK_SIZE)? {
-            let mut response = client
+            let response = client
                 .get(url)
                 .header(RANGE, &range)
                 .timeout(std::time::Duration::from_secs(120))
                 .send()?
                 .error_for_status()?;
 
-            io::copy(&mut response, &mut outfile)?;
+            outfile.write_all(&response.bytes()?)?;
 
             pb.inc(CHUNK_SIZE as u64);
         }
