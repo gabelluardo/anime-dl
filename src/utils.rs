@@ -3,7 +3,6 @@ use colored::Colorize;
 use regex::Regex;
 
 pub const REGEX_VALUE: &str = "_{}";
-pub const CHUNK_SIZE: usize = 1024 * 1024; // 1024^2 = 1MB
 
 pub struct RegInfo {
     pub name: String,

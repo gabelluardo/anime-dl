@@ -2,13 +2,11 @@ use crate::utils::*;
 
 use anyhow::{bail, Context, Result};
 use indicatif::ProgressBar;
-use reqwest::blocking::Client;
-use reqwest::header::{HeaderValue, CONTENT_LENGTH, RANGE};
-use reqwest::Url;
+use reqwest::header::{CONTENT_LENGTH, RANGE};
+use reqwest::{Client, Url};
 use soup::prelude::*;
+use tokio::{fs, io::AsyncWriteExt};
 
-use std::fs;
-use std::io;
 use std::io::prelude::*;
 use std::path::PathBuf;
 
@@ -43,7 +41,7 @@ impl Anime {
         self.path.clone()
     }
 
-    pub fn url_episodes(&self) -> Result<Vec<String>> {
+    pub async fn url_episodes(&self) -> Result<Vec<String>> {
         let num_episodes = if !self.auto {
             self.end
         } else {
@@ -61,7 +59,7 @@ impl Anime {
 
                 // println!("le={} l={} c={}", last_err, last, counter);
 
-                match client.head(&url).send()?.error_for_status() {
+                match client.head(&url).send().await?.error_for_status() {
                     Err(_) => {
                         last_err = counter;
                         // error.push(counter);
@@ -83,7 +81,7 @@ impl Anime {
         };
 
         let mut episodes = vec![];
-        for i in self.start..num_episodes {
+        for i in self.start..num_episodes + 1 {
             let num = fix_num_episode(i);
             let url = self.url.replace(REGEX_VALUE, &num);
             episodes.push(url.to_string())
@@ -101,43 +99,38 @@ impl Anime {
         Ok(episodes)
     }
 
-    pub fn download(url: &str, opts: &(PathBuf, bool, ProgressBar)) -> Result<()> {
-        let (root, overwrite, pb) = opts;
+    pub async fn download(url: String, opts: (PathBuf, bool, ProgressBar)) -> Result<()> {
+        let (root, overwrite, pb) = &opts;
+        let url = &url;
 
-        let source = WebSource::new(url)?;
+        let source = WebSource::new(url).await?;
         let filename = source.name;
 
-        let file = FileDest::new(root, &filename, overwrite)?;
+        let file = FileDest::new(root, &filename, overwrite).await?;
         if file.size >= source.size {
             bail!("{} already exists", &filename);
         }
 
-        let mut outfile = file.open()?;
+        let mut dest = file.open().await?;
 
         let info = extract_info(&filename)?;
         let msg = format!("Ep. {:02} {}", info.num, info.name);
 
-        let iter_start = file.size;
-        let iter_end = source.size;
-
-        pb.set_length(iter_end);
-        pb.set_position(iter_start);
+        pb.set_position(file.size);
+        pb.set_length(source.size);
         pb.set_message(&msg);
 
         let client = Client::new();
-        for range in PartialRangeIter::new(iter_start, iter_end - 1, CHUNK_SIZE)? {
-            let mut response = client
-                .get(url)
-                .header(RANGE, &range)
-                .timeout(std::time::Duration::from_secs(120))
-                .send()?
-                .error_for_status()?;
+        let mut source = client
+            .get(url)
+            .header(RANGE, format!("bytes={}-", file.size))
+            .send()
+            .await?;
 
-            io::copy(&mut response, &mut outfile)?;
-
-            pb.inc(CHUNK_SIZE as u64);
+        while let Some(chunk) = source.chunk().await? {
+            dest.write_all(&chunk).await?;
+            pb.inc(chunk.len() as u64);
         }
-
         pb.finish_with_message(&format!("{} 👍", msg));
 
         Ok(())
@@ -152,7 +145,7 @@ pub struct FileDest {
 }
 
 impl FileDest {
-    pub fn new(root: &PathBuf, filename: &str, overwrite: &bool) -> Result<Self> {
+    pub async fn new(root: &PathBuf, filename: &str, overwrite: &bool) -> Result<Self> {
         if !root.exists() {
             std::fs::create_dir_all(&root)?;
         }
@@ -161,7 +154,7 @@ impl FileDest {
         file.push(filename);
 
         let size = match file.exists() && !overwrite {
-            true => fs::File::open(&file)?.metadata()?.len(),
+            true => std::fs::File::open(&file)?.metadata()?.len(),
             _ => 0,
         };
 
@@ -176,17 +169,19 @@ impl FileDest {
         })
     }
 
-    pub fn open(&self) -> Result<fs::File> {
+    pub async fn open(&self) -> Result<fs::File> {
         let file = if !self.overwrite {
             fs::OpenOptions::new()
                 .append(true)
                 .create(true)
-                .open(&self.file)?
+                .open(&self.file)
+                .await?
         } else {
             fs::OpenOptions::new()
                 .write(true)
                 .create(true)
-                .open(&self.file)?
+                .open(&self.file)
+                .await?
         };
 
         Ok(file)
@@ -200,7 +195,7 @@ pub struct WebSource {
 }
 
 impl WebSource {
-    pub fn new(str_url: &str) -> Result<Self> {
+    pub async fn new(str_url: &str) -> Result<Self> {
         let url = Url::parse(str_url)?;
         let name = url
             .path_segments()
@@ -211,8 +206,8 @@ impl WebSource {
         let client = Client::new();
         let response = client
             .head(str_url)
-            .timeout(std::time::Duration::from_secs(120))
-            .send()?
+            .send()
+            .await?
             .error_for_status()
             .context(format!("Unable to download `{}`", name))?;
 
@@ -227,41 +222,6 @@ impl WebSource {
     }
 }
 
-pub struct PartialRangeIter {
-    start: u64,
-    end: u64,
-    buffer_size: usize,
-}
-
-impl PartialRangeIter {
-    pub fn new(start: u64, end: u64, buffer_size: usize) -> Result<Self> {
-        if buffer_size == 0 {
-            bail!("Invalid buffer_size, give a value greater than zero.");
-        }
-
-        Ok(Self {
-            start,
-            end,
-            buffer_size,
-        })
-    }
-}
-
-impl Iterator for PartialRangeIter {
-    type Item = HeaderValue;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.start > self.end {
-            None
-        } else {
-            let prev_start = self.start;
-            self.start += std::cmp::min(self.buffer_size as u64, self.end - self.start + 1);
-            Some(
-                HeaderValue::from_str(&format!("bytes={}-{}", prev_start, self.start - 1)).unwrap(),
-            )
-        }
-    }
-}
 pub enum Site {
     AnimeWord,
 }
@@ -276,16 +236,16 @@ impl Scraper {
         Self { site, query }
     }
 
-    pub fn run(&self) -> Result<String> {
+    pub async fn run(&self) -> Result<String> {
         // Concat string if is passed with "" in shell
         let query = self.query.replace(" ", "+");
 
         match self.site {
-            Site::AnimeWord => Self::animeworld(&query),
+            Site::AnimeWord => Self::animeworld(&query).await,
         }
     }
 
-    fn animeworld(query: &str) -> Result<String> {
+    async fn animeworld(query: &str) -> Result<String> {
         let source = "https://www.animeworld.tv/search?keyword=";
         let search_url = format!("{}{}", source, query);
 
@@ -294,12 +254,12 @@ impl Scraper {
         let client = Client::new();
         let response = client
             .get(&search_url)
-            .timeout(std::time::Duration::from_secs(120))
-            .send()?
+            .send()
+            .await?
             .error_for_status()
             .context(format!("Unable to get search query"))?;
 
-        let soup = Soup::from_reader(response)?
+        let soup = Soup::new(&response.text().await?)
             .tag("div")
             .attr("class", "film-list")
             .find()
@@ -311,7 +271,7 @@ impl Scraper {
             .find_all()
             .collect::<Vec<_>>();
 
-        // TODO: make it modular
+        // TODO: Make it modular
         let choice = if results.len() > 1 {
             println!(
                 "There are {} results for `{}`",
@@ -335,12 +295,12 @@ impl Scraper {
 
         let response = client
             .get(&choice)
-            .timeout(std::time::Duration::from_secs(120))
-            .send()?
+            .send()
+            .await?
             .error_for_status()
             .context(format!("Unable to get anime page"))?;
 
-        let soup = Soup::from_reader(response)?;
+        let soup = Soup::new(&response.text().await?);
         let downloads = soup
             .tag("a")
             .attr("id", "downloadLink")

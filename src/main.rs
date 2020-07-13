@@ -8,12 +8,11 @@ use crate::anime::{Anime, Scraper, Site};
 use crate::cli::Cli;
 use crate::utils::*;
 
+use futures::future::join_all;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
-use threadpool::ThreadPool;
 
-use std::thread;
-
-fn main() {
+#[tokio::main]
+async fn main() {
     let args = Cli::new();
     let mut anime_urls = args.urls;
 
@@ -33,18 +32,19 @@ fn main() {
         pb.set_style(sty.clone());
 
         let opts = (args.dir.last().unwrap().to_owned(), args.force, pb);
-        return unwrap_err!(Anime::download(&anime_urls[0], &opts));
+        return unwrap_err!(Anime::download(anime_urls[0].clone(), opts).await);
     }
 
     // Scrape from animeworld.tv and find correct urls
     if args.aw {
         let query = anime_urls.join("+");
-        let url = unwrap_err!(Scraper::new(Site::AnimeWord, query).run());
+        let url = unwrap_err!(Scraper::new(Site::AnimeWord, query).run().await);
 
         anime_urls = vec![url]
     }
 
-    let pool = ThreadPool::new(args.max_threads);
+    // TODO: Limit max parallel tasks with `args.max_thread`
+    let mut pool: Vec<tokio::task::JoinHandle<()>> = vec![];
     for i in 0..anime_urls.len() {
         let url = &anime_urls[i];
         let default_path = args.dir.last().unwrap().to_owned();
@@ -65,18 +65,20 @@ fn main() {
         let opts = (args.start, args.end, args.auto_episode);
         let anime = unwrap_err!(Anime::new(url, path, opts));
 
-        let urls = unwrap_err!(anime.url_episodes());
+        let urls = unwrap_err!(anime.url_episodes().await);
         for url in urls {
             let pb = ProgressBar::new(0);
             pb.set_style(sty.clone());
 
             let opts = (anime.path(), args.force, m.add(pb));
-            pool.execute(move || unwrap_err!(Anime::download(&url, &opts)));
+            pool.push(tokio::spawn(async move {
+                unwrap_err!(Anime::download(url, opts).await)
+            }));
         }
     }
 
-    let bars = thread::spawn(move || m.join().unwrap());
+    let bars = tokio::task::spawn_blocking(move || m.join().unwrap());
 
-    pool.join();
-    bars.join().unwrap();
+    join_all(pool).await;
+    bars.await.unwrap();
 }
