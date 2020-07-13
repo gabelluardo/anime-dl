@@ -8,12 +8,11 @@ use crate::anime::Anime;
 use crate::cli::Cli;
 use crate::utils::*;
 
+use futures::future::join_all;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
-use threadpool::ThreadPool;
 
-use std::thread;
-
-fn main() {
+#[tokio::main]
+async fn main() {
     let args = Cli::new();
 
     let m = MultiProgress::new();
@@ -31,18 +30,11 @@ fn main() {
         pb.set_style(sty.clone());
 
         let opts = (args.dir.last().unwrap().to_owned(), args.force, pb);
-        return unwrap_err!(Anime::download(&args.urls[0], &opts));
+        return unwrap_err!(Anime::download(args.urls[0].clone(), opts).await);
     }
 
-    let pb = ProgressBar::new(args.urls.len() as u64);
-    pb.set_style(
-        ProgressStyle::default_bar()
-            .template("[{elapsed}] [{bar:35.cyan/blue}] {pos}/{len} {wide_msg}")
-            .progress_chars("##-"),
-    );
-    pb.set_message("Extracting links");
-
-    let pool = ThreadPool::new(args.max_threads);
+    // TODO: Limit max parallel tasks with `args.max_thread`
+    let mut pool: Vec<tokio::task::JoinHandle<()>> = vec![];
     for i in 0..args.urls.len() {
         let url = &args.urls[i];
         let default_path = args.dir.last().unwrap().to_owned();
@@ -63,20 +55,20 @@ fn main() {
         let opts = (args.start, args.end, args.auto_episode);
         let anime = unwrap_err!(Anime::new(url, path, opts));
 
-        let urls = unwrap_err!(anime.url_episodes());
+        let urls = unwrap_err!(anime.url_episodes().await);
         for url in urls {
             let pb = ProgressBar::new(0);
             pb.set_style(sty.clone());
 
             let opts = (anime.path(), args.force, m.add(pb));
-            pool.execute(move || unwrap_err!(Anime::download(&url, &opts)));
+            pool.push(tokio::spawn(async move {
+                unwrap_err!(Anime::download(url, opts).await)
+            }));
         }
-        pb.inc(1);
     }
-    pb.finish_and_clear();
 
-    let bars = thread::spawn(move || m.join().unwrap());
+    let bars = tokio::task::spawn_blocking(move || m.join().unwrap());
 
-    pool.join();
-    bars.join().unwrap();
+    join_all(pool).await;
+    bars.await.unwrap();
 }
