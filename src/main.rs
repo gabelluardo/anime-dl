@@ -67,6 +67,8 @@ async fn main() {
         }
     }
 
-    tokio::task::spawn_blocking(move || m.join().unwrap());
+    let bars = tokio::task::spawn_blocking(move || m.join().unwrap());
+
     join_all(pool).await;
+    bars.await.unwrap();
 }
