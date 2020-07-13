@@ -55,7 +55,7 @@ FLAGS:
 OPTIONS:
     -d, --dir <dir>...                 Path folder where save files [default: .]
     -e, --end <end>                    Last episode to download [default: 0]
-    -M, --max-threads <max-threads>    Max number of concurrent downloads [default: 32]
+    -M, --max-threads <max-threads>    [WIP] Max number of concurrent downloads [default: 32]
     -s, --start <start>                First episode to download [default: 1]
 
 ARGS:
