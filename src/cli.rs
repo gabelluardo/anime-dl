@@ -1,5 +1,16 @@
-use std::path::PathBuf;
+use structopt::clap::arg_enum;
 use structopt::StructOpt;
+
+use std::path::PathBuf;
+
+
+arg_enum! {
+    #[derive(Debug)]
+    pub enum Site {
+        AW,
+        AS,
+    }
+}
 
 #[derive(Debug, StructOpt)]
 #[structopt(name = "anime-dl", about = "Efficient cli app for downloading anime")]
@@ -37,16 +48,16 @@ pub struct Cli {
     pub force: bool,
 
     /// Download only the file form the url (equivalent to `curl -O <url>`)
-    #[structopt(short = "S", long = "single")]
+    #[structopt(short = "O", long = "one-file")]
     pub single: bool,
 
-    /// Search anime from animeworld.tv
-    #[structopt(long = "AW")]
-    pub aw: bool,
-
-    /// Search anime from animesaturn.com
-    #[structopt(long = "AS")]
-    pub asat: bool,
+    /// Search anime in remote archive
+    #[structopt(
+        long,
+        short = "S",
+        possible_values = &Site::variants(), 
+    )]
+    pub search: Option<Site>,
 }
 
 impl Cli {

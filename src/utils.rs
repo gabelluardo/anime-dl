@@ -54,7 +54,24 @@ fn to_title_case(s: &str) -> String {
 }
 
 // pub fn prompt_choices(choices: Vec<_>) -> Result<String> {
-//     Ok("".to_string())
+//     Ok(match choices.len() {
+//         0 => bail!("No match found"),
+//         1 => choices[0].get("href").expect("ERR search page"),
+//         _ => {
+//             println!("There are {} match found", choices.len(),);
+//             for i in 0..choices.len() {
+//                 println!("[{}] {}", i + 1, &choices[i].text());
+//             }
+//             print!("\nEnter a number [default=1]: ");
+//             std::io::stdout().flush()?;
+
+//             let mut line = String::new();
+//             std::io::stdin().read_line(&mut line)?;
+//             let value: usize = line.trim().parse().unwrap_or(1);
+
+//             choices[value - 1].get("href").expect("ERR search page")
+//         }
+//     })
 // }
 
 pub fn format_err(s: anyhow::Error) -> colored::ColoredString {

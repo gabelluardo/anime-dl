@@ -1,3 +1,4 @@
+use crate::cli::Site;
 use crate::utils::*;
 
 use anyhow::{bail, Context, Result};
@@ -222,11 +223,6 @@ impl WebSource {
     }
 }
 
-pub enum Site {
-    AnimeWord,
-    AnimeSaturn,
-}
-
 pub struct Scraper {
     site: Site,
     query: String,
@@ -242,8 +238,8 @@ impl Scraper {
         let query = self.query.replace(" ", "+");
 
         match self.site {
-            Site::AnimeWord => Self::animeworld(&query).await,
-            Site::AnimeSaturn => Self::animesaturn(&query).await,
+            Site::AW => Self::animeworld(&query).await,
+            Site::AS => Self::animesaturn(&query).await,
         }
     }
 
@@ -274,25 +270,27 @@ impl Scraper {
             .collect::<Vec<_>>();
 
         // TODO: Make it modular
-        let choice = if results.len() > 1 {
-            println!(
-                "There are {} results for `{}`",
-                results.len(),
-                query.replace("+", " ")
-            );
-            for i in 0..results.len() {
-                println!("[{}] {}", i + 1, &results[i].text());
+        let choice = match results.len() {
+            0 => bail!("No match found"),
+            1 => results[0].get("href").expect("ERR search page"),
+            _ => {
+                println!(
+                    "There are {} results for `{}`",
+                    results.len(),
+                    query.replace("+", " ")
+                );
+                for i in 0..results.len() {
+                    println!("[{}] {}", i + 1, &results[i].text());
+                }
+                print!("\nEnter a number [default=1]: ");
+                std::io::stdout().flush()?;
+
+                let mut line = String::new();
+                std::io::stdin().read_line(&mut line)?;
+                let value: usize = line.trim().parse().unwrap_or(1);
+
+                results[value - 1].get("href").expect("ERR search page")
             }
-            print!("\nEnter a number [default=1]: ");
-            std::io::stdout().flush()?;
-
-            let mut line = String::new();
-            std::io::stdin().read_line(&mut line)?;
-            let value: usize = line.trim().parse().unwrap_or(1);
-
-            results[value - 1].get("href").expect("ERR search page")
-        } else {
-            results[0].get("href").expect("ERR search page")
         };
 
         // let choice = prompt_choices(results)?;
@@ -322,7 +320,7 @@ impl Scraper {
 
     // NOTE: doesn't work for now due permission error for the resource
     async fn animesaturn(query: &str) -> Result<String> {
-        let source = "https://www.animesaturn.com/animelist?search=";
+        let source = "https://www.AS.com/animelist?search=";
         let search_url = format!("{}{}", source, query);
 
         let client = Client::new();

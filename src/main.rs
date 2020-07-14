@@ -4,8 +4,8 @@ mod utils;
 mod anime;
 mod cli;
 
-use crate::anime::{Anime, Scraper, Site};
-use crate::cli::Cli;
+use crate::anime::{Anime, Scraper};
+use crate::cli::{Cli, Site};
 use crate::utils::*;
 
 use futures::future::join_all;
@@ -14,7 +14,6 @@ use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 #[tokio::main]
 async fn main() {
     let args = Cli::new();
-    let mut anime_urls = args.urls;
 
     let m = MultiProgress::new();
     let sty = ProgressStyle::default_bar()
@@ -26,6 +25,19 @@ async fn main() {
     // for flickering bar bug (https://github.com/mitsuhiko/indicatif/issues/143)
     m.set_move_cursor(cfg!(windows));
 
+    // Scrape form archive and find correct url
+    let anime_urls = match args.search {
+        Some(Site::AW) => {
+            let query = args.urls.join("+");
+            vec![unwrap_err!(Scraper::new(Site::AW, query).run().await)]
+        }
+        Some(Site::AS) => {
+            let query = args.urls.join("+");
+            vec![unwrap_err!(Scraper::new(Site::AS, query).run().await)]
+        }
+        _ => args.urls,
+    };
+
     // Download only from first given url
     if args.single {
         let pb = ProgressBar::new(0);
@@ -33,19 +45,6 @@ async fn main() {
 
         let opts = (args.dir.last().unwrap().to_owned(), args.force, pb);
         return unwrap_err!(Anime::download(anime_urls[0].clone(), opts).await);
-    }
-
-    // Scrape from animeworld.tv and find correct urls
-    if args.aw {
-        let query = anime_urls.join("+");
-        let url = unwrap_err!(Scraper::new(Site::AnimeWord, query).run().await);
-
-        anime_urls = vec![url]
-    } else if args.asat {
-        let query = anime_urls.join("+");
-        let url = unwrap_err!(Scraper::new(Site::AnimeSaturn, query).run().await);
-
-        anime_urls = vec![url]
     }
 
     // TODO: Limit max parallel tasks with `args.max_thread`
