@@ -1,5 +1,6 @@
 use anyhow::{bail, Result};
 use colored::Colorize;
+use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use regex::Regex;
 
 pub const REGEX_VALUE: &str = "_{}";
@@ -51,6 +52,22 @@ fn to_title_case(s: &str) -> String {
     }
 
     res.trim().to_string()
+}
+
+pub fn instance_multi_bars() -> (MultiProgress, ProgressStyle) {
+    let multi = MultiProgress::new();
+
+    // for flickering bar bug (https://github.com/mitsuhiko/indicatif/issues/143)
+    multi.set_move_cursor(cfg!(windows));
+
+    (multi, ProgressStyle::default_bar().template("{spinner:.green} [{elapsed}] [{bar:35.cyan/blue}] {bytes}/{total_bytes} ({eta}) {wide_msg}").progress_chars("#>-"))
+}
+
+pub fn instance_bar(style: &ProgressStyle) -> ProgressBar {
+    let pb = ProgressBar::new(0);
+    pb.set_style(style.clone());
+
+    pb
 }
 
 // pub fn prompt_choices(choices: Vec<_>) -> Result<String> {

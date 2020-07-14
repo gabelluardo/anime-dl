@@ -46,18 +46,17 @@ USAGE:
 
 FLAGS:
     -a, --auto        Find automatically output folder name
-    -c, --continue    Find automatically last episode (this overrides `-e` option)
+    -c, --continue    Find automatically last episode
     -f, --force       Override existent files
     -h, --help        Prints help information
     -O, --one-file    Download only the file form the url (equivalent to `curl -O <url>`)
     -V, --version     Prints version information
 
 OPTIONS:
-    -d, --dir <dir>...                 Path folder where save files 
-    -e, --end <end>                    Last episode to download 
-    -M, --max-threads <max-threads>    [WIP] Max number of concurrent downloads 
+    -d, --dir <dir>...                 Path folder where save files [default: .]
+    -M, --max-threads <max-threads>    [WIP] Max number of concurrent downloads [default: 32]
+    -r, --range <range>                Range of episodes to download
     -S, --search <search>              Search anime in remote archive [possible values: AW, AS]
-    -s, --start <start>                First episode to download 
 
 ARGS:
     <urls>...    Source url

@@ -1,14 +1,41 @@
 use structopt::clap::arg_enum;
 use structopt::StructOpt;
+use anyhow::{Result};
 
 use std::path::PathBuf;
-
 
 arg_enum! {
     #[derive(Debug)]
     pub enum Site {
         AW,
         AS,
+    }
+}
+
+#[derive(Debug)]
+pub struct Range {
+    start: u32,
+    end: u32
+}
+
+impl Range {
+    pub fn extract(&self) -> (u32, u32){
+        (self.start, self.end)
+    }
+}
+
+impl std::str::FromStr for Range {
+    type Err = std::num::ParseIntError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let coords: Vec<&str> = s.trim_matches(|p| p == '(' || p == ')' )
+                                 .split(',')
+                                 .collect();
+
+        let start_fromstr = coords[0].parse::<u32>()?;
+        let end_fromstr = coords[1].parse::<u32>()?;
+
+        Ok(Range { start: start_fromstr, end: end_fromstr })
     }
 }
 
@@ -23,13 +50,9 @@ pub struct Cli {
     #[structopt(default_value = ".", short, long)]
     pub dir: Vec<PathBuf>,
 
-    /// First episode to download
-    #[structopt(default_value = "1", short, long)]
-    pub start: u32,
-
-    /// Last episode to download
-    #[structopt(default_value, short, long)]
-    pub end: u32,
+    /// Range of episodes to download
+    #[structopt(short, long)]
+    pub range: Option<Range>,
 
     /// [WIP] Max number of concurrent downloads
     #[structopt(default_value = "32", short = "M", long)]
@@ -39,7 +62,7 @@ pub struct Cli {
     #[structopt(short = "a", long = "auto")]
     pub auto_dir: bool,
 
-    /// Find automatically last episode (this overrides `-e` option)
+    /// Find automatically last episode 
     #[structopt(short = "c", long = "continue")]
     pub auto_episode: bool,
 
