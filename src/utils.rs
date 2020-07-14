@@ -53,6 +53,10 @@ fn to_title_case(s: &str) -> String {
     res.trim().to_string()
 }
 
+// pub fn prompt_choices(choices: Vec<_>) -> Result<String> {
+//     Ok("".to_string())
+// }
+
 pub fn format_err(s: anyhow::Error) -> colored::ColoredString {
     format!("[ERROR] {}", s).red()
 }

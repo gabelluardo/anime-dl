@@ -43,6 +43,10 @@ pub struct Cli {
     /// Search anime from animeworld.tv
     #[structopt(long = "AW")]
     pub aw: bool,
+
+    /// Search anime from animesaturn.com
+    #[structopt(long = "AS")]
+    pub asat: bool,
 }
 
 impl Cli {

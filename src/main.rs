@@ -41,6 +41,11 @@ async fn main() {
         let url = unwrap_err!(Scraper::new(Site::AnimeWord, query).run().await);
 
         anime_urls = vec![url]
+    } else if args.asat {
+        let query = anime_urls.join("+");
+        let url = unwrap_err!(Scraper::new(Site::AnimeSaturn, query).run().await);
+
+        anime_urls = vec![url]
     }
 
     // TODO: Limit max parallel tasks with `args.max_thread`
