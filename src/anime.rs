@@ -270,9 +270,7 @@ impl Scraper {
                 (
                     a.value().attr("href").expect("ERR search page"),
                     a.first_child()
-                        .expect("ERR search page")
-                        .value()
-                        .as_text()
+                        .and_then(|a| a.value().as_text())
                         .expect("ERR search page")
                         .to_string(),
                 )
@@ -306,98 +304,88 @@ impl Scraper {
 
     // NOTE: doesn't work for now due permission error for the resource
     async fn animesaturn(query: &str) -> Result<String> {
-        let source = "https://www.AS.com/animelist?search=";
+        let source = "https://www.animesaturn.com/animelist?search=";
         let search_url = format!("{}{}", source, query);
 
         let client = Client::new();
-        let _response = client
+        let response = client
             .get(&search_url)
             .send()
             .await?
             .error_for_status()
             .context(format!("Unable to get search query"))?;
 
-        todo!();
+        let fragment = Html::parse_fragment(&response.text().await?);
+        let a = Selector::parse("a.badge-archivio").expect("ERR search page");
 
-        // let results = Soup::new(&response.text().await?)
-        //     .tag("a")
-        //     .attr("class", "badge-archivio")
-        //     .find_all()
-        //     .collect::<Vec<_>>();
+        let results = fragment
+            .select(&a)
+            .into_iter()
+            .map(|a| {
+                (
+                    a.value().attr("href").expect("ERR search page"),
+                    a.first_child()
+                        .and_then(|a| a.value().as_text())
+                        .expect("ERR search page")
+                        .to_string(),
+                )
+            })
+            .collect::<Vec<_>>();
 
-        // // TODO: Make it modular
-        // let choice = if results.len() > 1 {
-        //     println!(
-        //         "There are {} results for `{}`",
-        //         results.len(),
-        //         query.replace("+", " ")
-        //     );
-        //     for i in 0..results.len() {
-        //         println!("[{}] {}", i + 1, &results[i].text());
-        //     }
-        //     print!("\nEnter a number [default=1]: ");
-        //     std::io::stdout().flush()?;
+        let choice = prompt_choices(results)?;
 
-        //     let mut line = String::new();
-        //     std::io::stdin().read_line(&mut line)?;
-        //     let value: usize = line.trim().parse().unwrap_or(1);
+        let response = client
+            .get(&choice)
+            .send()
+            .await?
+            .error_for_status()
+            .context(format!("Unable to get anime page"))?;
 
-        //     results[value - 1].get("href").expect("ERR search page")
-        // } else {
-        //     results[0].get("href").expect("ERR search page")
-        // };
+        let fragment = Html::parse_fragment(&response.text().await?);
+        let a = Selector::parse("a.bottone-ep").expect("ERR search page");
 
-        // let response = client
-        //     .get(&choice)
-        //     .send()
-        //     .await?
-        //     .error_for_status()
-        //     .context(format!("Unable to get anime page"))?;
+        let episode = fragment
+            .select(&a)
+            .next()
+            .and_then(|a| a.value().attr("href"))
+            .expect("ERR episode page");
 
-        // let soup = Soup::new(&response.text().await?);
-        // let episode = soup
-        //     .tag("a")
-        //     .attr("class", "bottone-ep")
-        //     .find()
-        //     .map(|a| a.get("href").expect("ERR episode page"))
-        //     .expect("ERR anime page");
+        let response = client
+            .get(episode)
+            .send()
+            .await?
+            .error_for_status()
+            .context(format!("Unable to get second anime page"))?;
 
-        // let response = client
-        //     .get(&episode)
-        //     .send()
-        //     .await?
-        //     .error_for_status()
-        //     .context(format!("Unable to get second anime page"))?;
+        let fragment = Html::parse_fragment(&response.text().await?);
+        let div = Selector::parse("div.card-body").expect("ERR search page");
+        let a = Selector::parse("a").expect("ERR search page");
 
-        // let soup = Soup::new(&response.text().await?);
-        // let episode = soup
-        //     .tag("div")
-        //     .attr("class", "card-body")
-        //     .find()
-        //     .expect("ERR episode page");
+        let episode = fragment
+            .select(&div)
+            .next()
+            .unwrap()
+            .select(&a)
+            .next()
+            .and_then(|a| a.value().attr("href"))
+            .expect("ERR episode page");
 
-        // let soup = Soup::new(&episode.display());
-        // let episode = soup
-        //     .tag("a")
-        //     .find()
-        //     .map(|a| a.get("href").expect("ERR episode page"))
-        //     .expect("ERR episode page");
+        let response = client
+            .get(episode)
+            .send()
+            .await?
+            .error_for_status()
+            .context(format!("Unable to get cinema page"))?;
 
-        // let response = client
-        //     .get(&episode)
-        //     .send()
-        //     .await?
-        //     .error_for_status()
-        //     .context(format!("Unable to get cinema page"))?;
+        let fragment = Html::parse_fragment(&response.text().await?);
+        let source = Selector::parse(r#"source[type="video/mp4"]"#).expect("ERR search page");
 
-        // let soup = Soup::new(&response.text().await?);
-        // let url = soup
-        //     .tag("source")
-        //     .attr("type", "video/mp4")
-        //     .find()
-        //     .map(|source| source.get("src").expect("ERR episode page"))
-        //     .expect("ERR episode page");
+        let url = fragment
+            .select(&source)
+            .next()
+            .and_then(|s| s.value().attr("src"))
+            .expect("ERR episode page");
 
-        // Ok(url.to_string())
+        Ok(url.to_string())
     }
 }
