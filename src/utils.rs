@@ -3,6 +3,8 @@ use colored::Colorize;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use regex::Regex;
 
+use std::io::prelude::*;
+
 pub const REGEX_VALUE: &str = "_{}";
 
 pub struct RegInfo {
@@ -70,26 +72,26 @@ pub fn instance_bar(style: &ProgressStyle) -> ProgressBar {
     pb
 }
 
-// pub fn prompt_choices(choices: Vec<_>) -> Result<String> {
-//     Ok(match choices.len() {
-//         0 => bail!("No match found"),
-//         1 => choices[0].get("href").expect("ERR search page"),
-//         _ => {
-//             println!("There are {} match found", choices.len(),);
-//             for i in 0..choices.len() {
-//                 println!("[{}] {}", i + 1, &choices[i].text());
-//             }
-//             print!("\nEnter a number [default=1]: ");
-//             std::io::stdout().flush()?;
+pub fn prompt_choices(choices: Vec<(&str, String)>) -> Result<String> {
+    Ok(match choices.len() {
+        0 => bail!("No match found"),
+        1 => choices[0].0.to_string(),
+        _ => {
+            println!("Found {} matches", choices.len());
+            for i in 0..choices.len() {
+                println!("[{}] {}", i + 1, choices[i].1);
+            }
+            print!("\nEnter a number [default=1]: ");
+            std::io::stdout().flush()?;
 
-//             let mut line = String::new();
-//             std::io::stdin().read_line(&mut line)?;
-//             let value: usize = line.trim().parse().unwrap_or(1);
+            let mut line = String::new();
+            std::io::stdin().read_line(&mut line)?;
+            let value: usize = line.trim().parse().unwrap_or(1);
 
-//             choices[value - 1].get("href").expect("ERR search page")
-//         }
-//     })
-// }
+            choices[value - 1].0.to_string()
+        }
+    })
+}
 
 pub fn format_err(s: anyhow::Error) -> colored::ColoredString {
     format!("[ERROR] {}", s).red()

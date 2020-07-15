@@ -5,10 +5,9 @@ use anyhow::{bail, Context, Result};
 use indicatif::ProgressBar;
 use reqwest::header::{CONTENT_LENGTH, RANGE};
 use reqwest::{Client, Url};
-use soup::prelude::*;
+use scraper::{Html, Selector};
 use tokio::{fs, io::AsyncWriteExt};
 
-use std::io::prelude::*;
 use std::path::PathBuf;
 
 pub struct Anime {
@@ -257,43 +256,30 @@ impl Scraper {
             .error_for_status()
             .context(format!("Unable to get search query"))?;
 
-        let soup = Soup::new(&response.text().await?)
-            .tag("div")
-            .attr("class", "film-list")
-            .find()
-            .expect("ERR search page");
+        let fragment = Html::parse_fragment(&response.text().await?);
+        let div = Selector::parse("div.film-list").expect("ERR search page");
+        let a = Selector::parse("a.name").expect("ERR search page");
 
-        let results = Soup::new(&soup.display())
-            .tag("a")
-            .attr("class", "name")
-            .find_all()
+        let results = fragment
+            .select(&div)
+            .next()
+            .unwrap()
+            .select(&a)
+            .into_iter()
+            .map(|a| {
+                (
+                    a.value().attr("href").expect("ERR search page"),
+                    a.first_child()
+                        .expect("ERR search page")
+                        .value()
+                        .as_text()
+                        .expect("ERR search page")
+                        .to_string(),
+                )
+            })
             .collect::<Vec<_>>();
 
-        // TODO: Make it modular
-        let choice = match results.len() {
-            0 => bail!("No match found"),
-            1 => results[0].get("href").expect("ERR search page"),
-            _ => {
-                println!(
-                    "There are {} results for `{}`",
-                    results.len(),
-                    query.replace("+", " ")
-                );
-                for i in 0..results.len() {
-                    println!("[{}] {}", i + 1, &results[i].text());
-                }
-                print!("\nEnter a number [default=1]: ");
-                std::io::stdout().flush()?;
-
-                let mut line = String::new();
-                std::io::stdin().read_line(&mut line)?;
-                let value: usize = line.trim().parse().unwrap_or(1);
-
-                results[value - 1].get("href").expect("ERR search page")
-            }
-        };
-
-        // let choice = prompt_choices(results)?;
+        let choice = prompt_choices(results)?;
 
         let response = client
             .get(&choice)
@@ -302,12 +288,12 @@ impl Scraper {
             .error_for_status()
             .context(format!("Unable to get anime page"))?;
 
-        let soup = Soup::new(&response.text().await?);
-        let downloads = soup
-            .tag("a")
-            .attr("id", "downloadLink")
-            .find_all()
-            .map(|a| a.get("href").expect("ERR anime page"))
+        let fragment = Html::parse_fragment(&response.text().await?);
+        let a = Selector::parse(r#"a[id="downloadLink"]"#).expect("ERR dw page");
+        let downloads = fragment
+            .select(&a)
+            .into_iter()
+            .map(|a| a.value().attr("href").expect("ERR dw page"))
             .collect::<Vec<_>>();
 
         let url = match downloads.last() {
@@ -324,92 +310,94 @@ impl Scraper {
         let search_url = format!("{}{}", source, query);
 
         let client = Client::new();
-        let response = client
+        let _response = client
             .get(&search_url)
             .send()
             .await?
             .error_for_status()
             .context(format!("Unable to get search query"))?;
 
-        let results = Soup::new(&response.text().await?)
-            .tag("a")
-            .attr("class", "badge-archivio")
-            .find_all()
-            .collect::<Vec<_>>();
+        todo!();
 
-        // TODO: Make it modular
-        let choice = if results.len() > 1 {
-            println!(
-                "There are {} results for `{}`",
-                results.len(),
-                query.replace("+", " ")
-            );
-            for i in 0..results.len() {
-                println!("[{}] {}", i + 1, &results[i].text());
-            }
-            print!("\nEnter a number [default=1]: ");
-            std::io::stdout().flush()?;
+        // let results = Soup::new(&response.text().await?)
+        //     .tag("a")
+        //     .attr("class", "badge-archivio")
+        //     .find_all()
+        //     .collect::<Vec<_>>();
 
-            let mut line = String::new();
-            std::io::stdin().read_line(&mut line)?;
-            let value: usize = line.trim().parse().unwrap_or(1);
+        // // TODO: Make it modular
+        // let choice = if results.len() > 1 {
+        //     println!(
+        //         "There are {} results for `{}`",
+        //         results.len(),
+        //         query.replace("+", " ")
+        //     );
+        //     for i in 0..results.len() {
+        //         println!("[{}] {}", i + 1, &results[i].text());
+        //     }
+        //     print!("\nEnter a number [default=1]: ");
+        //     std::io::stdout().flush()?;
 
-            results[value - 1].get("href").expect("ERR search page")
-        } else {
-            results[0].get("href").expect("ERR search page")
-        };
+        //     let mut line = String::new();
+        //     std::io::stdin().read_line(&mut line)?;
+        //     let value: usize = line.trim().parse().unwrap_or(1);
 
-        let response = client
-            .get(&choice)
-            .send()
-            .await?
-            .error_for_status()
-            .context(format!("Unable to get anime page"))?;
+        //     results[value - 1].get("href").expect("ERR search page")
+        // } else {
+        //     results[0].get("href").expect("ERR search page")
+        // };
 
-        let soup = Soup::new(&response.text().await?);
-        let episode = soup
-            .tag("a")
-            .attr("class", "bottone-ep")
-            .find()
-            .map(|a| a.get("href").expect("ERR episode page"))
-            .expect("ERR anime page");
+        // let response = client
+        //     .get(&choice)
+        //     .send()
+        //     .await?
+        //     .error_for_status()
+        //     .context(format!("Unable to get anime page"))?;
 
-        let response = client
-            .get(&episode)
-            .send()
-            .await?
-            .error_for_status()
-            .context(format!("Unable to get second anime page"))?;
+        // let soup = Soup::new(&response.text().await?);
+        // let episode = soup
+        //     .tag("a")
+        //     .attr("class", "bottone-ep")
+        //     .find()
+        //     .map(|a| a.get("href").expect("ERR episode page"))
+        //     .expect("ERR anime page");
 
-        let soup = Soup::new(&response.text().await?);
-        let episode = soup
-            .tag("div")
-            .attr("class", "card-body")
-            .find()
-            .expect("ERR episode page");
+        // let response = client
+        //     .get(&episode)
+        //     .send()
+        //     .await?
+        //     .error_for_status()
+        //     .context(format!("Unable to get second anime page"))?;
 
-        let soup = Soup::new(&episode.display());
-        let episode = soup
-            .tag("a")
-            .find()
-            .map(|a| a.get("href").expect("ERR episode page"))
-            .expect("ERR episode page");
+        // let soup = Soup::new(&response.text().await?);
+        // let episode = soup
+        //     .tag("div")
+        //     .attr("class", "card-body")
+        //     .find()
+        //     .expect("ERR episode page");
 
-        let response = client
-            .get(&episode)
-            .send()
-            .await?
-            .error_for_status()
-            .context(format!("Unable to get cinema page"))?;
+        // let soup = Soup::new(&episode.display());
+        // let episode = soup
+        //     .tag("a")
+        //     .find()
+        //     .map(|a| a.get("href").expect("ERR episode page"))
+        //     .expect("ERR episode page");
 
-        let soup = Soup::new(&response.text().await?);
-        let url = soup
-            .tag("source")
-            .attr("type", "video/mp4")
-            .find()
-            .map(|source| source.get("src").expect("ERR episode page"))
-            .expect("ERR episode page");
+        // let response = client
+        //     .get(&episode)
+        //     .send()
+        //     .await?
+        //     .error_for_status()
+        //     .context(format!("Unable to get cinema page"))?;
 
-        Ok(url.to_string())
+        // let soup = Soup::new(&response.text().await?);
+        // let url = soup
+        //     .tag("source")
+        //     .attr("type", "video/mp4")
+        //     .find()
+        //     .map(|source| source.get("src").expect("ERR episode page"))
+        //     .expect("ERR episode page");
+
+        // Ok(url.to_string())
     }
 }
