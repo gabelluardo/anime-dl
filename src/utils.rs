@@ -112,3 +112,23 @@ macro_rules! unwrap_err {
         }
     };
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_extract_info() -> Result<()> {
+        let url = "http://www.domain.tld/sub/anotherSub/AnimeName/AnimeName_Ep_15_SUB_ITA.mp4";
+        let res: RegInfo = extract_info(url)?;
+
+        assert_eq!(res.name, "Anime Name");
+        assert_eq!(res.num, 15);
+        assert_eq!(
+            res.raw,
+            "http://www.domain.tld/sub/anotherSub/AnimeName/AnimeName_Ep_{}_SUB_ITA.mp4"
+        );
+
+        Ok(())
+    }
+}
