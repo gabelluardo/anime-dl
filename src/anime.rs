@@ -87,6 +87,11 @@ impl Anime {
             episodes.push(url.to_string())
         }
 
+        match episodes.len() {
+            0 => bail!("Unable to download"),
+            _ => (),
+        }
+
         // TODO: add ability to find different version (es. _v2_, _v000_, ecc)
         // error.retain(|&x| x < last);
         // if error.len() > 0 {
@@ -125,7 +130,9 @@ impl Anime {
             .get(url)
             .header(RANGE, format!("bytes={}-", file.size))
             .send()
-            .await?;
+            .await?
+            .error_for_status()
+            .context(format!("Unable get data from source"))?;
 
         while let Some(chunk) = source.chunk().await? {
             dest.write_all(&chunk).await?;
@@ -302,7 +309,7 @@ impl Scraper {
         Ok(url.to_string())
     }
 
-    // NOTE: doesn't work for now due permission error for the resource
+    // NOTE: sometimes doesn't work due permission errors
     async fn animesaturn(query: &str) -> Result<String> {
         let source = "https://www.animesaturn.com/animelist?search=";
         let search_url = format!("{}{}", source, query);
