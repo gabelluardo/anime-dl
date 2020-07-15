@@ -1,6 +1,5 @@
 use structopt::clap::arg_enum;
 use structopt::StructOpt;
-use anyhow::{Result};
 
 use std::path::PathBuf;
 

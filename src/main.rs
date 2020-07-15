@@ -5,7 +5,7 @@ mod anime;
 mod cli;
 
 use crate::anime::{Anime, Scraper};
-use crate::cli::{Cli, Site};
+use crate::cli::Cli;
 use crate::utils::*;
 
 use futures::future::join_all;
@@ -22,13 +22,9 @@ async fn main() {
 
     // Scrape form archive and find correct url
     let anime_urls = match args.search {
-        Some(Site::AW) => {
+        Some(site) => {
             let query = args.urls.join("+");
-            vec![unwrap_err!(Scraper::new(Site::AW, query).run().await)]
-        }
-        Some(Site::AS) => {
-            let query = args.urls.join("+");
-            vec![unwrap_err!(Scraper::new(Site::AS, query).run().await)]
+            vec![unwrap_err!(Scraper::new(site, query).run().await)]
         }
         _ => args.urls,
     };
@@ -66,8 +62,8 @@ async fn main() {
         let urls = unwrap_err!(anime.url_episodes().await);
         for url in urls {
             let pb = instance_bar(&style);
-
             let opts = (anime.path(), args.force, multi_bars.add(pb));
+
             pool.push(tokio::spawn(async move {
                 unwrap_err!(Anime::download(url, opts).await)
             }));

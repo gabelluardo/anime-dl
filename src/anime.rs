@@ -312,7 +312,7 @@ impl Scraper {
 
         let url = match downloads.last() {
             Some(u) => u,
-            _ => "",
+            _ => bail!("Unable to download this"),
         };
 
         Ok(url.to_string())
