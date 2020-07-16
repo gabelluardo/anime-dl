@@ -73,12 +73,26 @@ pub fn prompt_choices(choices: Vec<(&str, String)>) -> Result<Vec<String>> {
         0 => bail!("No match found"),
         1 => vec![choices[0].0.to_string()],
         _ => {
-            println!("Found {} matches", choices.len());
+            println!(
+                "{}",
+                format!("Found {} matches\n", choices.len())
+                    .bright_cyan()
+                    .bold()
+            );
             for i in 0..choices.len() {
-                println!("[{}] {}", i + 1, choices[i].1);
+                println!(
+                    "[{}] {}",
+                    format!("{}", i + 1).bright_purple(),
+                    format!("{}", choices[i].1).bright_green()
+                );
             }
 
-            print!("\n:: Choices [default=1]: ");
+            print!(
+                "\n{} {}\n{}",
+                format!("==>").bright_red(),
+                format!("Series to download (eg: 1 2 3 or 1,2,3) [default=1]").bold(),
+                format!("==> ").bright_red()
+            );
             std::io::stdout().flush()?;
 
             let mut line = String::new();
