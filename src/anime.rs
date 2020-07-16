@@ -216,7 +216,7 @@ impl WebSource {
             .error_for_status()
             .context(format!("Unable to download `{}`", name))?;
 
-        let size: u64 = response
+        let size = response
             .headers()
             .get(CONTENT_LENGTH)
             .and_then(|ct_len| ct_len.to_str().ok())

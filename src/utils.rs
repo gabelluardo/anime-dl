@@ -17,11 +17,11 @@ pub fn extract_info(string: &str) -> Result<RegInfo> {
     let reg_num = find_first_match(string, r"_\d{2,}")?;
     let reg_name = find_first_match(string, r"\w+[^/]\w+_")?;
 
-    let res: Vec<&str> = reg_name.split("_").collect();
+    let res = reg_name.split("_").collect::<Vec<_>>();
     let name = to_title_case(res[0]);
 
     let raw = string.replace(reg_num.as_str(), REGEX_VALUE);
-    let num: u32 = reg_num.replace("_", "").parse()?;
+    let num = reg_num.replace("_", "").parse()?;
 
     Ok(RegInfo { name, raw, num })
 }
@@ -82,7 +82,7 @@ pub fn prompt_choices(choices: Vec<(&str, String)>) -> Result<String> {
 
             let mut line = String::new();
             std::io::stdin().read_line(&mut line)?;
-            let value: usize = line.trim().parse().unwrap_or(1);
+            let value = line.trim().parse().unwrap_or(1) as usize;
 
             choices[value - 1].0.to_string()
         }

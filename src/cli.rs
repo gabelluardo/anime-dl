@@ -45,7 +45,7 @@ pub struct Cli {
     #[structopt(required = true)]
     pub urls: Vec<String>,
 
-    /// Path folder where save files
+    /// Root folders where save files
     #[structopt(default_value = ".", short, long)]
     pub dir: Vec<PathBuf>,
 
@@ -53,15 +53,15 @@ pub struct Cli {
     #[structopt(short, long)]
     pub range: Option<Range>,
 
-    /// [WIP] Max number of concurrent downloads
-    #[structopt(default_value = "32", short = "M", long)]
-    pub max_threads: usize,
+    // /// [WIP] Max number of concurrent downloads
+    // #[structopt(default_value = "32", short = "M", long)]
+    // pub max_threads: usize,
 
     /// Find automatically output folder name
     #[structopt(short = "a", long = "auto")]
     pub auto_dir: bool,
 
-    /// Find automatically last episode 
+    /// Find automatically last episode (override `-r <range>` option)
     #[structopt(short = "c", long = "continue")]
     pub auto_episode: bool,
 
