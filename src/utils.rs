@@ -26,10 +26,6 @@ pub fn extract_info(string: &str) -> Result<RegInfo> {
     Ok(RegInfo { name, raw, num })
 }
 
-pub fn fix_num_episode(num: u32) -> String {
-    format!("_{:02}", num)
-}
-
 pub fn find_first_match(url: &str, matcher: &str) -> Result<String> {
     let re = Regex::new(matcher)?;
     let cap = match re.captures_iter(&url).last() {
@@ -99,18 +95,6 @@ pub fn format_err(s: anyhow::Error) -> colored::ColoredString {
 
 pub fn _format_wrn(s: &str) -> colored::ColoredString {
     format!("[WARNING] {}", s).yellow()
-}
-
-macro_rules! unwrap_err {
-    ($x:expr) => {
-        match $x {
-            Ok(item) => item,
-            Err(err) => {
-                eprintln!("{}", $crate::utils::format_err(err));
-                return;
-            }
-        }
-    };
 }
 
 #[cfg(test)]

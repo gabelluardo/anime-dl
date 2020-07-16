@@ -1,8 +1,9 @@
 #[macro_use]
-mod utils;
+mod macros;
 
 mod anime;
 mod cli;
+mod utils;
 
 use crate::anime::{Anime, Scraper};
 use crate::cli::Cli;
@@ -20,11 +21,11 @@ async fn main() {
         _ => (1, 0),
     };
 
-    // Scrape form archive and find correct url
+    // Scrape from archive and find correct url
     let anime_urls = match args.search {
         Some(site) => {
             let query = args.urls.join("+");
-            vec![unwrap_err!(Scraper::new(site, query).run().await)]
+            vec![print_err!(Scraper::new(site, query).run().await)]
         }
         _ => args.urls,
     };
@@ -34,7 +35,7 @@ async fn main() {
         let pb = instance_bar(&style);
         let opts = (args.dir.last().unwrap().to_owned(), args.force, pb);
 
-        return unwrap_err!(Anime::download(anime_urls[0].clone(), opts).await);
+        return print_err!(Anime::download(anime_urls[0].clone(), opts).await);
     }
 
     // TODO: Limit max parallel tasks with `args.max_thread`
@@ -45,7 +46,7 @@ async fn main() {
 
         let path = if args.auto_dir {
             let mut path = default_path;
-            let info = unwrap_err!(extract_info(&url));
+            let info = print_err!(extract_info(&url));
 
             path.push(info.name);
             path.to_owned()
@@ -57,15 +58,15 @@ async fn main() {
         };
 
         let opts = (start, end, args.auto_episode);
-        let anime = unwrap_err!(Anime::new(url, path, opts));
+        let anime = print_err!(Anime::new(url, path, opts));
 
-        let urls = unwrap_err!(anime.url_episodes().await);
+        let urls = print_err!(anime.url_episodes().await);
         for url in urls {
             let pb = instance_bar(&style);
             let opts = (anime.path(), args.force, multi_bars.add(pb));
 
             pool.push(tokio::spawn(async move {
-                unwrap_err!(Anime::download(url, opts).await)
+                print_err!(Anime::download(url, opts).await)
             }));
         }
     }

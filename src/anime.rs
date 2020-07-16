@@ -54,8 +54,7 @@ impl Anime {
 
             // TODO: Improve performance of last episode research
             while !(last_err == last + 1) {
-                let num = fix_num_episode(counter);
-                let url = self.url.replace(REGEX_VALUE, &num);
+                let url = gen_url!(self.url, counter);
 
                 // println!("le={} l={} c={}", last_err, last, counter);
 
@@ -82,9 +81,7 @@ impl Anime {
 
         let mut episodes = vec![];
         for i in self.start..num_episodes + 1 {
-            let num = fix_num_episode(i);
-            let url = self.url.replace(REGEX_VALUE, &num);
-            episodes.push(url.to_string())
+            episodes.push(gen_url!(self.url, i))
         }
 
         match episodes.len() {
