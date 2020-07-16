@@ -41,7 +41,7 @@ pub fn find_first_match(url: &str, matcher: &str) -> Result<String> {
     Ok(res.to_string())
 }
 
-fn to_title_case(s: &str) -> String {
+pub fn to_title_case(s: &str) -> String {
     let mut res = String::new();
 
     for c in s.chars() {

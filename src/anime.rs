@@ -49,7 +49,7 @@ impl Anime {
             // let mut error: Vec<u32> = vec![];
             // let mut error_counter: u32 = 0;
             let mut last_err: u32 = 0;
-            let mut counter: u32 = self.start;
+            let mut counter: u32 = 1;
             let mut last: u32 = 0;
 
             // TODO: Improve performance of last episode research
@@ -116,10 +116,10 @@ impl Anime {
             bail!("{} already exists", &filename);
         }
 
-        let mut dest = file.open().await?;
-
-        let info = extract_info(&filename)?;
-        let msg = format!("Ep. {:02} {}", info.num, info.name);
+        let msg = match extract_info(&filename) {
+            Ok(info) => format!("Ep. {:02} {}", info.num, info.name),
+            _ => to_title_case(&filename),
+        };
 
         pb.set_position(file.size);
         pb.set_length(source.size);
@@ -134,6 +134,7 @@ impl Anime {
             .error_for_status()
             .context(format!("Unable get data from source"))?;
 
+        let mut dest = file.open().await?;
         while let Some(chunk) = source.chunk().await? {
             dest.write_all(&chunk).await?;
             pb.inc(chunk.len() as u64);
@@ -366,7 +367,7 @@ impl Scraper {
         let url = match results {
             Some(u) => match self.client.get(u).send().await?.error_for_status() {
                 Ok(_) => u.to_string(),
-                Err(_) => self.as_change_server(&fragment).await?,
+                _ => self.as_change_server(&fragment).await?,
             },
             _ => self.as_change_server(&fragment).await?,
         };
