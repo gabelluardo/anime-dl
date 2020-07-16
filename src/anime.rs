@@ -89,7 +89,7 @@ impl Anime {
             _ => (),
         }
 
-        // TODO: add ability to find different version (es. _v2_, _v000_, ecc)
+        // NOTE: add ability to find different version (es. _v2_, _v000_, ecc)
         // error.retain(|&x| x < last);
         // if error.len() > 0 {
         //     format_wrn(&format!(
@@ -242,7 +242,7 @@ impl Scraper {
         }
     }
 
-    pub async fn run(&self) -> Result<String> {
+    pub async fn run(&self) -> Result<Vec<String>> {
         // Concat string if is passed with "" in shell
         let query = self.query.replace(" ", "+");
 
@@ -252,7 +252,7 @@ impl Scraper {
         }
     }
 
-    async fn animeworld(&self, query: &str) -> Result<String> {
+    async fn animeworld(&self, query: &str) -> Result<Vec<String>> {
         let source = "https://www.animeworld.tv/search?keyword=";
         let search_url = format!("{}{}", source, query);
 
@@ -281,28 +281,32 @@ impl Scraper {
                 .collect::<Vec<_>>()
         };
 
-        let choice = prompt_choices(results)?;
+        let choices = prompt_choices(results)?;
 
-        let fragment = self.parse(&choice).await?;
-        let results = {
-            let a = Selector::parse(r#"a[id="downloadLink"]"#).expect("ERR dw page");
+        let mut urls = vec![];
+        for choice in choices.into_iter() {
+            let fragment = self.parse(&choice).await?;
+            let results = {
+                let a = Selector::parse(r#"a[id="downloadLink"]"#).expect("ERR dw page");
 
-            fragment
-                .select(&a)
-                .into_iter()
-                .map(|a| a.value().attr("href").expect("ERR dw page"))
-                .collect::<Vec<_>>()
-        };
+                fragment
+                    .select(&a)
+                    .into_iter()
+                    .map(|a| a.value().attr("href").expect("ERR dw page"))
+                    .collect::<Vec<_>>()
+            };
 
-        let url = match results.last() {
-            Some(u) => u.to_string(),
-            _ => bail!("Unable to download this"),
-        };
+            let url = match results.last() {
+                Some(u) => u.to_string(),
+                _ => bail!("Unable to download this"),
+            };
+            urls.push(url);
+        }
 
-        Ok(url)
+        Ok(urls)
     }
 
-    async fn animesaturn(&self, query: &str) -> Result<String> {
+    async fn animesaturn(&self, query: &str) -> Result<Vec<String>> {
         let source = "https://www.animesaturn.com/animelist?search=";
         let search_url = format!("{}{}", source, query);
 
@@ -325,51 +329,56 @@ impl Scraper {
                 .collect::<Vec<_>>()
         };
 
-        let choice = prompt_choices(results)?;
+        let choices = prompt_choices(results)?;
 
-        let fragment = self.parse(&choice).await?;
-        let results = {
-            let a = Selector::parse("a.bottone-ep").expect("ERR search page");
+        let mut urls = vec![];
+        for choice in choices {
+            let fragment = self.parse(&choice).await?;
+            let results = {
+                let a = Selector::parse("a.bottone-ep").expect("ERR search page");
 
-            fragment
-                .select(&a)
-                .next()
-                .and_then(|a| a.value().attr("href"))
-                .expect("ERR episode page")
-        };
+                fragment
+                    .select(&a)
+                    .next()
+                    .and_then(|a| a.value().attr("href"))
+                    .expect("ERR episode page")
+            };
 
-        let fragment = self.parse(&results).await?;
-        let results = {
-            let div = Selector::parse("div.card-body").expect("ERR search page");
-            let a = Selector::parse("a").expect("ERR search page");
+            let fragment = self.parse(&results).await?;
+            let results = {
+                let div = Selector::parse("div.card-body").expect("ERR search page");
+                let a = Selector::parse("a").expect("ERR search page");
 
-            fragment
-                .select(&div)
-                .next()
-                .and_then(|div| div.select(&a).next())
-                .and_then(|a| a.value().attr("href"))
-                .expect("ERR second anime page")
-        };
+                fragment
+                    .select(&div)
+                    .next()
+                    .and_then(|div| div.select(&a).next())
+                    .and_then(|a| a.value().attr("href"))
+                    .expect("ERR second anime page")
+            };
 
-        let fragment = self.parse(&results).await?;
-        let results = {
-            let source = Selector::parse(r#"source[type="video/mp4"]"#).expect("ERR search page");
+            let fragment = self.parse(&results).await?;
+            let results = {
+                let source =
+                    Selector::parse(r#"source[type="video/mp4"]"#).expect("ERR search page");
 
-            fragment
-                .select(&source)
-                .next()
-                .and_then(|s| s.value().attr("src"))
-        };
+                fragment
+                    .select(&source)
+                    .next()
+                    .and_then(|s| s.value().attr("src"))
+            };
 
-        let url = match results {
-            Some(u) => match self.client.get(u).send().await?.error_for_status() {
-                Ok(_) => u.to_string(),
+            let url = match results {
+                Some(u) => match self.client.get(u).send().await?.error_for_status() {
+                    Ok(_) => u.to_string(),
+                    _ => self.as_change_server(&fragment).await?,
+                },
                 _ => self.as_change_server(&fragment).await?,
-            },
-            _ => self.as_change_server(&fragment).await?,
-        };
+            };
+            urls.push(url);
+        }
 
-        Ok(url)
+        Ok(urls)
     }
 
     async fn as_change_server(&self, fragment: &Html) -> Result<String> {
@@ -383,24 +392,19 @@ impl Scraper {
                 .and_then(|a| a.value().attr("href"))
                 .expect("ERR search page")
         };
-        let fragment = {
-            let response = self
-                .client
-                .get(results)
-                .send()
-                .await?
-                .error_for_status()
-                .context(format!("Unable to get cinema page"))?;
-            Html::parse_fragment(&response.text().await?)
-        };
-        let source = Selector::parse(r#"source[type="video/mp4"]"#).expect("ERR search page");
-        let url = fragment
-            .select(&source)
-            .next()
-            .and_then(|s| s.value().attr("src"))
-            .expect("ERR search page");
+        let fragment = self.parse(results).await?;
 
-        Ok(url.to_string())
+        let url = {
+            let source = Selector::parse(r#"source[type="video/mp4"]"#).expect("ERR search page");
+            fragment
+                .select(&source)
+                .next()
+                .and_then(|s| s.value().attr("src"))
+                .expect("ERR search page")
+                .to_string()
+        };
+
+        Ok(url)
     }
 
     async fn parse(&self, url: &str) -> Result<Html> {

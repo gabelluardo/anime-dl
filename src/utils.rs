@@ -68,23 +68,29 @@ pub fn instance_bar(style: &ProgressStyle) -> ProgressBar {
     pb
 }
 
-pub fn prompt_choices(choices: Vec<(&str, String)>) -> Result<String> {
+pub fn prompt_choices(choices: Vec<(&str, String)>) -> Result<Vec<String>> {
     Ok(match choices.len() {
         0 => bail!("No match found"),
-        1 => choices[0].0.to_string(),
+        1 => vec![choices[0].0.to_string()],
         _ => {
             println!("Found {} matches", choices.len());
             for i in 0..choices.len() {
                 println!("[{}] {}", i + 1, choices[i].1);
             }
-            print!("\nEnter a number [default=1]: ");
+
+            print!("\n:: Choices [default=1]: ");
             std::io::stdout().flush()?;
 
             let mut line = String::new();
             std::io::stdin().read_line(&mut line)?;
-            let value = line.trim().parse().unwrap_or(1) as usize;
 
-            choices[value - 1].0.to_string()
+            line.trim()
+                .replace(",", " ")
+                .split_ascii_whitespace()
+                .into_iter()
+                .map(|v| v.parse().unwrap_or(1) - 1 as usize)
+                .map(|i| choices[i].0.to_string())
+                .collect::<Vec<_>>()
         }
     })
 }

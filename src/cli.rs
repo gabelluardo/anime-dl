@@ -27,9 +27,9 @@ impl std::str::FromStr for Range {
     type Err = std::num::ParseIntError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let coords: Vec<&str> = s.trim_matches(|p| p == '(' || p == ')' )
+        let coords = s.trim_matches(|p| p == '(' || p == ')' )
                                  .split(',')
-                                 .collect();
+                                 .collect::<Vec<_>>();
 
         let start_fromstr = coords[0].parse::<u32>()?;
         let end_fromstr = coords[1].parse::<u32>()?;

@@ -25,7 +25,7 @@ async fn main() {
     let anime_urls = match args.search {
         Some(site) => {
             let query = args.urls.join("+");
-            vec![print_err!(Scraper::new(site, query).run().await)]
+            print_err!(Scraper::new(site, query).run().await)
         }
         _ => args.urls,
     };
