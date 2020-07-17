@@ -89,22 +89,32 @@ pub fn prompt_choices(choices: Vec<(&str, String)>) -> Result<Vec<String>> {
 
             print!(
                 "\n{} {}\n{}",
-                format!("==>").bright_red(),
-                format!("Series to download (eg: 1 2 3 or 1,2,3) [default=1]").bold(),
-                format!("==> ").bright_red()
+                format!("==>").bright_red().bold(),
+                format!("Series to download (eg: 1 2 3 or 1,2,3) [default=All]").bold(),
+                format!("==> ").bright_red().bold()
             );
             std::io::stdout().flush()?;
 
             let mut line = String::new();
             std::io::stdin().read_line(&mut line)?;
 
-            line.trim()
+            let res = line
+                .trim()
                 .replace(",", " ")
                 .split_ascii_whitespace()
                 .into_iter()
-                .map(|v| v.parse().unwrap_or(1) - 1 as usize)
-                .map(|i| choices[i].0.to_string())
-                .collect::<Vec<_>>()
+                .map(|v| v.parse().unwrap_or(1) as usize)
+                .filter(|i| i.gt(&0) && i.le(&choices.len()))
+                .map(|i| choices[i - 1].0.to_string())
+                .collect::<Vec<_>>();
+
+            match res.len() {
+                0 => choices
+                    .into_iter()
+                    .map(|c| c.0.to_string())
+                    .collect::<Vec<_>>(),
+                _ => res,
+            }
         }
     })
 }
