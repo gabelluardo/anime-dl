@@ -1,7 +1,7 @@
 [package]
 name = "anime-dl"
 edition = "2018"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.1"
 description = "Efficient cli app for downloading anime"
 readme = "README.md"
 authors = ["Gabriele Belluardo <gabriele.belluardo@outlook.it>"]
@@ -27,7 +27,6 @@ structopt = "0.3.15"
 tokio = { version = "0.2.21", features = ["macros", "fs"] }
 
 [package.metadata.release]
-no-dev-version = true
 tag-name = "{{version}}"
 tag-message = "{{tag_name}}"
 pre-release-commit-message = "{{version}}"
