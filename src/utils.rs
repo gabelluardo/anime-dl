@@ -68,7 +68,7 @@ pub fn instance_bar(style: &ProgressStyle) -> ProgressBar {
     pb
 }
 
-pub fn prompt_choices(choices: Vec<(&str, String)>) -> Result<Vec<String>> {
+pub fn prompt_choices(choices: Vec<(&str, &str)>) -> Result<Vec<String>> {
     Ok(match choices.len() {
         0 => bail!("No match found"),
         1 => vec![choices[0].0.to_string()],
@@ -120,11 +120,11 @@ pub fn prompt_choices(choices: Vec<(&str, String)>) -> Result<Vec<String>> {
 }
 
 pub fn format_err(s: anyhow::Error) -> colored::ColoredString {
-    format!("[ERROR] {}", s).red()
+    format!("[ERR] {}", s).red()
 }
 
 pub fn _format_wrn(s: &str) -> colored::ColoredString {
-    format!("[WARNING] {}", s).yellow()
+    format!("[WRN] {}", s).yellow()
 }
 
 #[cfg(test)]

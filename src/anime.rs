@@ -256,12 +256,10 @@ impl Scraper {
         let source = "https://www.animeworld.tv/search?keyword=";
         let search_url = format!("{}{}", source, query);
 
-        // TODO: Better error handling
-
         let fragment = self.parse(&search_url).await?;
         let results = {
-            let div = Selector::parse("div.film-list").expect("ERR search page");
-            let a = Selector::parse("a.name").expect("ERR search page");
+            let div = Selector::parse("div.film-list").unwrap();
+            let a = Selector::parse("a.name").unwrap();
 
             fragment
                 .select(&div)
@@ -271,11 +269,10 @@ impl Scraper {
                 .into_iter()
                 .map(|a| {
                     (
-                        a.value().attr("href").expect("ERR search page"),
+                        a.value().attr("href").expect("No link found"),
                         a.first_child()
                             .and_then(|a| a.value().as_text())
-                            .expect("ERR search page")
-                            .to_string(),
+                            .expect("No name found") as &str,
                     )
                 })
                 .collect::<Vec<_>>()
@@ -284,21 +281,21 @@ impl Scraper {
         let choices = prompt_choices(results)?;
 
         let mut urls = vec![];
-        for choice in choices.into_iter() {
+        for choice in choices {
             let fragment = self.parse(&choice).await?;
             let results = {
-                let a = Selector::parse(r#"a[id="downloadLink"]"#).expect("ERR dw page");
+                let a = Selector::parse(r#"a[id="downloadLink"]"#).unwrap();
 
                 fragment
                     .select(&a)
                     .into_iter()
-                    .map(|a| a.value().attr("href").expect("ERR dw page"))
-                    .collect::<Vec<_>>()
+                    .last()
+                    .and_then(|a| a.value().attr("href"))
             };
 
-            let url = match results.last() {
+            let url = match results {
                 Some(u) => u.to_string(),
-                _ => bail!("Unable to download this"),
+                _ => bail!("No link found"),
             };
             urls.push(url);
         }
@@ -312,18 +309,17 @@ impl Scraper {
 
         let fragment = self.parse(&search_url).await?;
         let results = {
-            let a = Selector::parse("a.badge-archivio").expect("ERR search page");
+            let a = Selector::parse("a.badge-archivio").unwrap();
 
             fragment
                 .select(&a)
                 .into_iter()
                 .map(|a| {
                     (
-                        a.value().attr("href").expect("ERR search page"),
+                        a.value().attr("href").expect("No link found"),
                         a.first_child()
                             .and_then(|a| a.value().as_text())
-                            .expect("ERR search page")
-                            .to_string(),
+                            .expect("No name found") as &str,
                     )
                 })
                 .collect::<Vec<_>>()
@@ -335,32 +331,31 @@ impl Scraper {
         for choice in choices {
             let fragment = self.parse(&choice).await?;
             let results = {
-                let a = Selector::parse("a.bottone-ep").expect("ERR search page");
+                let a = Selector::parse("a.bottone-ep").unwrap();
 
                 fragment
                     .select(&a)
                     .next()
                     .and_then(|a| a.value().attr("href"))
-                    .expect("ERR episode page")
+                    .expect("No link found")
             };
 
             let fragment = self.parse(&results).await?;
             let results = {
-                let div = Selector::parse("div.card-body").expect("ERR search page");
-                let a = Selector::parse("a").expect("ERR search page");
+                let div = Selector::parse("div.card-body").unwrap();
+                let a = Selector::parse("a").unwrap();
 
                 fragment
                     .select(&div)
                     .next()
                     .and_then(|div| div.select(&a).next())
                     .and_then(|a| a.value().attr("href"))
-                    .expect("ERR second anime page")
+                    .expect("No link found")
             };
 
             let fragment = self.parse(&results).await?;
             let results = {
-                let source =
-                    Selector::parse(r#"source[type="video/mp4"]"#).expect("ERR search page");
+                let source = Selector::parse(r#"source[type="video/mp4"]"#).unwrap();
 
                 fragment
                     .select(&source)
@@ -383,25 +378,32 @@ impl Scraper {
 
     async fn as_change_server(&self, fragment: &Html) -> Result<String> {
         let results = {
-            let div = Selector::parse("div.button").expect("ERR search page");
-            let a = Selector::parse("a").expect("ERR search page");
-            fragment
+            let div = Selector::parse("div.button").unwrap();
+            let a = Selector::parse("a").unwrap();
+            let opt = fragment
                 .select(&div)
                 .next()
                 .and_then(|div| div.select(&a).last())
-                .and_then(|a| a.value().attr("href"))
-                .expect("ERR search page")
+                .and_then(|a| a.value().attr("href"));
+
+            match opt {
+                Some(v) => v,
+                _ => bail!("No link found"),
+            }
         };
         let fragment = self.parse(results).await?;
 
         let url = {
-            let source = Selector::parse(r#"source[type="video/mp4"]"#).expect("ERR search page");
-            fragment
+            let source = Selector::parse(r#"source[type="video/mp4"]"#).unwrap();
+            let opt = fragment
                 .select(&source)
                 .next()
-                .and_then(|s| s.value().attr("src"))
-                .expect("ERR search page")
-                .to_string()
+                .and_then(|s| s.value().attr("src"));
+
+            match opt {
+                Some(v) => v.to_string(),
+                _ => bail!("No link found"),
+            }
         };
 
         Ok(url)

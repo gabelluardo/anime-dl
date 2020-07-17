@@ -2,10 +2,7 @@ macro_rules! print_err {
     ($x:expr) => {
         match $x {
             Ok(item) => item,
-            Err(err) => {
-                eprintln!("{}", $crate::utils::format_err(err));
-                return;
-            }
+            Err(err) => return eprintln!("{}", $crate::utils::format_err(err)),
         }
     };
 }
