@@ -40,20 +40,24 @@ async fn main() {
 
     // TODO: Limit max parallel tasks with `args.max_thread`
     let mut pool: Vec<tokio::task::JoinHandle<()>> = vec![];
-    for i in 0..anime_urls.len() {
-        let url = &anime_urls[i];
-        let default_path = args.dir.last().unwrap().to_owned();
+    for url in &anime_urls {
+        let mut dir = args.dir.last().unwrap().to_owned();
 
         let path = if args.auto_dir {
-            let mut path = default_path;
-            let info = print_err!(extract_info(&url));
+            let subfolder = print_err!(extract_info(&url));
 
-            path.push(info.name);
-            path.to_owned()
+            dir.push(subfolder.name);
+            dir
         } else {
-            match i >= args.dir.len() {
-                true => default_path,
-                _ => args.dir[i].to_owned(),
+            let pos = anime_urls
+                .iter()
+                .map(|u| u.as_str())
+                .position(|u| u == url)
+                .unwrap();
+
+            match args.dir.get(pos) {
+                Some(path) => path.to_owned(),
+                _ => dir,
             }
         };
 
