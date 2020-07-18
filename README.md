@@ -13,21 +13,10 @@ For latest release:
 cargo install anime-dl
 ```
 
-for master upstream:
+or for latest master commit:
 
 ```sh
 cargo install --git https://github.com/gabelluardo/anime-dl
-```
-
-
-or build the binary from source and install it in `.cargo/bin` folder:
-
-```sh
-git clone https://github.com/gabelluardo/anime-dl
-cd anime-dl
-
-cargo build --release
-cargo install --path .
 ```
 
 ### Usage
