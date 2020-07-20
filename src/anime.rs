@@ -3,6 +3,7 @@ use crate::utils::*;
 
 use anyhow::{bail, Context, Result};
 use indicatif::ProgressBar;
+use rand::prelude::*;
 use reqwest::header::{CONTENT_LENGTH, RANGE};
 use reqwest::{header, Client, Url};
 use scraper::{Html, Selector};
@@ -252,10 +253,14 @@ impl Scraper {
 
         headers.insert(header::TE, header::HeaderValue::from_static("trailers"));
         headers.insert(header::DNT, header::HeaderValue::from_static("1"));
-        headers.insert(
-            header::HOST,
-            header::HeaderValue::from_static("www.animeworld.tv"),
-        );
+        // headers.insert(
+        //     header::HOST,
+        //     header::HeaderValue::from_static("www.animeworld.tv"),
+        // );
+        // headers.insert(
+        //     header::REFERER,
+        //     header::HeaderValue::from_static("https://www.animeworld.tv"),
+        // );
         headers.insert(
             header::CONNECTION,
             header::HeaderValue::from_static("keep-alive"),
@@ -282,13 +287,20 @@ impl Scraper {
                 "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
             ),
         );
+        //// AW
+        // headers.insert(
+        //     header::COOKIE,
+        //     header::HeaderValue::from_static("web_theme=dark; __cfduid=d013bc3d137fb47332c8f0c0603df61d91594684030; KTVSecurity=1378214892dc2a5760acf1c555e7c6ed; XSRF-TOKEN=eyJpdiI6IjIweEJZSkI5WWdTVkMyNGVrZmlEQ1E9PSIsInZhbHVlIjoiNDBMY1g2VW5Gb0NSOWFGWFVoUkdMWFRHTWsrUnBPaEQxTVdmazFYbnR2d09qc3I3NnQ1QkJpZTVnVUE2RzZ2SCIsIm1hYyI6ImJkMThkOWIzM2JhOTgyNTM3YTE3YjIwOTdjYzg1NjU3ZjZjN2M3ZjBhYjQwOTVhNjhjZTI4MWZiY2Q1NWEyNmEifQ%3D%3D; animeworld_session=dK8I1tl4DRToKMFiG6whOtzugeHYYlEUnu3MYVH5")
+        // );
+
+        // AS
         headers.insert(
             header::COOKIE,
-            header::HeaderValue::from_static("web_theme=dark; __cfduid=d013bc3d137fb47332c8f0c0603df61d91594684030; KTVSecurity=1378214892dc2a5760acf1c555e7c6ed; XSRF-TOKEN=eyJpdiI6IjIweEJZSkI5WWdTVkMyNGVrZmlEQ1E9PSIsInZhbHVlIjoiNDBMY1g2VW5Gb0NSOWFGWFVoUkdMWFRHTWsrUnBPaEQxTVdmazFYbnR2d09qc3I3NnQ1QkJpZTVnVUE2RzZ2SCIsIm1hYyI6ImJkMThkOWIzM2JhOTgyNTM3YTE3YjIwOTdjYzg1NjU3ZjZjN2M3ZjBhYjQwOTVhNjhjZTI4MWZiY2Q1NWEyNmEifQ%3D%3D; animeworld_session=dK8I1tl4DRToKMFiG6whOtzugeHYYlEUnu3MYVH5")
+            header::HeaderValue::from_static("PHPSESSID=grvu196t4iqgfhnv89d0m1rnp4; __cfduid=d6f69039d797f43827b9b3552be485eab1594579212; ASCookie=b838291cce563a973d38cc88b07775e1"),
         );
 
         Client::builder()
-            // .user_agent("Mozilla/5.0 (X11; Linux x86_64; rv:78.0) Gecko/20100101 Firefox/78.0")
+            .user_agent("Mozilla/5.0 (X11; Linux x86_64; rv:70.0) Gecko/20100101 Firefox/70.0")
             .default_headers(headers)
             .build()
             .unwrap()
@@ -296,8 +308,6 @@ impl Scraper {
 
     async fn animeworld(&self, query: &str) -> Result<Vec<String>> {
         let client = Self::init_client();
-
-        println!("{:#?}", client);
 
         let source = "https://www.animeworld.tv/search?keyword=";
         let search_url = format!("{}{}", source, query);
@@ -310,7 +320,7 @@ impl Scraper {
             fragment
                 .select(&div)
                 .next()
-                .unwrap()
+                .expect("Request blocked, retry")
                 .select(&a)
                 .into_iter()
                 .map(|a| {
@@ -350,20 +360,7 @@ impl Scraper {
     }
 
     async fn animesaturn(&self, query: &str) -> Result<Vec<String>> {
-        // headers.insert(
-        //     header::ACCEPT,
-        //     header::HeaderValue::from_static("text/html"),
-        // );
-        // headers.insert(
-        //     header::COOKIE,
-        //     header::HeaderValue::from_static("PHPSESSID=grvu196t4iqgfhnv89d0m1rnp4; __cfduid=d6f69039d797f43827b9b3552be485eab1594579212; ASCookie=b838291cce563a973d38cc88b07775e1"),
-        // );
-
-        let client = Client::builder()
-            .user_agent("Mozilla/5.0 (X11; Linux x86_64; rv:78.0) Gecko/20100101 Firefox/78.0")
-            // .default_headers(headers)
-            .build()
-            .unwrap();
+        let client = Self::init_client();
 
         let source = "https://www.animesaturn.com/animelist?search=";
         let search_url = format!("{}{}", source, query);
@@ -472,7 +469,7 @@ impl Scraper {
     }
 
     async fn parse(url: &str, client: &Client) -> Result<Html> {
-        delay_for!(100);
+        delay_for!(thread_rng().gen_range(100, 400));
 
         let response = client
             .get(url)
