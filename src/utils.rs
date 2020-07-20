@@ -5,7 +5,15 @@ use regex::Regex;
 
 use std::io::prelude::*;
 
-pub const REGEX_VALUE: &str = "_{}";
+// KTVSecurity for AW and ASCookie for AS
+pub static COOKIE: &str = "KTVSecurity=1378214892dc2a5760acf1c555e7c6ed;\
+ASCookie=b838291cce563a973d38cc88b07775e1";
+pub static USER_AGENT: &str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_13_2) \
+AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.132 Safari/537.36";
+pub static ACCEPT: &str = "text/html,application/xhtml+xml,application/\
+xml;q=0.9,image/webp,*/*;q=0.8";
+
+pub static REGEX_VALUE: &str = "_{}";
 
 pub struct RegInfo {
     pub name: String,

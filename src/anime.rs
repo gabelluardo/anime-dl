@@ -4,7 +4,7 @@ use crate::utils::*;
 use anyhow::{bail, Context, Result};
 use indicatif::ProgressBar;
 use rand::prelude::*;
-use reqwest::header::{CONTENT_LENGTH, RANGE};
+use reqwest::header::{HeaderValue, CONTENT_LENGTH, RANGE};
 use reqwest::{header, Client, Url};
 use scraper::{Html, Selector};
 use tokio::{fs, io::AsyncWriteExt};
@@ -243,70 +243,27 @@ impl Scraper {
         let query = self.query.replace(" ", "+");
 
         match self.site {
-            Site::AW => self.animeworld(&query).await,
-            Site::AS => self.animesaturn(&query).await,
+            Site::AW => Self::animeworld(&query).await,
+            Site::AS => Self::animesaturn(&query).await,
         }
     }
 
     fn init_client() -> Client {
         let mut headers = header::HeaderMap::new();
 
-        headers.insert(header::TE, header::HeaderValue::from_static("trailers"));
-        headers.insert(header::DNT, header::HeaderValue::from_static("1"));
-        // headers.insert(
-        //     header::HOST,
-        //     header::HeaderValue::from_static("www.animeworld.tv"),
-        // );
-        // headers.insert(
-        //     header::REFERER,
-        //     header::HeaderValue::from_static("https://www.animeworld.tv"),
-        // );
-        headers.insert(
-            header::CONNECTION,
-            header::HeaderValue::from_static("keep-alive"),
-        );
-        headers.insert(
-            header::REFERRER_POLICY,
-            header::HeaderValue::from_static("unsafe-url"),
-        );
-        headers.insert(
-            header::UPGRADE_INSECURE_REQUESTS,
-            header::HeaderValue::from_static("1"),
-        );
-        headers.insert(
-            header::ACCEPT_LANGUAGE,
-            header::HeaderValue::from_static("it"),
-        );
-        headers.insert(
-            header::CACHE_CONTROL,
-            header::HeaderValue::from_static("max-age=0"),
-        );
-        headers.insert(
-            header::ACCEPT,
-            header::HeaderValue::from_static(
-                "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-            ),
-        );
-        //// AW
-        // headers.insert(
-        //     header::COOKIE,
-        //     header::HeaderValue::from_static("web_theme=dark; __cfduid=d013bc3d137fb47332c8f0c0603df61d91594684030; KTVSecurity=1378214892dc2a5760acf1c555e7c6ed; XSRF-TOKEN=eyJpdiI6IjIweEJZSkI5WWdTVkMyNGVrZmlEQ1E9PSIsInZhbHVlIjoiNDBMY1g2VW5Gb0NSOWFGWFVoUkdMWFRHTWsrUnBPaEQxTVdmazFYbnR2d09qc3I3NnQ1QkJpZTVnVUE2RzZ2SCIsIm1hYyI6ImJkMThkOWIzM2JhOTgyNTM3YTE3YjIwOTdjYzg1NjU3ZjZjN2M3ZjBhYjQwOTVhNjhjZTI4MWZiY2Q1NWEyNmEifQ%3D%3D; animeworld_session=dK8I1tl4DRToKMFiG6whOtzugeHYYlEUnu3MYVH5")
-        // );
-
-        // AS
-        headers.insert(
-            header::COOKIE,
-            header::HeaderValue::from_static("PHPSESSID=grvu196t4iqgfhnv89d0m1rnp4; __cfduid=d6f69039d797f43827b9b3552be485eab1594579212; ASCookie=b838291cce563a973d38cc88b07775e1"),
-        );
+        headers.insert(header::ACCEPT_LANGUAGE, HeaderValue::from_static("it"));
+        headers.insert(header::CONNECTION, HeaderValue::from_static("keep-alive"));
+        headers.insert(header::COOKIE, HeaderValue::from_static(COOKIE));
+        headers.insert(header::ACCEPT, HeaderValue::from_static(ACCEPT));
 
         Client::builder()
-            .user_agent("Mozilla/5.0 (X11; Linux x86_64; rv:70.0) Gecko/20100101 Firefox/70.0")
+            .user_agent(USER_AGENT)
             .default_headers(headers)
             .build()
             .unwrap()
     }
 
-    async fn animeworld(&self, query: &str) -> Result<Vec<String>> {
+    async fn animeworld(query: &str) -> Result<Vec<String>> {
         let client = Self::init_client();
 
         let source = "https://www.animeworld.tv/search?keyword=";
@@ -317,21 +274,21 @@ impl Scraper {
             let div = Selector::parse("div.film-list").unwrap();
             let a = Selector::parse("a.name").unwrap();
 
-            fragment
-                .select(&div)
-                .next()
-                .expect("Request blocked, retry")
-                .select(&a)
-                .into_iter()
-                .map(|a| {
-                    (
-                        a.value().attr("href").expect("No link found"),
-                        a.first_child()
-                            .and_then(|a| a.value().as_text())
-                            .expect("No name found") as &str,
-                    )
-                })
-                .collect::<Vec<_>>()
+            match fragment.select(&div).next() {
+                Some(e) => e
+                    .select(&a)
+                    .into_iter()
+                    .map(|a| {
+                        (
+                            a.value().attr("href").expect("No link found"),
+                            a.first_child()
+                                .and_then(|a| a.value().as_text())
+                                .expect("No name found") as &str,
+                        )
+                    })
+                    .collect::<Vec<_>>(),
+                _ => bail!("Request blocked, retry"),
+            }
         };
 
         let choices = prompt_choices(results)?;
@@ -359,7 +316,7 @@ impl Scraper {
         Ok(urls)
     }
 
-    async fn animesaturn(&self, query: &str) -> Result<Vec<String>> {
+    async fn animesaturn(query: &str) -> Result<Vec<String>> {
         let client = Self::init_client();
 
         let source = "https://www.animesaturn.com/animelist?search=";
@@ -367,20 +324,24 @@ impl Scraper {
 
         let fragment = Self::parse(&search_url, &client).await?;
         let results = {
+            let div = Selector::parse("div.info-archivio").unwrap();
             let a = Selector::parse("a.badge-archivio").unwrap();
 
-            fragment
-                .select(&a)
-                .into_iter()
-                .map(|a| {
-                    (
-                        a.value().attr("href").expect("No link found"),
-                        a.first_child()
-                            .and_then(|a| a.value().as_text())
-                            .expect("No name found") as &str,
-                    )
-                })
-                .collect::<Vec<_>>()
+            match fragment.select(&div).next() {
+                Some(_) => fragment
+                    .select(&a)
+                    .into_iter()
+                    .map(|a| {
+                        (
+                            a.value().attr("href").expect("No link found"),
+                            a.first_child()
+                                .and_then(|a| a.value().as_text())
+                                .expect("No name found") as &str,
+                        )
+                    })
+                    .collect::<Vec<_>>(),
+                _ => bail!("Request blocked, retry"),
+            }
         };
 
         let choices = prompt_choices(results)?;
@@ -425,9 +386,9 @@ impl Scraper {
             let url = match results {
                 Some(u) => match client.get(u).send().await?.error_for_status() {
                     Ok(_) => u.to_string(),
-                    _ => self.as_change_server(&fragment, &client).await?,
+                    _ => Self::as_change_server(&fragment, &client).await?,
                 },
-                _ => self.as_change_server(&fragment, &client).await?,
+                _ => Self::as_change_server(&fragment, &client).await?,
             };
             urls.push(url);
         }
@@ -435,7 +396,7 @@ impl Scraper {
         Ok(urls)
     }
 
-    async fn as_change_server(&self, fragment: &Html, client: &Client) -> Result<String> {
+    async fn as_change_server(fragment: &Html, client: &Client) -> Result<String> {
         let results = {
             let div = Selector::parse("div.button").unwrap();
             let a = Selector::parse("a").unwrap();
@@ -469,7 +430,7 @@ impl Scraper {
     }
 
     async fn parse(url: &str, client: &Client) -> Result<Html> {
-        delay_for!(thread_rng().gen_range(100, 400));
+        delay_for!(thread_rng().gen_range(300, 500));
 
         let response = client
             .get(url)
