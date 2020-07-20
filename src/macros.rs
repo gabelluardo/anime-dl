@@ -18,3 +18,9 @@ macro_rules! gen_url {
         $str.replace($crate::utils::REGEX_VALUE, &zfill!($num))
     };
 }
+
+macro_rules! delay_for {
+    ($time:tt) => {
+        tokio::time::delay_for(std::time::Duration::from_millis($time)).await;
+    };
+}
