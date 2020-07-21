@@ -38,18 +38,20 @@ pub fn find_first_match(url: &str, matcher: &str) -> Result<String> {
 }
 
 pub fn to_title_case(s: &str) -> String {
-    let mut res = String::new();
+    // NOTE: Enable it when no more unstable
+    // see issue #72360 <https://github.com/rust-lang/rust/issues/72360> for more information
+    // s.split_inclusive(char::is_uppercase).collect()
 
-    for c in s.chars() {
-        if c.is_ascii_alphanumeric() || c.eq_ignore_ascii_case(&'-') {
-            if c.is_ascii_uppercase() || c.is_numeric() {
-                res.push(' ');
-            }
-            res.push(c);
-        }
-    }
-
-    res.trim().to_string()
+    s.chars()
+        .into_iter()
+        .filter(|c| c.is_ascii_alphanumeric() || c.eq_ignore_ascii_case(&'-'))
+        .map(|c| match c.is_ascii_uppercase() || c.is_numeric() {
+            true => format!(" {}", c),
+            _ => c.to_string(),
+        })
+        .collect::<String>()
+        .trim()
+        .to_string()
 }
 
 pub fn instance_multi_bars() -> (MultiProgress, ProgressStyle) {
@@ -144,5 +146,12 @@ mod tests {
         );
 
         Ok(())
+    }
+
+    #[test]
+    fn test_to_title_case() {
+        let s = "StringaInTitleCase-con-delle-linee";
+
+        assert_eq!(to_title_case(s), "Stringa In Title Case-con-delle-linee")
     }
 }
