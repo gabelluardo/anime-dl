@@ -3,10 +3,12 @@ mod macros;
 
 mod anime;
 mod cli;
+mod scraper;
 mod utils;
 
-use crate::anime::{Anime, Scraper};
+use crate::anime::Anime;
 use crate::cli::Cli;
+use crate::scraper::Scraper;
 use crate::utils::*;
 
 use futures::future::join_all;
