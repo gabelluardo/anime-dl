@@ -6,8 +6,8 @@ use regex::Regex;
 use std::io::prelude::*;
 
 // KTVSecurity for AW and ASCookie for AS
-pub static COOKIE: &str = "KTVSecurity=1378214892dc2a5760acf1c555e7c6ed;\
-ASCookie=b838291cce563a973d38cc88b07775e1";
+pub static COOKIE: &str = "__cfduid=d6f69039d797f43827b9b3552be485eab1594579212;\
+KTVSecurity=1378214892dc2a5760acf1c555e7c6ed;ASCookie=f3d111632f3aeb7f9abcc66858cb8221;";
 pub static USER_AGENT: &str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_13_2) \
 AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.132 Safari/537.36";
 pub static ACCEPT: &str = "text/html,application/xhtml+xml,application/\

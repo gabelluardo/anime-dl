@@ -248,23 +248,46 @@ impl Scraper {
         }
     }
 
-    fn init_client() -> Client {
+    async fn init_client() -> Result<Client> {
+        let proxy = {
+            let response = reqwest::get(
+                "https://api.proxyscrape.com/\
+                    ?request=getproxies&proxytype=http\
+                    &timeout=2000&country=all&ssl=all&anonymity=elite",
+            )
+            .await?
+            .text()
+            .await?;
+
+            let proxies = response
+                .split_ascii_whitespace()
+                .into_iter()
+                .collect::<Vec<_>>();
+
+            format!(
+                "http://{}",
+                proxies[thread_rng().gen_range(0, proxies.len())]
+            )
+        };
+
         let mut headers = header::HeaderMap::new();
 
-        headers.insert(header::ACCEPT_LANGUAGE, HeaderValue::from_static("it"));
-        headers.insert(header::CONNECTION, HeaderValue::from_static("keep-alive"));
         headers.insert(header::COOKIE, HeaderValue::from_static(COOKIE));
         headers.insert(header::ACCEPT, HeaderValue::from_static(ACCEPT));
+        headers.insert(header::ACCEPT_LANGUAGE, HeaderValue::from_static("it"));
+        headers.insert(header::CONNECTION, HeaderValue::from_static("keep-alive"));
 
-        Client::builder()
+        Ok(Client::builder()
+            .referer(true)
             .user_agent(USER_AGENT)
             .default_headers(headers)
+            .proxy(reqwest::Proxy::http(&proxy)?)
             .build()
-            .unwrap()
+            .unwrap())
     }
 
     async fn animeworld(query: &str) -> Result<Vec<String>> {
-        let client = Self::init_client();
+        let client = Self::init_client().await?;
 
         let source = "https://www.animeworld.tv/search?keyword=";
         let search_url = format!("{}{}", source, query);
@@ -317,7 +340,7 @@ impl Scraper {
     }
 
     async fn animesaturn(query: &str) -> Result<Vec<String>> {
-        let client = Self::init_client();
+        let client = Self::init_client().await?;
 
         let source = "https://www.animesaturn.com/animelist?search=";
         let search_url = format!("{}{}", source, query);
@@ -430,7 +453,7 @@ impl Scraper {
     }
 
     async fn parse(url: &str, client: &Client) -> Result<Html> {
-        delay_for!(thread_rng().gen_range(300, 500));
+        delay_for!(thread_rng().gen_range(100, 400));
 
         let response = client
             .get(url)
