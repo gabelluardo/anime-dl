@@ -7,6 +7,7 @@ use indicatif::ProgressBar;
 use reqwest::header::{CONTENT_LENGTH, RANGE};
 use reqwest::{Client, Url};
 use scraper::{Html, Selector};
+use tokio::task;
 use tokio::{fs, io::AsyncWriteExt};
 
 use std::path::PathBuf;
@@ -57,7 +58,7 @@ impl Manager {
             pb,
         );
 
-        Self::download(anime_urls[0].clone(), opts).await?;
+        Self::download(&anime_urls[0], opts).await?;
         Ok(())
     }
 
@@ -66,7 +67,7 @@ impl Manager {
         let (start, end, anime_urls) = self.filter_args().await?;
 
         // TODO: Limit max parallel tasks with `args.max_thread`
-        let mut pool: Vec<tokio::task::JoinHandle<Result<()>>> = vec![];
+        let mut pool = vec![];
         for url in &anime_urls {
             let mut dir = self.args.dir.last().unwrap().to_owned();
 
@@ -90,17 +91,21 @@ impl Manager {
 
             let opts = (start, end, self.args.auto_episode);
             let anime = Anime::new(url, path, opts)?;
-
             let urls = anime.url_episodes().await?;
-            for url in urls {
-                let pb = instance_bar();
-                let opts = (anime.path(), self.args.force, multi_bars.add(pb));
 
-                pool.push(tokio::spawn(async { Self::download(url, opts).await }));
-            }
+            pool.extend(
+                urls.into_iter()
+                    .map(|u| {
+                        let pb = instance_bar();
+                        let opts = (anime.path(), self.args.force, multi_bars.add(pb));
+
+                        tokio::spawn(async move { Self::download(&u, opts).await })
+                    })
+                    .collect::<Vec<task::JoinHandle<Result<()>>>>(),
+            )
         }
 
-        let bars = tokio::task::spawn_blocking(move || multi_bars.join().unwrap());
+        let bars = task::spawn_blocking(move || multi_bars.join().unwrap());
 
         join_all(pool).await;
         bars.await.unwrap();
@@ -108,9 +113,8 @@ impl Manager {
         Ok(())
     }
 
-    pub async fn download(url: String, opts: (PathBuf, bool, ProgressBar)) -> Result<()> {
+    pub async fn download(url: &str, opts: (PathBuf, bool, ProgressBar)) -> Result<()> {
         let (root, overwrite, pb) = &opts;
-        let url = &url;
 
         let source = WebSource::new(url).await?;
         let filename = source.name;
@@ -150,11 +154,11 @@ impl Manager {
 }
 
 pub struct Anime {
+    auto: bool,
     end: u32,
     start: u32,
-    auto: bool,
-    url: String,
     path: PathBuf,
+    url: String,
 }
 
 impl Anime {
@@ -218,14 +222,13 @@ impl Anime {
             last
         };
 
-        let mut episodes = vec![];
-        for i in self.start..num_episodes + 1 {
-            episodes.push(gen_url!(self.url, i))
-        }
+        let episodes = (self.start..num_episodes + 1)
+            .into_iter()
+            .map(|i| gen_url!(self.url, i))
+            .collect::<Vec<_>>();
 
-        match episodes.len() {
-            0 => bail!("Unable to download"),
-            _ => (),
+        if episodes.is_empty() {
+            bail!("Unable to download")
         }
 
         // NOTE: add ability to find different version (es. _v2_, _v000_, ecc)
