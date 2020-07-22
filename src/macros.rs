@@ -4,7 +4,7 @@ macro_rules! print_err {
     ($x:expr) => {
         match $x {
             Ok(item) => item,
-            Err(err) => return eprintln!("{}", $crate::utils::format_err(err)),
+            Err(err) => return eprintln!("{}", crate::utils::format_err(err)),
         }
     };
 }
@@ -17,7 +17,7 @@ macro_rules! zfill {
 
 macro_rules! gen_url {
     ($str:expr, $num:expr) => {
-        $str.replace($crate::utils::REGEX_VALUE, &zfill!($num))
+        $str.replace(crate::utils::REGEX_VALUE, &zfill!($num))
     };
 }
 
@@ -26,7 +26,7 @@ macro_rules! delay_for {
         tokio::time::delay_for(std::time::Duration::from_millis($time)).await;
     };
 }
-  
+
 #[cfg(test)]
 mod tests {
 
@@ -39,6 +39,9 @@ mod tests {
     #[test]
     fn test_gen_url() {
         let url = "http://robe_{}_.tld";
-        assert_eq!(gen_url!(url, 14), "http://robe_14_.tld")
+
+        assert_eq!(gen_url!(url, 14), "http://robe_14_.tld");
+        assert_eq!(gen_url!(url, 1400), "http://robe_1400_.tld");
+        assert_eq!(gen_url!(url, 1), "http://robe_01_.tld");
     }
 }

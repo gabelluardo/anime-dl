@@ -87,3 +87,27 @@ impl Args {
         Self::from_args()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::str::FromStr;
+
+    #[test]
+    fn test_range(){
+        let range1 = Range{start:0,end:1};
+        let (start, end) = range1.extract();
+
+        assert_eq!(start, 0);
+        assert_eq!(end, 1);
+
+        let range2 = Range::from_str("(0,1)").unwrap();
+        let (start, end) = range2.extract();
+
+        assert_eq!(start, 0);
+        assert_eq!(end, 1);
+
+        assert_eq!(range1.extract(), range2.extract());
+
+    }
+}
