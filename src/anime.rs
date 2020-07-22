@@ -1,4 +1,5 @@
 use crate::cli::*;
+use crate::scraper::Scraper;
 use crate::utils::*;
 
 use anyhow::{bail, Context, Result};
@@ -6,7 +7,6 @@ use futures::future::join_all;
 use indicatif::ProgressBar;
 use reqwest::header::{CONTENT_LENGTH, RANGE};
 use reqwest::{Client, Url};
-use scraper::{Html, Selector};
 use tokio::task;
 use tokio::{fs, io::AsyncWriteExt};
 
@@ -63,15 +63,15 @@ impl Manager {
     }
 
     async fn multi(&self) -> Result<()> {
+        let args = &self.args;
         let multi_bars = instance_multi_bars();
         let (start, end, anime_urls) = self.filter_args().await?;
 
-        // TODO: Limit max parallel tasks with `args.max_thread`
         let mut pool = vec![];
         for url in &anime_urls {
-            let mut dir = self.args.dir.last().unwrap().to_owned();
+            let mut dir = args.dir.last().unwrap().to_owned();
 
-            let path = if self.args.auto_dir {
+            let path = if args.auto_dir {
                 let subfolder = extract_info(&url)?;
 
                 dir.push(subfolder.name);
@@ -83,13 +83,13 @@ impl Manager {
                     .position(|u| u == url)
                     .unwrap();
 
-                match self.args.dir.get(pos) {
+                match args.dir.get(pos) {
                     Some(path) => path.to_owned(),
                     _ => dir,
                 }
             };
 
-            let opts = (start, end, self.args.auto_episode);
+            let opts = (start, end, args.auto_episode);
             let anime = Anime::new(url, path, opts)?;
             let urls = anime.episodes().await?;
 
@@ -97,7 +97,7 @@ impl Manager {
                 urls.into_iter()
                     .map(|u| {
                         let pb = instance_bar();
-                        let opts = (anime.path(), self.args.force, multi_bars.add(pb));
+                        let opts = (anime.path(), args.force, multi_bars.add(pb));
 
                         tokio::spawn(async move { Self::download(&u, opts).await })
                     })
