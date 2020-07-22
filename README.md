@@ -56,6 +56,11 @@ For parsing urls from a file (es. `urls`):
 anime-dl [FLAGS] [OPTIONS] $(cat urls)
 ```
 
+### Known issue
+
+Sometimes scraper doesn't work due to sketchy workaround based on stored cookie values.  
+`--` separator is needed before urls when `-d <dir>...` is used, because structopt reads the urls as `-d` args
+
 ### License
 
 GPLv3
