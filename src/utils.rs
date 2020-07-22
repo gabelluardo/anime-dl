@@ -1,6 +1,6 @@
 use anyhow::{bail, Result};
 use colored::Colorize;
-use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
+use indicatif::*;
 use regex::Regex;
 
 use std::io::prelude::*;
@@ -54,19 +54,21 @@ pub fn to_title_case(s: &str) -> String {
         .to_string()
 }
 
-pub fn instance_multi_bars() -> (MultiProgress, ProgressStyle) {
+fn instance_style() -> ProgressStyle {
+    ProgressStyle::default_bar().template("{spinner:.green} [{elapsed}] [{bar:35.cyan/blue}] {bytes}/{total_bytes} ({eta}) {wide_msg}").progress_chars("#>-")
+}
+
+pub fn instance_multi_bars() -> MultiProgress {
     let multi = MultiProgress::new();
 
     // for flickering bar bug (https://github.com/mitsuhiko/indicatif/issues/143)
     multi.set_move_cursor(cfg!(windows));
-
-    (multi, ProgressStyle::default_bar().template("{spinner:.green} [{elapsed}] [{bar:35.cyan/blue}] {bytes}/{total_bytes} ({eta}) {wide_msg}").progress_chars("#>-"))
+    multi
 }
 
-pub fn instance_bar(style: &ProgressStyle) -> ProgressBar {
+pub fn instance_bar() -> ProgressBar {
     let pb = ProgressBar::new(0);
-    pb.set_style(style.clone());
-
+    pb.set_style(instance_style());
     pb
 }
 

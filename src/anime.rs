@@ -1,107 +1,120 @@
+use crate::cli::*;
 use crate::utils::*;
 
 use anyhow::{bail, Context, Result};
+use futures::future::join_all;
 use indicatif::ProgressBar;
 use reqwest::header::{CONTENT_LENGTH, RANGE};
 use reqwest::{Client, Url};
+use scraper::{Html, Selector};
+use tokio::task;
 use tokio::{fs, io::AsyncWriteExt};
 
 use std::path::PathBuf;
 
-pub struct Anime {
-    end: u32,
-    start: u32,
-    auto: bool,
-    url: String,
-    path: PathBuf,
+pub struct Manager {
+    args: Args,
 }
 
-impl Anime {
-    pub fn new(url: &str, path: PathBuf, opts: (u32, u32, bool)) -> Result<Self> {
-        let (start, end, auto) = opts;
-        let info = extract_info(&url)?;
+impl Manager {
+    pub fn new(args: Args) -> Self {
+        Self { args }
+    }
 
-        let end = match end {
-            0 => info.num,
-            _ => end,
+    pub async fn run(&self) -> Result<()> {
+        match self.args.single {
+            true => self.single().await,
+            _ => self.multi().await,
+        }
+    }
+
+    async fn filter_args(&self) -> Result<(u32, u32, Vec<String>)> {
+        let args = &self.args;
+
+        let (start, end) = match &args.range {
+            Some(range) => range.extract(),
+            _ => (1, 0),
         };
 
-        Ok(Self {
-            end,
-            path,
-            auto,
-            start,
-            url: info.raw,
-        })
-    }
-
-    pub fn path(&self) -> PathBuf {
-        self.path.clone()
-    }
-
-    pub async fn url_episodes(&self) -> Result<Vec<String>> {
-        let num_episodes = if !self.auto {
-            self.end
-        } else {
-            let client = Client::new();
-            // let mut error: Vec<u32> = vec![];
-            // let mut error_counter: u32 = 0;
-            let mut last_err: u32 = 0;
-            let mut counter: u32 = 1;
-            let mut last: u32 = 0;
-
-            // TODO: Improve performance of last episode research
-            while !(last_err == last + 1) {
-                let url = gen_url!(self.url, counter);
-
-                // println!("le={} l={} c={}", last_err, last, counter);
-
-                match client.head(&url).send().await?.error_for_status() {
-                    Err(_) => {
-                        last_err = counter;
-                        // error.push(counter);
-                        // error_counter += 1;
-                    }
-                    Ok(_) => {
-                        // episodes.push(url.to_string());
-                        last = counter;
-                        // error_counter = 0;
-                    }
-                }
-                if last_err == 0 {
-                    counter *= 2;
-                } else {
-                    counter = (last_err + last) / 2
-                }
+        // Scrape from archive and find correct url
+        let urls = match &args.search {
+            Some(site) => {
+                let query = args.urls.join("+");
+                Scraper::new(site.to_owned(), query).run().await?
             }
-            last
+            _ => args.urls.to_vec(),
         };
 
-        let mut episodes = vec![];
-        for i in self.start..num_episodes + 1 {
-            episodes.push(gen_url!(self.url, i))
-        }
-
-        match episodes.len() {
-            0 => bail!("Unable to download"),
-            _ => (),
-        }
-
-        // NOTE: add ability to find different version (es. _v2_, _v000_, ecc)
-        // error.retain(|&x| x < last);
-        // if error.len() > 0 {
-        //     format_wrn(&format!(
-        //         "Problems with ep. {:?}, download it manually",
-        //         error
-        //     ));
-        // }
-
-        Ok(episodes)
+        Ok((start, end, urls))
     }
 
-    pub async fn download(url: String, opts: (PathBuf, bool, ProgressBar)) -> Result<()> {
+    async fn single(&self) -> Result<()> {
+        let pb = instance_bar();
+        let (_, _, anime_urls) = self.filter_args().await?;
+
+        let opts = (
+            self.args.dir.last().unwrap().to_owned(),
+            self.args.force,
+            pb,
+        );
+
+        Self::download(&anime_urls[0], opts).await?;
+        Ok(())
+    }
+
+    async fn multi(&self) -> Result<()> {
+        let multi_bars = instance_multi_bars();
+        let (start, end, anime_urls) = self.filter_args().await?;
+
+        // TODO: Limit max parallel tasks with `args.max_thread`
+        let mut pool = vec![];
+        for url in &anime_urls {
+            let mut dir = self.args.dir.last().unwrap().to_owned();
+
+            let path = if self.args.auto_dir {
+                let subfolder = extract_info(&url)?;
+
+                dir.push(subfolder.name);
+                dir
+            } else {
+                let pos = anime_urls
+                    .iter()
+                    .map(|u| u.as_str())
+                    .position(|u| u == url)
+                    .unwrap();
+
+                match self.args.dir.get(pos) {
+                    Some(path) => path.to_owned(),
+                    _ => dir,
+                }
+            };
+
+            let opts = (start, end, self.args.auto_episode);
+            let anime = Anime::new(url, path, opts)?;
+            let urls = anime.episodes().await?;
+
+            pool.extend(
+                urls.into_iter()
+                    .map(|u| {
+                        let pb = instance_bar();
+                        let opts = (anime.path(), self.args.force, multi_bars.add(pb));
+
+                        tokio::spawn(async move { Self::download(&u, opts).await })
+                    })
+                    .collect::<Vec<task::JoinHandle<Result<()>>>>(),
+            )
+        }
+
+        let bars = task::spawn_blocking(move || multi_bars.join().unwrap());
+
+        join_all(pool).await;
+        bars.await.unwrap();
+
+        Ok(())
+    }
+
+    pub async fn download(url: &str, opts: (PathBuf, bool, ProgressBar)) -> Result<()> {
         let (root, overwrite, pb) = &opts;
-        let url = &url;
 
         let source = WebSource::new(url).await?;
         let filename = source.name;
@@ -137,6 +150,84 @@ impl Anime {
         pb.finish_with_message(&format!("{} 👍", msg));
 
         Ok(())
+    }
+}
+
+pub struct Anime {
+    auto: bool,
+    end: u32,
+    start: u32,
+    path: PathBuf,
+    url: String,
+}
+
+impl Anime {
+    pub fn new(url: &str, path: PathBuf, opts: (u32, u32, bool)) -> Result<Self> {
+        let (start, end, auto) = opts;
+        let info = extract_info(&url)?;
+
+        let end = match end {
+            0 => info.num,
+            _ => end,
+        };
+
+        Ok(Self {
+            end,
+            path,
+            auto,
+            start,
+            url: info.raw,
+        })
+    }
+
+    pub fn path(&self) -> PathBuf {
+        self.path.clone()
+    }
+
+    pub async fn episodes(&self) -> Result<Vec<String>> {
+        let num_episodes = if !self.auto {
+            self.end
+        } else {
+            let client = Client::new();
+            let mut err;
+            let mut last = 0;
+            let mut counter = 2;
+
+            // Last episode search is an O(2log n) algorithm:
+            // first loop finds a possible least upper bound [O(log2 n)]
+            // second loop finds the real upper bound with a binary search [O(log2 n)]
+            loop {
+                let url = gen_url!(self.url, counter);
+
+                err = counter;
+                match client.head(&url).send().await?.error_for_status() {
+                    Err(_) => break,
+                    _ => counter *= 2,
+                }
+            }
+
+            while !(err == last + 1) {
+                counter = (err + last) / 2;
+                let url = gen_url!(self.url, counter);
+
+                match client.head(&url).send().await?.error_for_status() {
+                    Ok(_) => last = counter,
+                    Err(_) => err = counter,
+                }
+            }
+            last
+        };
+
+        let episodes = (self.start..num_episodes + 1)
+            .into_iter()
+            .map(|i| gen_url!(self.url, i))
+            .collect::<Vec<_>>();
+
+        if episodes.is_empty() {
+            bail!("Unable to download")
+        }
+
+        Ok(episodes)
     }
 }
 
