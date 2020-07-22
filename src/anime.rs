@@ -91,7 +91,7 @@ impl Manager {
 
             let opts = (start, end, self.args.auto_episode);
             let anime = Anime::new(url, path, opts)?;
-            let urls = anime.url_episodes().await?;
+            let urls = anime.episodes().await?;
 
             pool.extend(
                 urls.into_iter()
@@ -184,39 +184,35 @@ impl Anime {
         self.path.clone()
     }
 
-    pub async fn url_episodes(&self) -> Result<Vec<String>> {
+    pub async fn episodes(&self) -> Result<Vec<String>> {
         let num_episodes = if !self.auto {
             self.end
         } else {
             let client = Client::new();
-            // let mut error: Vec<u32> = vec![];
-            // let mut error_counter: u32 = 0;
-            let mut last_err: u32 = 0;
-            let mut counter: u32 = 1;
-            let mut last: u32 = 0;
+            let mut err;
+            let mut last = 0;
+            let mut counter = 2;
 
-            // TODO: Improve performance of last episode research
-            while !(last_err == last + 1) {
+            // Last episode search is an O(2log n) algorithm:
+            // first loop finds a possible least upper bound [O(log2 n)]
+            // second loop finds the real upper bound with a binary search [O(log2 n)]
+            loop {
                 let url = gen_url!(self.url, counter);
 
-                // println!("le={} l={} c={}", last_err, last, counter);
+                err = counter;
+                match client.head(&url).send().await?.error_for_status() {
+                    Err(_) => break,
+                    _ => counter *= 2,
+                }
+            }
+
+            while !(err == last + 1) {
+                counter = (err + last) / 2;
+                let url = gen_url!(self.url, counter);
 
                 match client.head(&url).send().await?.error_for_status() {
-                    Err(_) => {
-                        last_err = counter;
-                        // error.push(counter);
-                        // error_counter += 1;
-                    }
-                    Ok(_) => {
-                        // episodes.push(url.to_string());
-                        last = counter;
-                        // error_counter = 0;
-                    }
-                }
-                if last_err == 0 {
-                    counter *= 2;
-                } else {
-                    counter = (last_err + last) / 2
+                    Ok(_) => last = counter,
+                    Err(_) => err = counter,
                 }
             }
             last
@@ -230,15 +226,6 @@ impl Anime {
         if episodes.is_empty() {
             bail!("Unable to download")
         }
-
-        // NOTE: add ability to find different version (es. _v2_, _v000_, ecc)
-        // error.retain(|&x| x < last);
-        // if error.len() > 0 {
-        //     format_wrn(&format!(
-        //         "Problems with ep. {:?}, download it manually",
-        //         error
-        //     ));
-        // }
 
         Ok(episodes)
     }
