@@ -4,7 +4,7 @@ use structopt::StructOpt;
 use std::path::PathBuf;
 
 arg_enum! {
-    #[derive(Debug)]
+    #[derive(Debug, Copy, Clone)]
     pub enum Site {
         AW,
         AS,
@@ -40,7 +40,7 @@ impl std::str::FromStr for Range {
 
 #[derive(Debug, StructOpt)]
 #[structopt(name = "anime-dl", about = "Efficient cli app for downloading anime")]
-pub struct Cli {
+pub struct Args {
     /// Source url
     #[structopt(required = true)]
     pub urls: Vec<String>,
@@ -82,7 +82,7 @@ pub struct Cli {
     pub search: Option<Site>,
 }
 
-impl Cli {
+impl Args {
     pub fn new() -> Self {
         Self::from_args()
     }
