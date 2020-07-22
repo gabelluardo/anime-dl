@@ -24,3 +24,19 @@ macro_rules! delay_for {
         tokio::time::delay_for(std::time::Duration::from_millis($time)).await;
     };
 }
+  
+#[cfg(test)]
+mod tests {
+
+    #[test]
+    fn test_zfill() {
+        assert_eq!(zfill!(200), "_200");
+        assert_eq!(zfill!(1), "_01");
+    }
+
+    #[test]
+    fn test_gen_url() {
+        let url = "http://robe_{}_.tld";
+        assert_eq!(gen_url!(url, 14), "http://robe_14_.tld")
+    }
+}
