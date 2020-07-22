@@ -1,3 +1,5 @@
+// DEPRECATED: since 1.0.0-rc.3
+#[allow(unused_macros)]
 macro_rules! print_err {
     ($x:expr) => {
         match $x {

@@ -1,5 +1,4 @@
-use crate::cli::Args;
-use crate::cli::Site;
+use crate::cli::*;
 use crate::utils::*;
 
 use anyhow::{bail, Context, Result};
@@ -97,7 +96,7 @@ impl Manager {
                 let pb = instance_bar();
                 let opts = (anime.path(), self.args.force, multi_bars.add(pb));
 
-                pool.push(tokio::spawn(async move { Self::download(url, opts).await }));
+                pool.push(tokio::spawn(async { Self::download(url, opts).await }));
             }
         }
 

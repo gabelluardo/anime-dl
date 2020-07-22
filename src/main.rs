@@ -10,5 +10,8 @@ use crate::cli::Args;
 
 #[tokio::main]
 async fn main() {
-    print_err!(Manager::new(Args::new()).run().await)
+    match Manager::new(Args::new()).run().await {
+        Ok(()) => (),
+        Err(e) => eprintln!("{}", utils::format_err(e)),
+    }
 }

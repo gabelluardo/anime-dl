@@ -1,6 +1,6 @@
 use anyhow::{bail, Result};
 use colored::Colorize;
-use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
+use indicatif::*;
 use regex::Regex;
 
 use std::io::prelude::*;
