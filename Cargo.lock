@@ -17,6 +17,7 @@ dependencies = [
  "colored",
  "futures",
  "indicatif",
+ "rand",
  "regex",
  "reqwest",
  "scraper",

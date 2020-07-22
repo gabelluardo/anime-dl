@@ -3,6 +3,7 @@ mod macros;
 
 mod anime;
 mod cli;
+mod scraper;
 mod utils;
 
 use crate::anime::Manager;
