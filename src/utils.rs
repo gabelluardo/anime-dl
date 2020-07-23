@@ -102,9 +102,10 @@ pub fn prompt_choices(choices: Vec<(&str, &str)>) -> Result<Vec<String>> {
             let mut line = String::new();
             std::io::stdin().read_line(&mut line)?;
 
-            let res = line
-                .trim()
-                .replace(",", " ")
+            let re = Regex::new(r"[^\d]").unwrap();
+
+            let res = re
+                .replace_all(&line, " ")
                 .split_ascii_whitespace()
                 .into_iter()
                 .map(|v| v.parse().unwrap_or(1) as usize)

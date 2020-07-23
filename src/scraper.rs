@@ -6,11 +6,12 @@ use rand::prelude::*;
 use reqwest::{header, header::HeaderValue, Client};
 use scraper::{Html, Selector};
 
-// KTVSecurity for AW and ASCookie for AS
-const COOKIE: &str = "__cfduid=d6f69039d797f43827b9b3552be485eab1594579212;\
-    KTVSecurity=1378214892dc2a5760acf1c555e7c6ed;ASCookie=f3d111632f3aeb7f9abcc66858cb8221;";
-const USER_AGENT: &str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_13_2) \
-    AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.132 Safari/537.36";
+// AWCookietest for AW and ASCookie for AS
+const COOKIE: &str = "__cfduid=d6217e694ae44946bd69c717bbb7577361595537028;\
+    _csrf=SqYj4gMXcEPlL9DROQKIYcSk;AWCookietest=f731d67b0c1777ceadb3898e7e4aca8c;\
+    ASCookie=e40207ab9dd09e111a5e154cd25da264;expandedPlayer=false";
+const USER_AGENT: &str = "Mozilla/5.0 (Windows; U; Windows NT 5.1; en-GB; rv:1.8.1.6)\
+ Gecko/20070725 Firefox/2.0.0.6";
 const ACCEPT: &str = "text/html,application/xhtml+xml,application/\
     xml;q=0.9,image/webp,*/*;q=0.8";
 
@@ -103,13 +104,14 @@ impl Scraper {
 
         let mut urls = vec![];
         for choice in choices {
+            let choice = format!("https://www.animeworld.tv{}", choice);
+
             let fragment = Self::parse(&choice, &client).await?;
             let results = {
-                let a = Selector::parse(r#"a[id="downloadLink"]"#).unwrap();
+                let a = Selector::parse(r#"a[id="alternativeDownloadLink"]"#).unwrap();
 
                 fragment
                     .select(&a)
-                    .into_iter()
                     .last()
                     .and_then(|a| a.value().attr("href"))
             };
