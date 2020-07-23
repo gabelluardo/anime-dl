@@ -190,7 +190,7 @@ impl Anime {
         } else {
             let client = Client::new();
             let mut err;
-            let mut last = 0;
+            let mut last;
             let mut counter = 2;
 
             // Last episode search is an O(2log n) algorithm:
@@ -200,6 +200,7 @@ impl Anime {
                 let url = gen_url!(self.url, counter);
 
                 err = counter;
+                last = counter / 2;
                 match client.head(&url).send().await?.error_for_status() {
                     Err(_) => break,
                     _ => counter *= 2,
