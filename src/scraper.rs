@@ -32,7 +32,9 @@ impl Scraper {
         }
     }
 
-    async fn init_client() -> Result<Client> {
+    async fn init_client(site: (&str, &str)) -> Result<Client> {
+        let (cookie_name, url) = site;
+
         let proxy = {
             let response = reqwest::get(
                 "https://api.proxyscrape.com/\
@@ -55,25 +57,18 @@ impl Scraper {
         };
 
         let mut cookies = {
-            let site = vec![
-                ("AWCookietest", "https://animeworld.tv"),
-                ("ASCookie", "https://animesaturn.com"),
-            ];
-
             let mut result = String::new();
+            let response = reqwest::get(url).await?.text().await?;
+            // println!("{}", response);
 
-            for (cookie_name, url) in site {
-                let response = reqwest::get(url).await?.text().await?;
-                // println!("{}", response);
+            let cap = find_all_match(&response, r"\(.(\d|\w)+.\)")?;
+            let (a, b, c) = (&cap[0], &cap[1], &cap[2]);
+            // println!("a={:?}\nb={:?}\nc={:?}", a, b, c);
 
-                let cap = find_all_match(&response, r"\(.(\d|\w)+.\)")?;
-                let (a, b, c) = (&cap[0], &cap[1], &cap[2]);
-                // println!("a={:?}\nb={:?}\nc={:?}", a, b, c);
+            let output = crypt(a, b, c)?;
 
-                let output = crypt(a, b, c)?;
+            result.push_str(&format!("{}={};", cookie_name, output));
 
-                result.push_str(&format!("{}={};", cookie_name, output));
-            }
             result
         };
 
@@ -99,7 +94,7 @@ impl Scraper {
     }
 
     async fn animeworld(query: &str) -> Result<Vec<String>> {
-        let client = Self::init_client().await?;
+        let client = Self::init_client(("AWCookietest", "https://animeworld.tv")).await?;
 
         let source = "https://www.animeworld.tv/search?keyword=";
         let search_url = format!("{}{}", source, query);
@@ -153,7 +148,7 @@ impl Scraper {
     }
 
     async fn animesaturn(query: &str) -> Result<Vec<String>> {
-        let client = Self::init_client().await?;
+        let client = Self::init_client(("ASCookie", "https://animesaturn.com")).await?;
 
         let source = "https://www.animesaturn.com/animelist?search=";
         let search_url = format!("{}{}", source, query);
@@ -266,7 +261,7 @@ impl Scraper {
     }
 
     async fn parse(url: &str, client: &Client) -> Result<Html> {
-        delay_for!(thread_rng().gen_range(100, 400));
+        delay_for!(thread_rng().gen_range(100, 300));
 
         let response = client
             .get(url)
