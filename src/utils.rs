@@ -1,6 +1,8 @@
 use anyhow::{bail, Result};
 use colored::Colorize;
+use hex;
 use indicatif::*;
+use openssl::symm::*;
 use regex::Regex;
 
 use std::io::prelude::*;
@@ -35,6 +37,32 @@ pub fn find_first_match(url: &str, matcher: &str) -> Result<String> {
     let res = &cap[0];
 
     Ok(res.to_string())
+}
+
+pub fn find_all_match(text: &str, matcher: &str) -> Result<Vec<Vec<u8>>> {
+    let re = Regex::new(matcher)?;
+    let cap = re
+        .captures_iter(&text)
+        .map(|c| (&c[0] as &str).to_string())
+        .map(|s| {
+            s.trim_matches(|c| c == '(' || c == ')' || c == '"')
+                .to_string()
+        })
+        .map(|s| hex::decode(s).unwrap())
+        .collect::<Vec<_>>();
+
+    Ok(cap)
+}
+
+pub fn crypt(key: &[u8], iv: &[u8], data: &[u8]) -> Result<String> {
+    let cipher = Cipher::aes_128_cbc();
+    let mut decrypted = Crypter::new(cipher, Mode::Decrypt, key, Some(iv)).unwrap();
+    let mut output = vec![0 as u8; 2 * data.len()];
+
+    decrypted.update(&data, &mut output)?;
+    let out = hex::encode(output)[..2 * data.len()].to_string();
+
+    Ok(out)
 }
 
 pub fn to_title_case(s: &str) -> String {
@@ -128,7 +156,9 @@ pub fn format_err(s: anyhow::Error) -> colored::ColoredString {
     format!("[ERR] {}", s).red()
 }
 
-pub fn _format_wrn(s: &str) -> colored::ColoredString {
+// DEPRECATED: since 1.0.0-rc.1
+#[allow(dead_code)]
+pub fn format_wrn(s: &str) -> colored::ColoredString {
     format!("[WRN] {}", s).yellow()
 }
 

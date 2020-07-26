@@ -2,14 +2,11 @@ use crate::cli::Site;
 use crate::utils::*;
 
 use anyhow::{bail, Context, Result};
+
 use rand::prelude::*;
 use reqwest::{header, header::HeaderValue, Client};
 use scraper::{Html, Selector};
 
-// AWCookietest for AW and ASCookie for AS
-const COOKIE: &str = "__cfduid=d6217e694ae44946bd69c717bbb7577361595537028;\
-    _csrf=SqYj4gMXcEPlL9DROQKIYcSk;AWCookietest=f731d67b0c1777ceadb3898e7e4aca8c;\
-    ASCookie=e40207ab9dd09e111a5e154cd25da264;expandedPlayer=false";
 const USER_AGENT: &str = "Mozilla/5.0 (Windows; U; Windows NT 5.1; en-GB; rv:1.8.1.6)\
  Gecko/20070725 Firefox/2.0.0.6";
 const ACCEPT: &str = "text/html,application/xhtml+xml,application/\
@@ -57,9 +54,38 @@ impl Scraper {
             )
         };
 
+        let mut cookies = {
+            let site = vec![
+                ("AWCookietest", "https://animeworld.tv"),
+                ("ASCookie", "https://animesaturn.com"),
+            ];
+
+            let mut result = String::new();
+
+            for (cookie_name, url) in site {
+                let response = reqwest::get(url).await?.text().await?;
+                // println!("{}", response);
+
+                let cap = find_all_match(&response, r"\(.(\d|\w)+.\)")?;
+                let (a, b, c) = (&cap[0], &cap[1], &cap[2]);
+                // println!("a={:?}\nb={:?}\nc={:?}", a, b, c);
+
+                let output = crypt(a, b, c)?;
+
+                result.push_str(&format!("{}={};", cookie_name, output));
+            }
+            result
+        };
+
+        cookies.push_str(
+            "__cfduid=d6217e694ae44946bd\
+        69c717bbb7577361595537028;_csrf=SqYj4gMXcEP\
+        lL9DROQKIYcSk;expandedPlayer=false",
+        );
+
         let mut headers = header::HeaderMap::new();
 
-        headers.insert(header::COOKIE, HeaderValue::from_static(COOKIE));
+        headers.insert(header::COOKIE, HeaderValue::from_str(&cookies)?);
         headers.insert(header::ACCEPT, HeaderValue::from_static(ACCEPT));
         headers.insert(header::ACCEPT_LANGUAGE, HeaderValue::from_static("it"));
 
