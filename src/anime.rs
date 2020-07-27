@@ -99,9 +99,9 @@ impl Manager {
                         let pb = instance_bar();
                         let opts = (anime.path(), args.force, multi_bars.add(pb));
 
-                        tokio::spawn(async move { Self::download(&u, opts).await })
+                        tokio::spawn(async move { print_err!(Self::download(&u, opts).await) })
                     })
-                    .collect::<Vec<task::JoinHandle<Result<()>>>>(),
+                    .collect::<Vec<task::JoinHandle<()>>>(),
             )
         }
 
