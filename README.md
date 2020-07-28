@@ -29,7 +29,7 @@ to store every anime in a properly named directory.
 
 Anyway, the helper is this: 
 
-```sh
+```
 USAGE:
     anime-dl [FLAGS] [OPTIONS] <urls>...
 
@@ -39,6 +39,7 @@ FLAGS:
     -f, --force       Override existent files
     -h, --help        Prints help information
     -O, --one-file    Download only the file form the url (equivalent to `curl -O <url>`)
+    -s, --stream      Stream episode in a media player
     -V, --version     Prints version information
 
 OPTIONS:
@@ -56,9 +57,11 @@ For parsing urls from a file (es. `urls`):
 anime-dl [FLAGS] [OPTIONS] $(cat urls)
 ```
 
+**Streaming requires `vlc` intalled**
+
 ### Known issue
 
-Sometimes scraper doesn't work due to sketchy workaround based on stored cookie values.  
+Sometimes scraper may not work due to sketchy workaround based on stored cookie values.  
 `--` separator is needed before urls when `-d <dir>...` is used, because structopt reads the urls as `-d` args
 
 ### License

@@ -81,7 +81,7 @@ pub struct Args {
     )]
     pub search: Option<Site>,
 
-    // Stream episode in a media player
+    /// Stream episode in a media player
     #[structopt(short, long)]
     pub stream: bool,
 }
