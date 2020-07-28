@@ -1,8 +1,10 @@
+use aes_soft::Aes128;
 use anyhow::{bail, Result};
+use block_modes::block_padding::NoPadding;
+use block_modes::{BlockMode, Cbc};
 use colored::Colorize;
 use hex;
 use indicatif::*;
-use openssl::symm::*;
 use regex::Regex;
 
 use std::io::prelude::*;
@@ -55,12 +57,10 @@ pub fn find_all_match(text: &str, matcher: &str) -> Result<Vec<Vec<u8>>> {
 }
 
 pub fn crypt(key: &[u8], iv: &[u8], data: &[u8]) -> Result<String> {
-    let cipher = Cipher::aes_128_cbc();
-    let mut decrypted = Crypter::new(cipher, Mode::Decrypt, key, Some(iv)).unwrap();
-    let mut output = vec![0 as u8; 2 * data.len()];
+    type Aes128Cbc = Cbc<Aes128, NoPadding>;
 
-    decrypted.update(&data, &mut output)?;
-    let out = hex::encode(output)[..2 * data.len()].to_string();
+    let cipher = Aes128Cbc::new_var(&key, &iv)?;
+    let out = hex::encode(cipher.decrypt_vec(&data)?);
 
     Ok(out)
 }
