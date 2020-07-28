@@ -57,7 +57,7 @@ For parsing urls from a file (es. `urls`):
 anime-dl [FLAGS] [OPTIONS] $(cat urls)
 ```
 
-**Streaming requires `vlc` intalled**
+**Streaming requires `vlc` installed**
 
 ### Known issue
 
