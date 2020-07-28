@@ -110,10 +110,11 @@ impl Scraper {
                     .into_iter()
                     .map(|a| {
                         (
-                            a.value().attr("href").expect("No link found"),
+                            a.value().attr("href").expect("No link found").to_string(),
                             a.first_child()
                                 .and_then(|a| a.value().as_text())
-                                .expect("No name found") as &str,
+                                .expect("No name found")
+                                .to_string(),
                         )
                     })
                     .collect::<Vec<_>>(),
@@ -164,10 +165,11 @@ impl Scraper {
                     .into_iter()
                     .map(|a| {
                         (
-                            a.value().attr("href").expect("No link found"),
+                            a.value().attr("href").expect("No link found").to_string(),
                             a.first_child()
                                 .and_then(|a| a.value().as_text())
-                                .expect("No name found") as &str,
+                                .expect("No name found")
+                                .to_string(),
                         )
                     })
                     .collect::<Vec<_>>(),

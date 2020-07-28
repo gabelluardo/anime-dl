@@ -7,10 +7,11 @@ use futures::future::join_all;
 use indicatif::ProgressBar;
 use reqwest::header::{CONTENT_LENGTH, RANGE};
 use reqwest::{Client, Url};
+use std::path::PathBuf;
 use tokio::task;
 use tokio::{fs, io::AsyncWriteExt};
 
-use std::path::PathBuf;
+use std::process::Command;
 
 pub struct Manager {
     args: Args,
@@ -22,9 +23,12 @@ impl Manager {
     }
 
     pub async fn run(&self) -> Result<()> {
-        match self.args.single {
-            true => self.single().await,
-            _ => self.multi().await,
+        if self.args.single {
+            self.single().await
+        } else if self.args.stream {
+            self.stream().await
+        } else {
+            self.multi().await
         }
     }
 
@@ -58,7 +62,37 @@ impl Manager {
             pb,
         );
 
-        Self::download(&anime_urls[0], opts).await?;
+        Self::download(&anime_urls.first().unwrap(), opts).await?;
+        Ok(())
+    }
+
+    async fn stream(&self) -> Result<()> {
+        let (start, end, anime_urls) = self.filter_args().await?;
+
+        let opts = (start, end, true);
+        let anime = Anime::new(
+            anime_urls.first().unwrap(),
+            self.args.dir.first().unwrap().to_owned(),
+            opts,
+        )?;
+
+        let episodes = anime
+            .episodes()
+            .await?
+            .iter()
+            .map(|u| {
+                let info = extract_info(u).unwrap();
+
+                (u.to_string(), format!("{} ep. {}", info.name, info.num))
+            })
+            .collect::<Vec<_>>();
+
+        let urls = prompt_choices(episodes)?;
+
+        for url in urls {
+            Command::new("vlc").arg(url).output()?;
+        }
+
         Ok(())
     }
 
