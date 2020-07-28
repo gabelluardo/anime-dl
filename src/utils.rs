@@ -100,14 +100,14 @@ pub fn instance_bar() -> ProgressBar {
     pb
 }
 
-pub fn prompt_choices(choices: Vec<(&str, &str)>) -> Result<Vec<String>> {
+pub fn prompt_choices(choices: Vec<(String, String)>) -> Result<Vec<String>> {
     Ok(match choices.len() {
         0 => bail!("No match found"),
         1 => vec![choices[0].0.to_string()],
         _ => {
             println!(
                 "{}",
-                format!("Found {} matches\n", choices.len())
+                format!("{} results found\n", choices.len())
                     .bright_cyan()
                     .bold()
             );
@@ -122,7 +122,7 @@ pub fn prompt_choices(choices: Vec<(&str, &str)>) -> Result<Vec<String>> {
             print!(
                 "\n{} {}\n{}",
                 format!("==>").bright_red().bold(),
-                format!("Series to download (eg: 1 2 3 or 1,2,3) [default=All]").bold(),
+                format!("What to watch (eg: 1 2 3 or 1,2,3) [default=All]").bold(),
                 format!("==> ").bright_red().bold()
             );
             std::io::stdout().flush()?;

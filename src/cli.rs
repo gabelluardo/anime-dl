@@ -80,6 +80,10 @@ pub struct Args {
         possible_values = &Site::variants(), 
     )]
     pub search: Option<Site>,
+
+    /// Stream episode in a media player (add -O for single file)
+    #[structopt(short, long)]
+    pub stream: bool,
 }
 
 impl Args {

@@ -33,7 +33,7 @@ impl Scraper {
     }
 
     async fn init_client(site: (&str, &str)) -> Result<Client> {
-        let (cookie_name, url) = site;
+        let mut headers = header::HeaderMap::new();
 
         let proxy = {
             let response = reqwest::get(
@@ -56,19 +56,17 @@ impl Scraper {
             )
         };
 
+        let (cookie_name, url) = site;
         let mut cookies = {
             let mut result = String::new();
             let response = reqwest::get(url).await?.text().await?;
-            // println!("{}", response);
 
             let cap = find_all_match(&response, r"\(.(\d|\w)+.\)")?;
             let (a, b, c) = (&cap[0], &cap[1], &cap[2]);
-            // println!("a={:?}\nb={:?}\nc={:?}", a, b, c);
 
             let output = crypt(a, b, c)?;
 
             result.push_str(&format!("{}={};", cookie_name, output));
-
             result
         };
 
@@ -77,8 +75,6 @@ impl Scraper {
         69c717bbb7577361595537028;_csrf=SqYj4gMXcEP\
         lL9DROQKIYcSk;expandedPlayer=false",
         );
-
-        let mut headers = header::HeaderMap::new();
 
         headers.insert(header::COOKIE, HeaderValue::from_str(&cookies)?);
         headers.insert(header::ACCEPT, HeaderValue::from_static(ACCEPT));
@@ -110,10 +106,11 @@ impl Scraper {
                     .into_iter()
                     .map(|a| {
                         (
-                            a.value().attr("href").expect("No link found"),
+                            a.value().attr("href").expect("No link found").to_string(),
                             a.first_child()
                                 .and_then(|a| a.value().as_text())
-                                .expect("No name found") as &str,
+                                .expect("No name found")
+                                .to_string(),
                         )
                     })
                     .collect::<Vec<_>>(),
@@ -164,10 +161,11 @@ impl Scraper {
                     .into_iter()
                     .map(|a| {
                         (
-                            a.value().attr("href").expect("No link found"),
+                            a.value().attr("href").expect("No link found").to_string(),
                             a.first_child()
                                 .and_then(|a| a.value().as_text())
-                                .expect("No name found") as &str,
+                                .expect("No name found")
+                                .to_string(),
                         )
                     })
                     .collect::<Vec<_>>(),

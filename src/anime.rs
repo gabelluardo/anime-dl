@@ -11,6 +11,7 @@ use tokio::task;
 use tokio::{fs, io::AsyncWriteExt};
 
 use std::path::PathBuf;
+use std::process::Command;
 
 pub struct Manager {
     args: Args,
@@ -22,9 +23,12 @@ impl Manager {
     }
 
     pub async fn run(&self) -> Result<()> {
-        match self.args.single {
-            true => self.single().await,
-            _ => self.multi().await,
+        if self.args.stream {
+            self.stream().await
+        } else if self.args.single {
+            self.single().await
+        } else {
+            self.multi().await
         }
     }
 
@@ -58,7 +62,42 @@ impl Manager {
             pb,
         );
 
-        Self::download(&anime_urls[0], opts).await?;
+        Self::download(&anime_urls.first().unwrap(), opts).await?;
+        Ok(())
+    }
+
+    async fn stream(&self) -> Result<()> {
+        let (start, end, anime_urls) = self.filter_args().await?;
+
+        let urls = if self.args.single {
+            anime_urls
+        } else {
+            let opts = (start, end, true);
+            let anime = Anime::new(
+                anime_urls.first().unwrap(),
+                self.args.dir.first().unwrap().to_owned(),
+                opts,
+            )?;
+
+            let episodes = anime
+                .episodes()
+                .await?
+                .iter()
+                .map(|u| {
+                    let info = extract_info(u).unwrap();
+
+                    (u.to_string(), format!("{} ep. {}", info.name, info.num))
+                })
+                .collect::<Vec<_>>();
+
+            prompt_choices(episodes)?
+        };
+
+        Command::new("vlc")
+            .args(urls)
+            .output()
+            .context("vlc is needed for streaming")?;
+
         Ok(())
     }
 
