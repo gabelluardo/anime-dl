@@ -39,7 +39,7 @@ FLAGS:
     -f, --force       Override existent files
     -h, --help        Prints help information
     -O, --one-file    Download only the file form the url (equivalent to `curl -O <url>`)
-    -s, --stream      Stream episode in a media player
+    -s, --stream      Stream episode in a media player (add -O for single file)
     -V, --version     Prints version information
 
 OPTIONS:

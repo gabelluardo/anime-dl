@@ -122,7 +122,7 @@ pub fn prompt_choices(choices: Vec<(String, String)>) -> Result<Vec<String>> {
             print!(
                 "\n{} {}\n{}",
                 format!("==>").bright_red().bold(),
-                format!("Series to download (eg: 1 2 3 or 1,2,3) [default=All]").bold(),
+                format!("What to watch (eg: 1 2 3 or 1,2,3) [default=All]").bold(),
                 format!("==> ").bright_red().bold()
             );
             std::io::stdout().flush()?;
