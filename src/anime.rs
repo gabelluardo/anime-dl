@@ -72,16 +72,13 @@ impl Manager {
         let urls = if self.args.single {
             anime_urls
         } else {
+            let url = anime_urls.first().unwrap();
+            let path = self.args.dir.first().unwrap().to_owned();
             let opts = (start, end, true);
-            let anime = Anime::new(
-                anime_urls.first().unwrap(),
-                self.args.dir.first().unwrap().to_owned(),
-                opts,
-            )?;
+
+            let anime = Anime::new(url, path, opts).await?;
 
             let episodes = anime
-                .episodes()
-                .await?
                 .iter()
                 .map(|u| {
                     let info = extract_info(u).unwrap();
@@ -129,14 +126,15 @@ impl Manager {
             };
 
             let opts = (start, end, args.auto_episode);
-            let anime = Anime::new(url, path, opts)?;
-            let urls = anime.episodes().await?;
+            let anime = Anime::new(url, path, opts).await?;
+            let path = anime.path();
 
             pool.extend(
-                urls.into_iter()
+                anime
+                    .into_iter()
                     .map(|u| {
                         let pb = instance_bar();
-                        let opts = (anime.path(), args.force, multi_bars.add(pb));
+                        let opts = (path.clone(), args.force, multi_bars.add(pb));
 
                         tokio::spawn(async move { print_err!(Self::download(&u, opts).await) })
                     })
@@ -192,16 +190,59 @@ impl Manager {
     }
 }
 
-pub struct Anime {
-    auto: bool,
-    end: u32,
-    start: u32,
+struct Anime {
     path: PathBuf,
-    url: String,
+    episodes: Vec<String>,
+}
+
+struct AnimeIntoIterator {
+    iter: ::std::vec::IntoIter<String>,
+}
+
+impl<'a> IntoIterator for Anime {
+    type Item = String;
+    type IntoIter = AnimeIntoIterator;
+
+    fn into_iter(self) -> Self::IntoIter {
+        AnimeIntoIterator {
+            iter: self.episodes.clone().into_iter(),
+        }
+    }
+}
+
+impl<'a> Iterator for AnimeIntoIterator {
+    type Item = String;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next()
+    }
+}
+
+struct AnimeIterator<'a> {
+    iter: ::std::slice::Iter<'a, String>,
+}
+
+impl<'a> IntoIterator for &'a Anime {
+    type Item = &'a String;
+    type IntoIter = AnimeIterator<'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        AnimeIterator {
+            iter: self.episodes.iter(),
+        }
+    }
+}
+
+impl<'a> Iterator for AnimeIterator<'a> {
+    type Item = &'a String;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next()
+    }
 }
 
 impl Anime {
-    pub fn new(url: &str, path: PathBuf, opts: (u32, u32, bool)) -> Result<Self> {
+    pub async fn new(url: &str, path: PathBuf, opts: (u32, u32, bool)) -> Result<Self> {
         let (start, end, auto) = opts;
         let info = extract_info(&url)?;
 
@@ -210,22 +251,16 @@ impl Anime {
             _ => end,
         };
 
-        Ok(Self {
-            end,
-            path,
-            auto,
-            start,
-            url: info.raw,
-        })
+        let episodes = Self::episodes(&info.raw, (start, end, auto)).await?;
+
+        Ok(Self { path, episodes })
     }
 
-    pub fn path(&self) -> PathBuf {
-        self.path.clone()
-    }
+    async fn episodes(url: &str, opts: (u32, u32, bool)) -> Result<Vec<String>> {
+        let (start, end, auto) = opts;
 
-    pub async fn episodes(&self) -> Result<Vec<String>> {
-        let num_episodes = if !self.auto {
-            self.end
+        let num_episodes = if !auto {
+            end
         } else {
             let client = Client::new();
             let mut err;
@@ -236,7 +271,7 @@ impl Anime {
             // first loop finds a possible least upper bound [O(log2 n)]
             // second loop finds the real upper bound with a binary search [O(log2 n)]
             loop {
-                let url = gen_url!(self.url, counter);
+                let url = gen_url!(url, counter);
 
                 err = counter;
                 last = counter / 2;
@@ -248,7 +283,7 @@ impl Anime {
 
             while !(err == last + 1) {
                 counter = (err + last) / 2;
-                let url = gen_url!(self.url, counter);
+                let url = gen_url!(url, counter);
 
                 match client.head(&url).send().await?.error_for_status() {
                     Ok(_) => last = counter,
@@ -258,9 +293,9 @@ impl Anime {
             last
         };
 
-        let episodes = (self.start..num_episodes + 1)
+        let episodes = (start..num_episodes + 1)
             .into_iter()
-            .map(|i| gen_url!(self.url, i))
+            .map(|i| gen_url!(url, i))
             .collect::<Vec<_>>();
 
         if episodes.is_empty() {
@@ -268,6 +303,14 @@ impl Anime {
         }
 
         Ok(episodes)
+    }
+
+    pub fn path(&self) -> PathBuf {
+        self.path.clone()
+    }
+
+    pub fn iter(&self) -> AnimeIterator {
+        self.into_iter()
     }
 }
 
