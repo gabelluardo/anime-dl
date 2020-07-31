@@ -125,12 +125,27 @@ impl Manager {
                 }
             };
 
-            let opts = (start, end, args.auto_episode);
+            let opts = (start, end, (args.auto_episode || args.interactive));
             let anime = Anime::new(url, path, opts).await?;
             let path = anime.path();
 
+            let episodes = if args.interactive {
+                let episodes = anime
+                    .iter()
+                    .map(|u| {
+                        let info = extract_info(u).unwrap();
+
+                        (u.to_string(), format!("{} ep. {}", info.name, info.num))
+                    })
+                    .collect::<Vec<_>>();
+
+                prompt_choices(episodes)?
+            } else {
+                anime.into_iter().collect::<Vec<_>>()
+            };
+
             pool.extend(
-                anime
+                episodes
                     .into_iter()
                     .map(|u| {
                         let pb = instance_bar();

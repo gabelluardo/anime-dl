@@ -34,13 +34,14 @@ USAGE:
     anime-dl [FLAGS] [OPTIONS] <urls>...
 
 FLAGS:
-    -a, --auto        Find automatically output folder name
-    -c, --continue    Find automatically last episode (override `-r <range>` option)
-    -f, --force       Override existent files
-    -h, --help        Prints help information
-    -O, --one-file    Download only the file form the url (equivalent to `curl -O <url>`)
-    -s, --stream      Stream episode in a media player (add -O for single file)
-    -V, --version     Prints version information
+    -a, --auto           Find automatically output folder name
+    -c, --continue       Find automatically last episode (override `-r <range>` option)
+    -f, --force          Override existent files
+    -h, --help           Prints help information
+    -i, --interactive    Interactive choice of episodes
+    -O, --one-file       Download only the file form the url (equivalent to `curl -O <url>`)
+    -s, --stream         Stream episode in a media player (add -O for single file)
+    -V, --version        Prints version information
 
 OPTIONS:
     -d, --dir <dir>...       Root folders where save files [default: .]

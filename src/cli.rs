@@ -84,6 +84,10 @@ pub struct Args {
     /// Stream episode in a media player (add -O for single file)
     #[structopt(short, long)]
     pub stream: bool,
+
+    /// Interactive choice of episodes
+    #[structopt(short, long)]
+    pub interactive: bool,
 }
 
 impl Args {
