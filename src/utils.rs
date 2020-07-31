@@ -122,22 +122,46 @@ pub fn prompt_choices(choices: Vec<(String, String)>) -> Result<Vec<String>> {
             print!(
                 "\n{} {}\n{}",
                 format!("==>").bright_red().bold(),
-                format!("What to watch (eg: 1 2 3 or 1,2,3) [default=All]").bold(),
+                format!("What to watch (eg: 1 2 3 or 1-3) [default=All]").bold(),
                 format!("==> ").bright_red().bold()
             );
             std::io::stdout().flush()?;
 
+            let mut multi = vec![];
             let mut line = String::new();
             std::io::stdin().read_line(&mut line)?;
 
-            let re = Regex::new(r"[^\d]").unwrap();
+            let re = Regex::new(r"[^\d]")?;
+            multi.extend(
+                re.replace_all(&line, " ")
+                    .split_ascii_whitespace()
+                    .into_iter()
+                    .map(|v| v.parse().unwrap_or(1) as usize)
+                    .filter(|i| i.gt(&0) && i.le(&choices.len()))
+                    .collect::<Vec<_>>(),
+            );
 
-            let res = re
-                .replace_all(&line, " ")
-                .split_ascii_whitespace()
-                .into_iter()
-                .map(|v| v.parse().unwrap_or(1) as usize)
-                .filter(|i| i.gt(&0) && i.le(&choices.len()))
+            if line.contains('-') {
+                let re = Regex::new(r"(?:\d+\-\d+)")?;
+                re.captures_iter(&line)
+                    .map(|c| c[0].to_string())
+                    .for_each(|s| {
+                        let range = s
+                            .split('-')
+                            .into_iter()
+                            .map(|v| v.parse().unwrap_or(1) as usize)
+                            .filter(|i| i.gt(&0) && i.le(&choices.len()))
+                            .collect::<Vec<_>>();
+                        let start = *range.first().unwrap();
+                        let end = *range.last().unwrap();
+
+                        multi.extend((start + 1..end).collect::<Vec<_>>())
+                    });
+            }
+
+            multi.sort();
+            let res = multi
+                .iter()
                 .map(|i| choices[i - 1].0.to_string())
                 .collect::<Vec<_>>();
 
