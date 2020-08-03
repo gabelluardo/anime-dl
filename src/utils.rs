@@ -50,10 +50,14 @@ pub fn find_all_match(text: &str, matcher: &str) -> Result<Vec<Vec<u8>>> {
             s.trim_matches(|c| c == '(' || c == ')' || c == '"')
                 .to_string()
         })
-        .map(|s| hex::decode(s).unwrap())
         .collect::<Vec<_>>();
 
-    Ok(cap)
+    let mut res = vec![];
+    for s in cap {
+        res.push(hex::decode(s)?);
+    }
+
+    Ok(res)
 }
 
 pub fn crypt(key: &[u8], iv: &[u8], data: &[u8]) -> Result<String> {

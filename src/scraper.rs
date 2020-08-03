@@ -58,16 +58,17 @@ impl Scraper {
 
         let (cookie_name, url) = site;
         let mut cookies = {
-            let mut result = String::new();
             let response = reqwest::get(url).await?.text().await?;
 
-            let cap = find_all_match(&response, r"\(.(\d|\w)+.\)")?;
-            let (a, b, c) = (&cap[0], &cap[1], &cap[2]);
+            match find_all_match(&response, r"\(.(\d|\w)+.\)") {
+                Ok(v) => {
+                    let (a, b, c) = (&v[0], &v[1], &v[2]);
+                    let output = crypt(a, b, c)?;
 
-            let output = crypt(a, b, c)?;
-
-            result.push_str(&format!("{}={};", cookie_name, output));
-            result
+                    format!("{}={};", cookie_name, output)
+                }
+                _ => String::new(),
+            }
         };
 
         cookies.push_str(
