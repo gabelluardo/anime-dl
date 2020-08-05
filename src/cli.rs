@@ -38,7 +38,7 @@ impl std::str::FromStr for Range {
     }
 }
 
-#[derive(Debug, StructOpt)]
+#[derive(Debug, Default, StructOpt)]
 #[structopt(name = "anime-dl", about = "Efficient cli app for downloading anime")]
 pub struct Args {
     /// Source url

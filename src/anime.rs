@@ -13,12 +13,17 @@ use tokio::{fs, io::AsyncWriteExt};
 use std::path::PathBuf;
 use std::process::Command;
 
+#[derive(Default)]
 pub struct Manager {
     args: Args,
 }
 
 impl Manager {
-    pub fn new(args: Args) -> Self {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn args(self, args: Args) -> Self {
         Self { args }
     }
 
@@ -43,8 +48,8 @@ impl Manager {
         // Scrape from archive and find correct url
         let urls = match &args.search {
             Some(site) => {
-                let query = args.urls.join("+");
-                Scraper::new(site.to_owned(), query).run().await?
+                let query = &args.urls.join("+");
+                Scraper::new().site(site).query(query).run().await?
             }
             _ => args.urls.to_vec(),
         };
@@ -53,14 +58,12 @@ impl Manager {
     }
 
     async fn single(&self) -> Result<()> {
+        let args = &self.args;
+
         let pb = instance_bar();
         let (_, _, anime_urls) = self.filter_args().await?;
 
-        let opts = (
-            self.args.dir.last().unwrap().to_owned(),
-            self.args.force,
-            pb,
-        );
+        let opts = (args.dir.last().unwrap().to_owned(), args.force, pb);
 
         Self::download(&anime_urls.first().unwrap(), opts).await?;
         Ok(())
@@ -68,15 +71,16 @@ impl Manager {
 
     async fn stream(&self) -> Result<()> {
         let (start, end, anime_urls) = self.filter_args().await?;
+        let args = &self.args;
 
-        let urls = if self.args.single {
+        let urls = if args.single {
             anime_urls
         } else {
             let url = anime_urls.first().unwrap();
-            let path = self.args.dir.first().unwrap().to_owned();
+            let path = args.dir.first().unwrap().to_owned();
             let opts = (start, end, true);
 
-            let anime = Anime::new(url, path, opts).await?;
+            let anime = Anime::new().parse(url, path, opts).await?;
 
             let episodes = anime
                 .iter()
@@ -99,9 +103,9 @@ impl Manager {
     }
 
     async fn multi(&self) -> Result<()> {
-        let args = &self.args;
         let multi_bars = instance_multi_bars();
         let (start, end, anime_urls) = self.filter_args().await?;
+        let args = &self.args;
 
         let mut pool = vec![];
         for url in &anime_urls {
@@ -126,7 +130,7 @@ impl Manager {
             };
 
             let opts = (start, end, (args.auto_episode || args.interactive));
-            let anime = Anime::new(url, path, opts).await?;
+            let anime = Anime::new().parse(url, path, opts).await?;
             let path = anime.path();
 
             let episodes = if args.interactive {
@@ -205,6 +209,7 @@ impl Manager {
     }
 }
 
+#[derive(Default)]
 struct Anime {
     path: PathBuf,
     episodes: Vec<String>,
@@ -257,7 +262,11 @@ impl<'a> Iterator for AnimeIterator<'a> {
 }
 
 impl Anime {
-    pub async fn new(url: &str, path: PathBuf, opts: (u32, u32, bool)) -> Result<Self> {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub async fn parse(self, url: &str, path: PathBuf, opts: (u32, u32, bool)) -> Result<Self> {
         let (start, end, auto) = opts;
         let info = extract_info(&url)?;
 
@@ -328,7 +337,6 @@ impl Anime {
         self.into_iter()
     }
 }
-
 pub struct FileDest {
     pub size: u64,
     pub root: PathBuf,
@@ -339,14 +347,14 @@ pub struct FileDest {
 impl FileDest {
     pub async fn new(root: &PathBuf, filename: &str, overwrite: &bool) -> Result<Self> {
         if !root.exists() {
-            std::fs::create_dir_all(&root)?;
+            fs::create_dir_all(&root).await?;
         }
 
         let mut file = root.clone();
         file.push(filename);
 
         let size = match file.exists() && !overwrite {
-            true => std::fs::File::open(&file)?.metadata()?.len(),
+            true => fs::File::open(&file).await?.metadata().await?.len(),
             _ => 0,
         };
 

@@ -12,14 +12,29 @@ const USER_AGENT: &str = "Mozilla/5.0 (Windows; U; Windows NT 5.1; en-GB; rv:1.8
 const ACCEPT: &str = "text/html,application/xhtml+xml,application/\
     xml;q=0.9,image/webp,*/*;q=0.8";
 
+#[derive(Default)]
 pub struct Scraper {
-    site: Site,
+    site: Option<Site>,
     query: String,
 }
 
 impl Scraper {
-    pub fn new(site: Site, query: String) -> Self {
-        Self { site, query }
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn site(self, site: &Site) -> Self {
+        Self {
+            site: Some(site.to_owned()),
+            ..self
+        }
+    }
+
+    pub fn query(self, query: &str) -> Self {
+        Self {
+            query: query.to_owned(),
+            ..self
+        }
     }
 
     pub async fn run(&self) -> Result<Vec<String>> {
@@ -27,8 +42,9 @@ impl Scraper {
         let query = self.query.replace(" ", "+");
 
         match self.site {
-            Site::AW => Self::animeworld(&query).await,
-            Site::AS => Self::animesaturn(&query).await,
+            Some(Site::AW) => Self::animeworld(&query).await,
+            Some(Site::AS) => Self::animesaturn(&query).await,
+            None => bail!("Missing Scraper `site` parameter"),
         }
     }
 
