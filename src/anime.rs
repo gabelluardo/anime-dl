@@ -37,25 +37,6 @@ impl Manager {
         }
     }
 
-    // pub async fn extract_url_info(&self, url: &str) -> Result<(u64, String)> {
-    //     let client = Client::new();
-    //     let response = client
-    //         .head(url)
-    //         .send()
-    //         .await?
-    //         .error_for_status()
-    //         .context(format!("Unable to download `{}`", name))?;
-
-    //     let size = response
-    //         .headers()
-    //         .get(CONTENT_LENGTH)
-    //         .and_then(|ct_len| ct_len.to_str().ok())
-    //         .and_then(|ct_len| ct_len.parse().ok())
-    //         .unwrap_or_default();
-
-    //     Ok((size, name))
-    // }
-
     async fn filter_args(&self) -> Result<(u32, u32, Vec<String>)> {
         let args = &self.args;
 
