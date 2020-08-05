@@ -7,8 +7,7 @@ use futures::future::join_all;
 use indicatif::ProgressBar;
 use reqwest::header::{CONTENT_LENGTH, RANGE};
 use reqwest::{Client, Url};
-use tokio::task;
-use tokio::{fs, io::AsyncWriteExt};
+use tokio::{fs, io::AsyncWriteExt, task};
 
 use std::path::PathBuf;
 use std::process::Command;

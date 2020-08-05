@@ -34,3 +34,4 @@ tokio = { version = "0.2", features = ["macros", "fs"] }
 tag-name = "{{version}}"
 tag-message = "{{tag_name}}"
 pre-release-commit-message = "{{version}}"
+post-release-commit-message = "(dev) {{next_version}}"
