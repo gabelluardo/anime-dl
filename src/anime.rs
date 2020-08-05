@@ -37,6 +37,25 @@ impl Manager {
         }
     }
 
+    // pub async fn extract_url_info(&self, url: &str) -> Result<(u64, String)> {
+    //     let client = Client::new();
+    //     let response = client
+    //         .head(url)
+    //         .send()
+    //         .await?
+    //         .error_for_status()
+    //         .context(format!("Unable to download `{}`", name))?;
+
+    //     let size = response
+    //         .headers()
+    //         .get(CONTENT_LENGTH)
+    //         .and_then(|ct_len| ct_len.to_str().ok())
+    //         .and_then(|ct_len| ct_len.parse().ok())
+    //         .unwrap_or_default();
+
+    //     Ok((size, name))
+    // }
+
     async fn filter_args(&self) -> Result<(u32, u32, Vec<String>)> {
         let args = &self.args;
 
@@ -171,12 +190,28 @@ impl Manager {
 
     pub async fn download(url: &str, opts: (PathBuf, bool, ProgressBar)) -> Result<()> {
         let (root, overwrite, pb) = &opts;
+        let client = Client::new();
 
-        let source = WebSource::new(url).await?;
-        let filename = source.name;
+        let filename = Url::parse(url)?
+            .path_segments()
+            .and_then(|segments| segments.last())
+            .unwrap_or("tmp.bin")
+            .to_owned();
+
+        let source_size = client
+            .head(url)
+            .send()
+            .await?
+            .error_for_status()
+            .context(format!("Unable to download `{}`", filename))?
+            .headers()
+            .get(CONTENT_LENGTH)
+            .and_then(|ct_len| ct_len.to_str().ok())
+            .and_then(|ct_len| ct_len.parse().ok())
+            .unwrap_or_default();
 
         let file = FileDest::new(root, &filename, overwrite).await?;
-        if file.size >= source.size {
+        if file.size >= source_size {
             bail!("{} already exists", &filename);
         }
 
@@ -186,10 +221,9 @@ impl Manager {
         };
 
         pb.set_position(file.size);
-        pb.set_length(source.size);
+        pb.set_length(source_size);
         pb.set_message(&msg);
 
-        let client = Client::new();
         let mut source = client
             .get(url)
             .header(RANGE, format!("bytes={}-", file.size))
@@ -385,39 +419,5 @@ impl FileDest {
         };
 
         Ok(file)
-    }
-}
-
-pub struct WebSource {
-    pub url: Url,
-    pub size: u64,
-    pub name: String,
-}
-
-impl WebSource {
-    pub async fn new(str_url: &str) -> Result<Self> {
-        let url = Url::parse(str_url)?;
-        let name = url
-            .path_segments()
-            .and_then(|segments| segments.last())
-            .unwrap_or("tmp.bin")
-            .to_owned();
-
-        let client = Client::new();
-        let response = client
-            .head(str_url)
-            .send()
-            .await?
-            .error_for_status()
-            .context(format!("Unable to download `{}`", name))?;
-
-        let size = response
-            .headers()
-            .get(CONTENT_LENGTH)
-            .and_then(|ct_len| ct_len.to_str().ok())
-            .and_then(|ct_len| ct_len.parse().ok())
-            .unwrap_or_default();
-
-        Ok(Self { name, url, size })
     }
 }
