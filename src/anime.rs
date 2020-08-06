@@ -18,11 +18,12 @@ pub struct Manager {
 }
 
 impl Manager {
+    #[allow(dead_code)]
     pub fn new() -> Self {
         Self::default()
     }
 
-    pub fn args(self, args: Args) -> Self {
+    pub fn from(args: Args) -> Self {
         Self { args }
     }
 
@@ -79,7 +80,7 @@ impl Manager {
             let path = args.dir.first().unwrap().to_owned();
             let opts = (start, end, true);
 
-            let anime = Anime::new().parse(url, path, opts).await?;
+            let anime = Anime::parse(url, path, opts).await?;
 
             let episodes = anime
                 .iter()
@@ -129,7 +130,7 @@ impl Manager {
             };
 
             let opts = (start, end, (args.auto_episode || args.interactive));
-            let anime = Anime::new().parse(url, path, opts).await?;
+            let anime = Anime::parse(url, path, opts).await?;
             let path = anime.path();
 
             let episodes = if args.interactive {
@@ -276,11 +277,12 @@ impl<'a> Iterator for AnimeIterator<'a> {
 }
 
 impl Anime {
+    #[allow(dead_code)]
     pub fn new() -> Self {
         Self::default()
     }
 
-    pub async fn parse(self, url: &str, path: PathBuf, opts: (u32, u32, bool)) -> Result<Self> {
+    pub async fn parse(url: &str, path: PathBuf, opts: (u32, u32, bool)) -> Result<Self> {
         let (start, end, auto) = opts;
         let info = extract_info(&url)?;
 
@@ -351,7 +353,7 @@ impl Anime {
         self.into_iter()
     }
 }
-pub struct FileDest {
+struct FileDest {
     pub size: u64,
     pub root: PathBuf,
     pub file: PathBuf,
