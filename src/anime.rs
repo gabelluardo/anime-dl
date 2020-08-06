@@ -76,11 +76,11 @@ impl Manager {
         let urls = if args.single {
             anime_urls
         } else {
-            let url = anime_urls.first().unwrap();
-            let path = args.dir.first().unwrap().to_owned();
-            let opts = (start, end, true);
+            let url = anime_urls.first().unwrap().as_str();
+            let path = args.dir.first().unwrap();
+            let props = (url, path, start, end, true);
 
-            let anime = Anime::parse(url, path, opts).await?;
+            let anime = Anime::parse(props).await?;
 
             let episodes = anime
                 .iter()
@@ -129,8 +129,14 @@ impl Manager {
                 }
             };
 
-            let opts = (start, end, (args.auto_episode || args.interactive));
-            let anime = Anime::parse(url, path, opts).await?;
+            let props = (
+                url.as_str(),
+                &path,
+                start,
+                end,
+                (args.auto_episode || args.interactive),
+            );
+            let anime = Anime::parse(props).await?;
             let path = anime.path();
 
             let episodes = if args.interactive {
@@ -191,7 +197,8 @@ impl Manager {
             .and_then(|ct_len| ct_len.parse().ok())
             .unwrap_or_default();
 
-        let file = FileDest::new(root, &filename, overwrite).await?;
+        let props = (root, filename.as_str(), overwrite);
+        let file = FileDest::from(props).await?;
         if file.size >= source_size {
             bail!("{} already exists", &filename);
         }
@@ -276,14 +283,16 @@ impl<'a> Iterator for AnimeIterator<'a> {
     }
 }
 
+type AnimeProps<'a> = (&'a str, &'a PathBuf, u32, u32, bool);
+
 impl Anime {
     #[allow(dead_code)]
     pub fn new() -> Self {
         Self::default()
     }
 
-    pub async fn parse(url: &str, path: PathBuf, opts: (u32, u32, bool)) -> Result<Self> {
-        let (start, end, auto) = opts;
+    pub async fn parse<'a>(props: AnimeProps<'a>) -> Result<Self> {
+        let (url, path, start, end, auto) = props;
         let info = extract_info(&url)?;
 
         let end = match end {
@@ -293,7 +302,10 @@ impl Anime {
 
         let episodes = Self::episodes(&info.raw, (start, end, auto)).await?;
 
-        Ok(Self { path, episodes })
+        Ok(Self {
+            path: path.to_owned(),
+            episodes,
+        })
     }
 
     async fn episodes(url: &str, opts: (u32, u32, bool)) -> Result<Vec<String>> {
@@ -353,6 +365,8 @@ impl Anime {
         self.into_iter()
     }
 }
+
+#[derive(Default)]
 struct FileDest {
     pub size: u64,
     pub root: PathBuf,
@@ -360,10 +374,19 @@ struct FileDest {
     pub overwrite: bool,
 }
 
+type FileProps<'a> = (&'a PathBuf, &'a str, &'a bool);
+
 impl FileDest {
-    pub async fn new(root: &PathBuf, filename: &str, overwrite: &bool) -> Result<Self> {
+    #[allow(dead_code)]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub async fn from<'a>(props: FileProps<'a>) -> Result<Self> {
+        let (root, filename, overwrite) = props;
+
         if !root.exists() {
-            fs::create_dir_all(&root).await?;
+            fs::create_dir_all(root).await?;
         }
 
         let mut file = root.clone();

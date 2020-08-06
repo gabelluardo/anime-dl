@@ -10,10 +10,18 @@ repository = "https://github.com/gabelluardo/anime-dl"
 documentation = "https://github.com/gabelluardo/anime-dl/blob/master/README.md"
 license = "GPL-3.0+"
 
+exclude = [".*", "*.md", "LICENSE", "screenshots"]
+
 [profile.release]
 lto = true
 opt-level = 's'
 codegen-units = 1
+
+[package.metadata.release]
+tag-name = "{{version}}"
+tag-message = "{{tag_name}}"
+pre-release-commit-message = "{{version}}"
+post-release-commit-message = "(dev) {{next_version}}"
 
 [dependencies]
 aes-soft = "0.4"
@@ -28,10 +36,7 @@ regex = "1.3"
 reqwest = "0.10"
 scraper = "0.12"
 structopt = "0.3"
-tokio = { version = "0.2", features = ["macros", "fs"] }
 
-[package.metadata.release]
-tag-name = "{{version}}"
-tag-message = "{{tag_name}}"
-pre-release-commit-message = "{{version}}"
-post-release-commit-message = "(dev) {{next_version}}"
+[dependencies.tokio]
+version = "0.2"
+features = ["macros", "fs"]
