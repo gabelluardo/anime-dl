@@ -62,8 +62,8 @@ anime-dl [FLAGS] [OPTIONS] $(cat urls)
 
 ### Known issue
 
-Sometimes scraper may not work due to sketchy workaround based on stored cookie values.  
-`--` separator is needed before urls when `-d <dir>...` is used, because structopt reads the urls as `-d` args
+1. Scraper only allow one search at a time.
+2. `--` separator is needed before urls when `-d <dir>...` is used, because structopt reads the urls as `-d` args.  
 
 ### License
 

@@ -2,6 +2,7 @@ use structopt::clap::arg_enum;
 use structopt::StructOpt;
 
 use std::path::PathBuf;
+use std::str::FromStr;
 
 arg_enum! {
     #[derive(Debug, Copy, Clone)]
@@ -23,7 +24,7 @@ impl Range {
     }
 }
 
-impl std::str::FromStr for Range {
+impl FromStr for Range {
     type Err = std::num::ParseIntError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -52,10 +53,6 @@ pub struct Args {
     /// Range of episodes to download
     #[structopt(short, long)]
     pub range: Option<Range>,
-
-    // /// [WIP] Max number of concurrent downloads
-    // #[structopt(default_value = "32", short = "M", long)]
-    // pub max_threads: usize,
 
     /// Find automatically output folder name
     #[structopt(short = "a", long = "auto")]

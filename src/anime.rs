@@ -76,10 +76,13 @@ impl Manager {
         let urls = if args.single {
             anime_urls
         } else {
-            let url = anime_urls.first().unwrap().as_str();
-            let path = args.dir.first().unwrap();
-            let props = (url, path, start, end, true);
-
+            let props = (
+                anime_urls.first().unwrap().as_str(),
+                args.dir.first().unwrap(),
+                start,
+                end,
+                true,
+            );
             let anime = Anime::parse(props).await?;
 
             let episodes = anime
@@ -319,7 +322,7 @@ impl Anime {
             let mut last;
             let mut counter = 2;
 
-            // Last episode search is an O(2log n) algorithm:
+            // Last episode search is an O(log2 n) algorithm:
             // first loop finds a possible least upper bound [O(log2 n)]
             // second loop finds the real upper bound with a binary search [O(log2 n)]
             loop {
