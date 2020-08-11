@@ -48,7 +48,7 @@ impl Scraper {
         }
     }
 
-    async fn init_client(site: (&str, &str)) -> Result<Client> {
+    async fn init_client(site: Option<(&str, &str)>) -> Result<Client> {
         let mut headers = header::HeaderMap::new();
 
         let proxy = {
@@ -72,19 +72,21 @@ impl Scraper {
             )
         };
 
-        let (cookie_name, url) = site;
-        let mut cookies = {
-            let response = reqwest::get(url).await?.text().await?;
+        let mut cookies = match site {
+            Some((cookie_name, url)) => {
+                let response = reqwest::get(url).await?.text().await?;
 
-            match find_all_match(&response, r"\(.(\d|\w)+.\)") {
-                Ok(v) => {
-                    let (a, b, c) = (&v[0], &v[1], &v[2]);
-                    let output = crypt(a, b, c)?;
+                match find_all_match(&response, r"\(.(\d|\w)+.\)") {
+                    Ok(v) => {
+                        let (a, b, c) = (&v[0], &v[1], &v[2]);
+                        let output = crypt(a, b, c)?;
 
-                    format!("{}={};", cookie_name, output)
+                        format!("{}={};", cookie_name, output)
+                    }
+                    _ => String::new(),
                 }
-                _ => String::new(),
             }
+            _ => String::new(),
         };
 
         cookies.push_str(
@@ -107,7 +109,8 @@ impl Scraper {
     }
 
     async fn animeworld(query: &str) -> Result<Vec<String>> {
-        let client = Self::init_client(("AWCookietest", "https://animeworld.tv")).await?;
+        // if doesn't work add: `Some(("AWCookietest", "https://animeworld.tv"))`
+        let client = Self::init_client(None).await?;
 
         let source = "https://www.animeworld.tv/search?keyword=";
         let search_url = format!("{}{}", source, query);
@@ -162,7 +165,7 @@ impl Scraper {
     }
 
     async fn animesaturn(query: &str) -> Result<Vec<String>> {
-        let client = Self::init_client(("ASCookie", "https://animesaturn.com")).await?;
+        let client = Self::init_client(Some(("ASCookie", "https://animesaturn.com"))).await?;
 
         let source = "https://www.animesaturn.com/animelist?search=";
         let search_url = format!("{}{}", source, query);
