@@ -195,18 +195,14 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_extract_info() -> Result<()> {
+    fn test_extract_info() {
         let url = "http://www.domain.tld/sub/anotherSub/AnimeName/AnimeName_Ep_15_SUB_ITA.mp4";
-        let res: RegInfo = extract_info(url)?;
+        let url_raw = "http://www.domain.tld/sub/anotherSub/AnimeName/AnimeName_Ep_{}_SUB_ITA.mp4";
+        let res: RegInfo = extract_info(url).unwrap();
 
         assert_eq!(res.name, "Anime Name");
         assert_eq!(res.num, 15);
-        assert_eq!(
-            res.raw,
-            "http://www.domain.tld/sub/anotherSub/AnimeName/AnimeName_Ep_{}_SUB_ITA.mp4"
-        );
-
-        Ok(())
+        assert_eq!(res.raw, url_raw);
     }
 
     #[test]

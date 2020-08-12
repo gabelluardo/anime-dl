@@ -291,3 +291,56 @@ impl Scraper {
         Ok(Html::parse_fragment(&response.text().await?))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_init_client() {
+        let aw_c = Scraper::init_client(Some(("AWCookietest", "https://animeworld.tv"))).await;
+        let as_c = Scraper::init_client(Some(("ASCookie", "https://animesaturn.com"))).await;
+        let n_c = Scraper::init_client(None).await;
+
+        aw_c.unwrap();
+        as_c.unwrap();
+        n_c.unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_animeworld() {
+        let s_url = Scraper::animeworld("bunny girl").await.unwrap();
+        let url = "http://www.tenseishitaraslimedattaken.com/DLL/ANIME/Sei\
+        shunButaYarouWaBunnyGirlSenpaiNoYumeWoMinai/SeishunButaYarouWaBunnyGirlSe\
+        npaiNoYumeWoMinai_Ep_01_SUB_ITA.mp4";
+
+        assert_eq!(url, s_url.first().unwrap())
+    }
+
+    #[tokio::test]
+    async fn test_animesaturn() {
+        let s_url = Scraper::animesaturn("bunny girl").await.unwrap();
+        let url = "https://www.animeunityserver3.cloud/DDL/Anime/Sei\
+        shunButaYarouWaBunnyGirlSenpaiNoYumeWoMinai/SeishunButaYarouWaBunny\
+        GirlSenpaiNoYumeWoMinai_Ep_01_SUB_ITA.mp4";
+
+        assert_eq!(url, s_url.first().unwrap())
+    }
+
+    #[tokio::test]
+    async fn test_scraper() {
+        let s = Scraper::new();
+        let s_url = s.site(&Site::AW).query("bunny girl").run().await.unwrap();
+        let url = "http://www.tenseishitaraslimedattaken.com/DLL/ANIME/Sei\
+        shunButaYarouWaBunnyGirlSenpaiNoYumeWoMinai/SeishunButaYarouWaBunnyGirlSe\
+        npaiNoYumeWoMinai_Ep_01_SUB_ITA.mp4";
+
+        assert_eq!(url, s_url.first().unwrap())
+    }
+
+    #[tokio::test]
+    #[should_panic(expected = "Missing Scraper `site` parameter")]
+    async fn test_scraper_err() {
+        Scraper::new().run().await.unwrap();
+    }
+}

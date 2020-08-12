@@ -6,8 +6,8 @@ mod cli;
 mod scraper;
 mod utils;
 
-use crate::anime::Manager;
-use crate::cli::Args;
+use anime::Manager;
+use cli::Args;
 
 #[tokio::main]
 async fn main() {

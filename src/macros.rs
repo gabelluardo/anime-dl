@@ -30,16 +30,16 @@ mod tests {
 
     #[test]
     fn test_zfill() {
-        assert_eq!(zfill!(200), "_200");
         assert_eq!(zfill!(1), "_01");
+        assert_eq!(zfill!(200), "_200");
     }
 
     #[test]
     fn test_gen_url() {
         let url = "http://robe_{}_.tld";
 
+        assert_eq!(gen_url!(url, 1), "http://robe_01_.tld");
         assert_eq!(gen_url!(url, 14), "http://robe_14_.tld");
         assert_eq!(gen_url!(url, 1400), "http://robe_1400_.tld");
-        assert_eq!(gen_url!(url, 1), "http://robe_01_.tld");
     }
 }
