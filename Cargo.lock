@@ -94,9 +94,9 @@ dependencies = [
 
 [[package]]
 name = "block-modes"
-version = "0.6.0"
+version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6ce54c97d61dcf0d483d2d94d18b6252fa215fa114df0f254bc7d43a2f650b24"
+checksum = "0c9b14fd8a4739e6548d4b6018696cf991dcf8c6effd9ef9eb33b29b8a650972"
 dependencies = [
  "block-cipher",
  "block-padding",
