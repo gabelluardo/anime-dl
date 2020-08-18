@@ -58,12 +58,16 @@ For parsing urls from a file (es. `urls`):
 anime-dl [FLAGS] [OPTIONS] $(cat urls)
 ```
 
-**Streaming requires `vlc` installed**
+**:warning: Streaming requires `vlc` :warning:**
+
+```sh
+anime-dl -sc <urls>...
+```
 
 ### Known issue
 
-1. Scraper only allow one search at a time.
-2. `--` separator is needed before urls when `-d <dir>...` is used, because structopt reads the urls as `-d` args.  
+1. Scraper only allows one search at a time.
+2. `--` is needed before urls when `-d <dir>...` flag is used.  
 
 ### License
 
