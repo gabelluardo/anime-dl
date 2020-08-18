@@ -178,7 +178,7 @@ impl Manager {
         Ok(())
     }
 
-    pub async fn download(url: &str, opts: (PathBuf, bool, ProgressBar)) -> Result<()> {
+    async fn download(url: &str, opts: (PathBuf, bool, ProgressBar)) -> Result<()> {
         let (root, overwrite, pb) = &opts;
         let client = Client::new();
 
@@ -294,7 +294,7 @@ impl Anime {
         Self::default()
     }
 
-    pub async fn parse<'a>(props: AnimeProps<'a>) -> Result<Self> {
+    async fn parse<'a>(props: AnimeProps<'a>) -> Result<Self> {
         let (url, path, start, end, auto) = props;
         let info = extract_info(&url)?;
 
@@ -360,11 +360,11 @@ impl Anime {
         Ok(episodes)
     }
 
-    pub fn path(&self) -> PathBuf {
+    fn path(&self) -> PathBuf {
         self.path.clone()
     }
 
-    pub fn iter(&self) -> AnimeIterator {
+    fn iter(&self) -> AnimeIterator {
         self.into_iter()
     }
 }
@@ -385,7 +385,7 @@ impl FileDest {
         Self::default()
     }
 
-    pub async fn from<'a>(props: FileProps<'a>) -> Result<Self> {
+    async fn from<'a>(props: FileProps<'a>) -> Result<Self> {
         let (root, filename, overwrite) = props;
 
         if !root.exists() {
@@ -411,7 +411,7 @@ impl FileDest {
         })
     }
 
-    pub async fn open(&self) -> Result<fs::File> {
+    async fn open(&self) -> Result<fs::File> {
         let file = if !self.overwrite {
             fs::OpenOptions::new()
                 .append(true)
