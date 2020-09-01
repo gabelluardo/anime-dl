@@ -84,6 +84,11 @@ pub fn to_title_case(s: &str) -> String {
         .collect::<String>()
         .trim()
         .to_string()
+
+    // let re = Regex::new(r"[A-Z][^A-Z]+").unwrap();
+    // re.captures_iter(s)
+    //     .map(|c| (&c[0] as &str).to_string())
+    //     .collect::<String>()
 }
 
 fn instance_style() -> ProgressStyle {
@@ -208,7 +213,9 @@ mod tests {
     #[test]
     fn test_to_title_case() {
         let s = "StringaInTitleCase-con-delle-linee";
+        assert_eq!(to_title_case(s), "Stringa In Title Case-con-delle-linee");
 
-        assert_eq!(to_title_case(s), "Stringa In Title Case-con-delle-linee")
+        let s = "StringaCONMaiuscole";
+        assert_eq!(to_title_case(s), "String CON Maiuscole");
     }
 }
