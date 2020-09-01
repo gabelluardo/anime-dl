@@ -70,8 +70,14 @@ pub fn crypt(key: &[u8], iv: &[u8], data: &[u8]) -> Result<String> {
 }
 
 pub fn to_title_case(s: &str) -> String {
-    let re = Regex::new(r"[A-Z][^A-Z]+").unwrap();
     let mut res = s.to_string();
+
+    let re = Regex::new(r"[A-Z][a-z]+").unwrap();
+    re.captures_iter(s)
+        .map(|c| (&c[0] as &str).to_string())
+        .for_each(|c| res = res.replace(&c, &format!(" {}", c)));
+
+    let re = Regex::new(r"\d").unwrap();
     re.captures_iter(s)
         .map(|c| (&c[0] as &str).to_string())
         .for_each(|c| res = res.replace(&c, &format!(" {}", c)));
@@ -211,5 +217,11 @@ mod tests {
 
         let s = "IDInvaded";
         assert_eq!(to_title_case(s), "ID Invaded");
+
+        let s = "SwordArtOnline2";
+        assert_eq!(to_title_case(s), "Sword Art Online 2");
+
+        let s = "SAO2";
+        assert_eq!(to_title_case(s), "SAO 2");
     }
 }
