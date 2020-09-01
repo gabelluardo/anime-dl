@@ -70,25 +70,13 @@ pub fn crypt(key: &[u8], iv: &[u8], data: &[u8]) -> Result<String> {
 }
 
 pub fn to_title_case(s: &str) -> String {
-    // NOTE: Enable it when no more unstable
-    // see issue #72360 <https://github.com/rust-lang/rust/issues/72360> for more information
-    // s.split_inclusive(char::is_uppercase).collect()
+    let re = Regex::new(r"[A-Z][^A-Z]+").unwrap();
+    let mut res = s.to_string();
+    re.captures_iter(s)
+        .map(|c| (&c[0] as &str).to_string())
+        .for_each(|c| res = res.replace(&c, &format!(" {}", c)));
 
-    s.chars()
-        .into_iter()
-        .filter(|c| c.is_ascii_alphanumeric() || c.eq_ignore_ascii_case(&'-'))
-        .map(|c| match c.is_ascii_uppercase() || c.is_numeric() {
-            true => format!(" {}", c),
-            _ => c.to_string(),
-        })
-        .collect::<String>()
-        .trim()
-        .to_string()
-
-    // let re = Regex::new(r"[A-Z][^A-Z]+").unwrap();
-    // re.captures_iter(s)
-    //     .map(|c| (&c[0] as &str).to_string())
-    //     .collect::<String>()
+    res.trim().to_string()
 }
 
 fn instance_style() -> ProgressStyle {
@@ -215,7 +203,13 @@ mod tests {
         let s = "StringaInTitleCase-con-delle-linee";
         assert_eq!(to_title_case(s), "Stringa In Title Case-con-delle-linee");
 
-        let s = "StringaCONMaiuscole";
-        assert_eq!(to_title_case(s), "String CON Maiuscole");
+        let s = "StringaCoNMaiuscole";
+        assert_eq!(to_title_case(s), "Stringa CoN Maiuscole");
+
+        let s = "HighSchoolDxD";
+        assert_eq!(to_title_case(s), "High School DxD");
+
+        let s = "IDInvaded";
+        assert_eq!(to_title_case(s), "ID Invaded");
     }
 }
