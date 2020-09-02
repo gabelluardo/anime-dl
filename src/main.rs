@@ -12,7 +12,7 @@ use cli::Args;
 #[tokio::main]
 async fn main() {
     match Manager::from(Args::new()).run().await {
-        Ok(()) => (),
+        Ok(_) => (),
         Err(e) => eprintln!("{}", utils::format_err(e)),
     }
 }

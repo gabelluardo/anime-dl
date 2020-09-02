@@ -19,6 +19,7 @@ macro_rules! gen_url {
     };
 }
 
+#[allow(unused_macros)]
 macro_rules! delay_for {
     ($time:expr) => {
         tokio::time::delay_for(std::time::Duration::from_millis($time)).await;

@@ -43,12 +43,12 @@ impl Scraper {
 
         match self.site {
             Some(Site::AW) => Self::animeworld(&query).await,
-            Some(Site::AS) => Self::animesaturn(&query).await,
+            Some(Site::AS) => bail!("Scraper `AS` parameter is deprecated"),
             None => bail!("Missing Scraper `site` parameter"),
         }
     }
 
-    async fn init_client(site: Option<(&str, &str)>) -> Result<Client> {
+    async fn init_client(_site: Option<(&str, &str)>) -> Result<Client> {
         let mut headers = header::HeaderMap::new();
 
         let proxy = {
@@ -72,7 +72,7 @@ impl Scraper {
             )
         };
 
-        let mut cookies = match site {
+        let mut cookies = match _site {
             Some((cookie_name, url)) => {
                 let response = reqwest::get(url).await?.text().await?;
 
@@ -90,9 +90,8 @@ impl Scraper {
         };
 
         cookies.push_str(
-            "__cfduid=d6217e694ae44946bd\
-        69c717bbb7577361595537028;_csrf=SqYj4gMXcEP\
-        lL9DROQKIYcSk;expandedPlayer=false",
+            "__cfduid=df375aea9c761e29fe312136a2b0af16b1599087133;\
+            _csrf=ITVgw-fJSainaeRefw2IFwWG",
         );
 
         headers.insert(header::COOKIE, HeaderValue::from_str(&cookies)?);
@@ -164,6 +163,8 @@ impl Scraper {
         Ok(urls)
     }
 
+    // DEPRECATED: since 1.0.4
+    #[allow(dead_code)]
     async fn animesaturn(query: &str) -> Result<Vec<String>> {
         // if doesn't work add: `Some(("ASCookie", "https://animesaturn.com"))`
         let client = Self::init_client(None).await?;
@@ -246,6 +247,8 @@ impl Scraper {
         Ok(urls)
     }
 
+    // DEPRECATED: since 1.0.4
+    #[allow(dead_code)]
     async fn as_change_server(fragment: &Html, client: &Client) -> Result<String> {
         let results = {
             let div = Selector::parse("div.button").unwrap();
@@ -280,7 +283,8 @@ impl Scraper {
     }
 
     async fn parse(url: &str, client: &Client) -> Result<Html> {
-        delay_for!(thread_rng().gen_range(100, 300));
+        // NOTE: Uncomment if is implemented an antiscraper
+        // delay_for!(thread_rng().gen_range(100, 300));
 
         let response = client
             .get(url)
