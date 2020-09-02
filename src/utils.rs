@@ -31,7 +31,7 @@ pub fn extract_info(string: &str) -> Result<RegInfo> {
 }
 
 pub fn find_first_match(url: &str, matcher: &str) -> Result<String> {
-    let re = Regex::new(matcher)?;
+    let re = Regex::new(matcher).unwrap();
     let cap = match re.captures_iter(&url).last() {
         Some(c) => c,
         None => bail!("Unable to parse `{}`", url),
@@ -42,7 +42,7 @@ pub fn find_first_match(url: &str, matcher: &str) -> Result<String> {
 }
 
 pub fn find_all_match(text: &str, matcher: &str) -> Result<Vec<Vec<u8>>> {
-    let re = Regex::new(matcher)?;
+    let re = Regex::new(matcher).unwrap();
     let cap = re
         .captures_iter(&text)
         .map(|c| (&c[0] as &str).to_string())
@@ -134,7 +134,7 @@ pub fn prompt_choices(choices: Vec<(String, String)>) -> Result<Vec<String>> {
             let mut line = String::new();
             std::io::stdin().read_line(&mut line)?;
 
-            let re = Regex::new(r"[^\d]")?;
+            let re = Regex::new(r"[^\d]").unwrap();
             multi.extend(
                 re.replace_all(&line, " ")
                     .split_ascii_whitespace()
@@ -145,24 +145,25 @@ pub fn prompt_choices(choices: Vec<(String, String)>) -> Result<Vec<String>> {
             );
 
             if line.contains('-') {
-                let re = Regex::new(r"(?:\d+\-\d+)")?;
+                let re = Regex::new(r"(?:\d+\-\d*)").unwrap();
                 re.captures_iter(&line)
                     .map(|c| c[0].to_string())
                     .for_each(|s| {
                         let range = s
                             .split('-')
                             .into_iter()
-                            .map(|v| v.parse().unwrap_or(1) as usize)
+                            .map(|v| v.parse().unwrap_or(choices.len()) as usize)
                             .filter(|i| i.gt(&0) && i.le(&choices.len()))
                             .collect::<Vec<_>>();
-                        let start = *range.first().unwrap();
-                        let end = *range.last().unwrap();
+                        let start = range.first().unwrap();
+                        let end = range.last().unwrap();
 
-                        multi.extend((start + 1..end).collect::<Vec<_>>())
+                        multi.extend((start + 1..end + 1).collect::<Vec<_>>())
                     });
             }
 
             multi.sort();
+            multi.dedup();
             let res = multi
                 .iter()
                 .map(|i| choices[i - 1].0.to_string())
