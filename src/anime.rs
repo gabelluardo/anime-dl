@@ -1,10 +1,9 @@
 use crate::cli::*;
 use crate::scraper::Scraper;
-use crate::utils::*;
+use crate::utils::{self, bars, tui};
 
 use anyhow::{bail, Context, Result};
 use futures::future::join_all;
-use indicatif::ProgressBar;
 use reqwest::header::{CONTENT_LENGTH, RANGE};
 use reqwest::{Client, Url};
 use tokio::{fs, io::AsyncWriteExt, task};
@@ -60,7 +59,7 @@ impl Manager {
     async fn single(&self) -> Result<()> {
         let args = &self.args;
 
-        let pb = instance_bar();
+        let pb = bars::instance_bar();
         let (_, _, anime_urls) = self.filter_args().await?;
 
         let opts = (args.dir.last().unwrap().to_owned(), args.force, pb);
@@ -88,13 +87,13 @@ impl Manager {
             let episodes = anime
                 .iter()
                 .map(|u| {
-                    let info = extract_info(u).unwrap();
+                    let info = utils::extract_info(u).unwrap();
 
                     (u.to_string(), format!("{} ep. {}", info.name, info.num))
                 })
                 .collect::<Vec<_>>();
 
-            prompt_choices(episodes)?
+            tui::prompt_choices(episodes)?
         };
 
         Command::new("vlc")
@@ -106,7 +105,7 @@ impl Manager {
     }
 
     async fn multi(&self) -> Result<()> {
-        let multi_bars = instance_multi_bars();
+        let multi_bars = bars::instance_multi_bars();
         let (start, end, anime_urls) = self.filter_args().await?;
         let args = &self.args;
 
@@ -115,7 +114,7 @@ impl Manager {
             let mut dir = args.dir.last().unwrap().to_owned();
 
             let path = if args.auto_dir {
-                let subfolder = extract_info(&url)?;
+                let subfolder = utils::extract_info(&url)?;
 
                 dir.push(subfolder.name);
                 dir
@@ -146,13 +145,13 @@ impl Manager {
                 let episodes = anime
                     .iter()
                     .map(|u| {
-                        let info = extract_info(u).unwrap();
+                        let info = utils::extract_info(u).unwrap();
 
                         (u.to_string(), format!("{} ep. {}", info.name, info.num))
                     })
                     .collect::<Vec<_>>();
 
-                prompt_choices(episodes)?
+                tui::prompt_choices(episodes)?
             } else {
                 anime.into_iter().collect::<Vec<_>>()
             };
@@ -161,7 +160,7 @@ impl Manager {
                 episodes
                     .into_iter()
                     .map(|u| {
-                        let pb = instance_bar();
+                        let pb = bars::instance_bar();
                         let opts = (path.clone(), args.force, multi_bars.add(pb));
 
                         tokio::spawn(async move { print_err!(Self::download(&u, opts).await) })
@@ -178,7 +177,7 @@ impl Manager {
         Ok(())
     }
 
-    async fn download(url: &str, opts: (PathBuf, bool, ProgressBar)) -> Result<()> {
+    async fn download(url: &str, opts: (PathBuf, bool, bars::ProgressBar)) -> Result<()> {
         let (root, overwrite, pb) = &opts;
         let client = Client::new();
 
@@ -206,9 +205,9 @@ impl Manager {
             bail!("{} already exists", &filename);
         }
 
-        let msg = match extract_info(&filename) {
+        let msg = match utils::extract_info(&filename) {
             Ok(info) => format!("Ep. {:02} {}", info.num, info.name),
-            _ => to_title_case(&filename),
+            _ => utils::to_title_case(&filename),
         };
 
         pb.set_position(file.size);
@@ -296,7 +295,7 @@ impl Anime {
 
     async fn parse<'a>(props: AnimeProps<'a>) -> Result<Self> {
         let (url, path, start, end, auto) = props;
-        let info = extract_info(&url)?;
+        let info = utils::extract_info(&url)?;
 
         let end = match end {
             0 => info.num,

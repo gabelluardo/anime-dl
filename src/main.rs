@@ -13,6 +13,6 @@ use cli::Args;
 async fn main() {
     match Manager::from(Args::new()).run().await {
         Ok(_) => (),
-        Err(e) => eprintln!("{}", utils::format_err(e)),
+        Err(e) => eprintln!("{}", utils::tui::format_err(e)),
     }
 }

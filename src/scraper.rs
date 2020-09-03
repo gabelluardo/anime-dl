@@ -1,9 +1,7 @@
 use crate::cli::Site;
-use crate::utils::*;
+use crate::utils::{self, crypt, tui};
 
 use anyhow::{bail, Context, Result};
-
-use rand::prelude::*;
 use reqwest::{header, header::HeaderValue, Client};
 use scraper::{Html, Selector};
 
@@ -66,20 +64,17 @@ impl Scraper {
                 .into_iter()
                 .collect::<Vec<_>>();
 
-            format!(
-                "http://{}",
-                proxies[thread_rng().gen_range(0, proxies.len())]
-            )
+            format!("http://{}", proxies[utils::rand_range(0, proxies.len())])
         };
 
         let mut cookies = match _site {
             Some((cookie_name, url)) => {
                 let response = reqwest::get(url).await?.text().await?;
 
-                match find_all_match(&response, r"\(.(\d|\w)+.\)") {
+                match crypt::extract_hex(&response, r"\(.(\d|\w)+.\)") {
                     Ok(v) => {
                         let (a, b, c) = (&v[0], &v[1], &v[2]);
-                        let output = crypt(a, b, c)?;
+                        let output = crypt::encode(a, b, c)?;
 
                         format!("{}={};", cookie_name, output)
                     }
@@ -137,7 +132,7 @@ impl Scraper {
             }
         };
 
-        let choices = prompt_choices(results)?;
+        let choices = tui::prompt_choices(results)?;
 
         let mut urls = vec![];
         for choice in choices {
@@ -161,6 +156,20 @@ impl Scraper {
         }
 
         Ok(urls)
+    }
+
+    async fn parse(url: &str, client: &Client) -> Result<Html> {
+        // NOTE: Uncomment if is implemented an antiscraper
+        // delay_for!(rand_range(100, 300));
+
+        let response = client
+            .get(url)
+            .send()
+            .await?
+            .error_for_status()
+            .context(format!("Unable to get anime page"))?;
+
+        Ok(Html::parse_fragment(&response.text().await?))
     }
 
     // DEPRECATED: since 1.0.4
@@ -195,7 +204,7 @@ impl Scraper {
             }
         };
 
-        let choices = prompt_choices(results)?;
+        let choices = tui::prompt_choices(results)?;
 
         let mut urls = vec![];
         for choice in choices {
@@ -280,20 +289,6 @@ impl Scraper {
         };
 
         Ok(url)
-    }
-
-    async fn parse(url: &str, client: &Client) -> Result<Html> {
-        // NOTE: Uncomment if is implemented an antiscraper
-        // delay_for!(thread_rng().gen_range(100, 300));
-
-        let response = client
-            .get(url)
-            .send()
-            .await?
-            .error_for_status()
-            .context(format!("Unable to get anime page"))?;
-
-        Ok(Html::parse_fragment(&response.text().await?))
     }
 }
 
