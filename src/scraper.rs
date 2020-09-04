@@ -119,7 +119,7 @@ impl Scraper {
                     .select(&a)
                     .into_iter()
                     .map(|a| {
-                        (
+                        tui::Choice::from(
                             a.value().attr("href").expect("No link found").to_string(),
                             a.first_child()
                                 .and_then(|a| a.value().as_text())
@@ -191,7 +191,7 @@ impl Scraper {
                     .select(&a)
                     .into_iter()
                     .map(|a| {
-                        (
+                        tui::Choice::from(
                             a.value().attr("href").expect("No link found").to_string(),
                             a.first_child()
                                 .and_then(|a| a.value().as_text())

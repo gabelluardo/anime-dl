@@ -89,7 +89,7 @@ impl Manager {
                 .map(|u| {
                     let info = utils::extract_info(u).unwrap();
 
-                    (u.to_string(), format!("{} ep. {}", info.name, info.num))
+                    tui::Choice::from(u.to_string(), format!("{} ep. {}", info.name, info.num))
                 })
                 .collect::<Vec<_>>();
 
@@ -147,7 +147,7 @@ impl Manager {
                     .map(|u| {
                         let info = utils::extract_info(u).unwrap();
 
-                        (u.to_string(), format!("{} ep. {}", info.name, info.num))
+                        tui::Choice::from(u.to_string(), format!("{} ep. {}", info.name, info.num))
                     })
                     .collect::<Vec<_>>();
 

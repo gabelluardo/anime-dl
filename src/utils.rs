@@ -58,8 +58,7 @@ pub mod crypt {
     use super::*;
 
     use aes_soft::Aes128;
-    use block_modes::block_padding::NoPadding;
-    use block_modes::{BlockMode, Cbc};
+    use block_modes::{block_padding, BlockMode, Cbc};
     use hex;
 
     pub fn extract_hex(text: &str, matcher: &str) -> Result<Vec<Vec<u8>>> {
@@ -82,7 +81,7 @@ pub mod crypt {
     }
 
     pub fn encode(key: &[u8], iv: &[u8], data: &[u8]) -> Result<String> {
-        type Aes128Cbc = Cbc<Aes128, NoPadding>;
+        type Aes128Cbc = Cbc<Aes128, block_padding::NoPadding>;
 
         let cipher = Aes128Cbc::new_var(&key, &iv)?;
         let out = hex::encode(cipher.decrypt_vec(&data)?);
@@ -119,10 +118,21 @@ pub mod tui {
     use colored::Colorize;
     use std::io::prelude::*;
 
-    pub fn prompt_choices(choices: Vec<(String, String)>) -> Result<Vec<String>> {
+    pub struct Choice {
+        link: String,
+        name: String,
+    }
+
+    impl Choice {
+        pub fn from(link: String, name: String) -> Self {
+            Self { link, name }
+        }
+    }
+
+    pub fn prompt_choices(choices: Vec<Choice>) -> Result<Vec<String>> {
         Ok(match choices.len() {
             0 => bail!("No match found"),
-            1 => vec![choices[0].0.to_string()],
+            1 => vec![choices[0].link.to_string()],
             _ => {
                 println!(
                     "{}",
@@ -134,7 +144,7 @@ pub mod tui {
                     println!(
                         "[{}] {}",
                         format!("{}", i + 1).bright_purple(),
-                        format!("{}", choices[i].1).bright_green()
+                        format!("{}", choices[i].name).bright_green()
                     );
                 }
 
@@ -146,19 +156,17 @@ pub mod tui {
                 );
                 std::io::stdout().flush()?;
 
-                let mut multi = vec![];
                 let mut line = String::new();
                 std::io::stdin().read_line(&mut line)?;
 
                 let re = Regex::new(r"[^\d]").unwrap();
-                multi.extend(
-                    re.replace_all(&line, " ")
-                        .split_ascii_whitespace()
-                        .into_iter()
-                        .map(|v| v.parse().unwrap_or(1) as usize)
-                        .filter(|i| i.gt(&0) && i.le(&choices.len()))
-                        .collect::<Vec<_>>(),
-                );
+                let mut multi = re
+                    .replace_all(&line, " ")
+                    .split_ascii_whitespace()
+                    .into_iter()
+                    .map(|v| v.parse().unwrap_or(1) as usize)
+                    .filter(|i| i.gt(&0) && i.le(&choices.len()))
+                    .collect::<Vec<_>>();
 
                 if line.contains('-') {
                     let re = Regex::new(r"(?:\d+\-\d*)").unwrap();
@@ -182,14 +190,11 @@ pub mod tui {
                 multi.dedup();
                 let res = multi
                     .iter()
-                    .map(|i| choices[i - 1].0.to_string())
+                    .map(|i| choices[i - 1].link.to_string())
                     .collect::<Vec<_>>();
 
                 match res.len() {
-                    0 => choices
-                        .into_iter()
-                        .map(|c| c.0.to_string())
-                        .collect::<Vec<_>>(),
+                    0 => choices.into_iter().map(|c| c.link).collect::<Vec<_>>(),
                     _ => res,
                 }
             }
