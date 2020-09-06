@@ -1,5 +1,5 @@
 use crate::cli::*;
-use crate::scraper::Scraper;
+use crate::scraper::*;
 use crate::utils::{self, bars, tui};
 
 use anyhow::{bail, Context, Result};
@@ -36,7 +36,7 @@ impl Manager {
         }
     }
 
-    async fn filter_args(&self) -> Result<(u32, u32, Vec<String>)> {
+    async fn filter_args(&self) -> Result<(u32, u32, ScraperItems)> {
         let args = &self.args;
 
         let (start, end) = match &args.range {
@@ -47,10 +47,18 @@ impl Manager {
         // Scrape from archive and find correct url
         let urls = match &args.search {
             Some(site) => {
-                let query = &args.urls.join("+");
-                Scraper::new().site(site).query(query).run().await?
+                Scraper::new()
+                    .site(site)
+                    .query(&args.urls.to_query())
+                    .run()
+                    .await?
             }
-            _ => args.urls.to_vec(),
+            _ => args
+                .urls
+                .to_vec()
+                .iter()
+                .map(|s| ScraperItemDetails::from(s.to_owned(), None))
+                .collect::<ScraperItems>(),
         };
 
         Ok((start, end, urls))
@@ -64,7 +72,7 @@ impl Manager {
 
         let opts = (args.dir.last().unwrap().to_owned(), args.force, pb);
 
-        Self::download(&anime_urls.first().unwrap(), opts).await?;
+        Self::download(&anime_urls.first().unwrap().url, opts).await?;
         Ok(())
     }
 
@@ -73,10 +81,10 @@ impl Manager {
         let args = &self.args;
 
         let urls = if args.single {
-            anime_urls
+            anime_urls.iter().map(|a| a.url.clone()).collect::<Vec<_>>()
         } else {
             let props = (
-                anime_urls.first().unwrap().as_str(),
+                anime_urls.first().unwrap().url.as_str(),
                 args.dir.first().unwrap(),
                 start,
                 end,
@@ -110,19 +118,19 @@ impl Manager {
         let args = &self.args;
 
         let mut pool = vec![];
-        for url in &anime_urls {
+        for item in &anime_urls {
             let mut dir = args.dir.last().unwrap().to_owned();
 
             let path = if args.auto_dir {
-                let subfolder = utils::extract_info(&url)?;
+                let subfolder = utils::extract_info(&item.url)?;
 
                 dir.push(subfolder.name);
                 dir
             } else {
                 let pos = anime_urls
                     .iter()
-                    .map(|u| u.as_str())
-                    .position(|u| u == url)
+                    .map(|i| i.url.as_str())
+                    .position(|u| u == item.url)
                     .unwrap();
 
                 match args.dir.get(pos) {
@@ -132,7 +140,7 @@ impl Manager {
             };
 
             let props = (
-                url.as_str(),
+                item.url.as_str(),
                 &path,
                 start,
                 end,
@@ -235,57 +243,10 @@ impl Manager {
 
 #[derive(Default)]
 struct Anime {
+    _id: Option<u32>,
     path: PathBuf,
     episodes: Vec<String>,
 }
-
-struct AnimeIntoIterator {
-    iter: ::std::vec::IntoIter<String>,
-}
-
-impl<'a> IntoIterator for Anime {
-    type Item = String;
-    type IntoIter = AnimeIntoIterator;
-
-    fn into_iter(self) -> Self::IntoIter {
-        AnimeIntoIterator {
-            iter: self.episodes.clone().into_iter(),
-        }
-    }
-}
-
-impl<'a> Iterator for AnimeIntoIterator {
-    type Item = String;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.iter.next()
-    }
-}
-
-struct AnimeIterator<'a> {
-    iter: ::std::slice::Iter<'a, String>,
-}
-
-impl<'a> IntoIterator for &'a Anime {
-    type Item = &'a String;
-    type IntoIter = AnimeIterator<'a>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        AnimeIterator {
-            iter: self.episodes.iter(),
-        }
-    }
-}
-
-impl<'a> Iterator for AnimeIterator<'a> {
-    type Item = &'a String;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.iter.next()
-    }
-}
-
-type AnimeProps<'a> = (&'a str, &'a PathBuf, u32, u32, bool);
 
 impl Anime {
     #[allow(dead_code)]
@@ -306,8 +267,16 @@ impl Anime {
 
         Ok(Self {
             path: path.to_owned(),
+            _id: None,
             episodes,
         })
+    }
+
+    async fn _id(self, id: u32) -> Self {
+        Self {
+            _id: Some(id),
+            ..self
+        }
     }
 
     async fn episodes(url: &str, opts: (u32, u32, bool)) -> Result<Vec<String>> {
@@ -367,6 +336,54 @@ impl Anime {
         self.into_iter()
     }
 }
+
+struct AnimeIntoIterator {
+    iter: ::std::vec::IntoIter<String>,
+}
+
+impl<'a> IntoIterator for Anime {
+    type Item = String;
+    type IntoIter = AnimeIntoIterator;
+
+    fn into_iter(self) -> Self::IntoIter {
+        AnimeIntoIterator {
+            iter: self.episodes.clone().into_iter(),
+        }
+    }
+}
+
+impl<'a> Iterator for AnimeIntoIterator {
+    type Item = String;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next()
+    }
+}
+
+struct AnimeIterator<'a> {
+    iter: ::std::slice::Iter<'a, String>,
+}
+
+impl<'a> IntoIterator for &'a Anime {
+    type Item = &'a String;
+    type IntoIter = AnimeIterator<'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        AnimeIterator {
+            iter: self.episodes.iter(),
+        }
+    }
+}
+
+impl<'a> Iterator for AnimeIterator<'a> {
+    type Item = &'a String;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next()
+    }
+}
+
+type AnimeProps<'a> = (&'a str, &'a PathBuf, u32, u32, bool);
 
 #[derive(Default)]
 struct FileDest {

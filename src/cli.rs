@@ -15,11 +15,11 @@ arg_enum! {
 #[derive(Debug)]
 pub struct Range {
     start: u32,
-    end: u32
+    end: u32,
 }
 
 impl Range {
-    pub fn extract(&self) -> (u32, u32){
+    pub fn extract(&self) -> (u32, u32) {
         (self.start, self.end)
     }
 }
@@ -28,14 +28,46 @@ impl FromStr for Range {
     type Err = std::num::ParseIntError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let coords = s.trim_matches(|p| p == '(' || p == ')' )
-                                 .split(',')
-                                 .collect::<Vec<_>>();
+        let coords = s
+            .trim_matches(|p| p == '(' || p == ')')
+            .split(',')
+            .collect::<Vec<_>>();
 
         let start_fromstr = coords[0].parse::<u32>()?;
         let end_fromstr = coords[1].parse::<u32>()?;
 
-        Ok(Range { start: start_fromstr, end: end_fromstr })
+        Ok(Range {
+            start: start_fromstr,
+            end: end_fromstr,
+        })
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct Urls {
+    value: Vec<String>,
+}
+
+impl Urls {
+    pub fn to_vec(&self) -> Vec<String> {
+        self.value.clone()
+    }
+
+    pub fn to_query(&self) -> String {
+        self.value.join("+")
+    }
+}
+
+impl FromStr for Urls {
+    type Err = std::str::Utf8Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(Urls {
+            value: s
+                .split_ascii_whitespace()
+                .map(|s| s.to_string())
+                .collect::<Vec<_>>(),
+        })
     }
 }
 
@@ -44,7 +76,7 @@ impl FromStr for Range {
 pub struct Args {
     /// Source url
     #[structopt(required = true)]
-    pub urls: Vec<String>,
+    pub urls: Urls,
 
     /// Root folders where save files
     #[structopt(default_value = ".", short, long)]
@@ -98,8 +130,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_range(){
-        let range1 = Range{start:0,end:1};
+    fn test_range() {
+        let range1 = Range { start: 0, end: 1 };
         let (start, end) = range1.extract();
 
         assert_eq!(start, 0);
@@ -112,6 +144,5 @@ mod tests {
         assert_eq!(end, 1);
 
         assert_eq!(range1.extract(), range2.extract());
-
     }
 }

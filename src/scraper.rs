@@ -2,13 +2,113 @@ use crate::cli::Site;
 use crate::utils::{self, crypt, tui};
 
 use anyhow::{bail, Context, Result};
-use reqwest::{header, header::HeaderValue, Client};
+use reqwest::{header, header::HeaderValue, Client, Url};
 use scraper::{Html, Selector};
 
-const USER_AGENT: &str = "Mozilla/5.0 (Windows; U; Windows NT 5.1; en-GB; rv:1.8.1.6)\
- Gecko/20070725 Firefox/2.0.0.6";
-const ACCEPT: &str = "text/html,application/xhtml+xml,application/\
-    xml;q=0.9,image/webp,*/*;q=0.8";
+use std::iter::FromIterator;
+
+#[derive(Clone)]
+pub struct ScraperItemDetails {
+    pub url: String,
+    pub id: Option<u32>,
+}
+
+impl ScraperItemDetails {
+    pub fn from(url: String, id: Option<u32>) -> Self {
+        Self { url, id }
+    }
+}
+
+#[derive(Default, Clone)]
+pub struct ScraperItems {
+    items: Vec<ScraperItemDetails>,
+}
+
+impl ScraperItems {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn push(&mut self, item: ScraperItemDetails) {
+        self.items.push(item)
+    }
+
+    pub fn to_vec(&self) -> Vec<ScraperItemDetails> {
+        self.items.clone()
+    }
+
+    pub fn first(&self) -> Option<&ScraperItemDetails> {
+        self.items.first()
+    }
+
+    pub fn last(&self) -> Option<&ScraperItemDetails> {
+        self.items.last()
+    }
+
+    pub fn iter(&self) -> ScraperItemsIterator {
+        self.into_iter()
+    }
+}
+
+impl FromIterator<ScraperItemDetails> for ScraperItems {
+    fn from_iter<I: IntoIterator<Item = ScraperItemDetails>>(iter: I) -> Self {
+        let mut c = ScraperItems::new();
+        c.extend(iter);
+        c
+    }
+}
+
+impl Extend<ScraperItemDetails> for ScraperItems {
+    fn extend<T: IntoIterator<Item = ScraperItemDetails>>(&mut self, iter: T) {
+        iter.into_iter().for_each(drop)
+    }
+}
+
+pub struct ScraperItemsIntoIterator {
+    iter: ::std::vec::IntoIter<ScraperItemDetails>,
+}
+
+impl<'a> IntoIterator for ScraperItems {
+    type Item = ScraperItemDetails;
+    type IntoIter = ScraperItemsIntoIterator;
+
+    fn into_iter(self) -> Self::IntoIter {
+        ScraperItemsIntoIterator {
+            iter: self.items.into_iter(),
+        }
+    }
+}
+
+impl<'a> Iterator for ScraperItemsIntoIterator {
+    type Item = ScraperItemDetails;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next()
+    }
+}
+
+pub struct ScraperItemsIterator<'a> {
+    iter: ::std::slice::Iter<'a, ScraperItemDetails>,
+}
+
+impl<'a> IntoIterator for &'a ScraperItems {
+    type Item = &'a ScraperItemDetails;
+    type IntoIter = ScraperItemsIterator<'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        ScraperItemsIterator {
+            iter: self.items.iter(),
+        }
+    }
+}
+
+impl<'a> Iterator for ScraperItemsIterator<'a> {
+    type Item = &'a ScraperItemDetails;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next()
+    }
+}
 
 #[derive(Default)]
 pub struct Scraper {
@@ -16,7 +116,12 @@ pub struct Scraper {
     query: String,
 }
 
-impl Scraper {
+impl<'a> Scraper {
+    const USER_AGENT: &'a str = "Mozilla/5.0 (Windows; U; Windows NT 5.1; en-GB; rv:1.8.1.6)\
+ Gecko/20070725 Firefox/2.0.0.6";
+    const ACCEPT: &'a str = "text/html,application/xhtml+xml,application/\
+    xml;q=0.9,image/webp,*/*;q=0.8";
+
     pub fn new() -> Self {
         Self::default()
     }
@@ -35,7 +140,7 @@ impl Scraper {
         }
     }
 
-    pub async fn run(&self) -> Result<Vec<String>> {
+    pub async fn run(&self) -> Result<ScraperItems> {
         // Concat string if is passed with "" in shell
         let query = self.query.replace(" ", "+");
 
@@ -90,19 +195,19 @@ impl Scraper {
         );
 
         headers.insert(header::COOKIE, HeaderValue::from_str(&cookies)?);
-        headers.insert(header::ACCEPT, HeaderValue::from_static(ACCEPT));
+        headers.insert(header::ACCEPT, HeaderValue::from_static(Self::ACCEPT));
         headers.insert(header::ACCEPT_LANGUAGE, HeaderValue::from_static("it"));
 
         Ok(Client::builder()
             .referer(true)
-            .user_agent(USER_AGENT)
+            .user_agent(Self::USER_AGENT)
             .default_headers(headers)
             .proxy(reqwest::Proxy::http(&proxy)?)
             .build()
             .unwrap())
     }
 
-    async fn animeworld(query: &str) -> Result<Vec<String>> {
+    async fn animeworld(query: &str) -> Result<ScraperItems> {
         // if doesn't work add: `Some(("AWCookietest", "https://animeworld.tv"))`
         let client = Self::init_client(None).await?;
 
@@ -134,12 +239,12 @@ impl Scraper {
 
         let choices = tui::prompt_choices(results)?;
 
-        let mut urls = vec![];
+        let mut anime = ScraperItems::new();
         for choice in choices {
             let choice = format!("https://www.animeworld.tv{}", choice);
 
             let fragment = Self::parse(&choice, &client).await?;
-            let results = {
+            let url = {
                 let a = Selector::parse(r#"a[id="alternativeDownloadLink"]"#).unwrap();
 
                 fragment
@@ -148,14 +253,31 @@ impl Scraper {
                     .and_then(|a| a.value().attr("href"))
             };
 
-            let url = match results {
+            let id = {
+                let a = Selector::parse(r#"a[id="anilist-button"]"#).unwrap();
+
+                fragment
+                    .select(&a)
+                    .last()
+                    .and_then(|a| a.value().attr("href"))
+                    .map(|u| {
+                        Url::parse(&u)
+                            .unwrap()
+                            .path_segments()
+                            .and_then(|segments| segments.last().unwrap().parse::<u32>().ok())
+                            .unwrap()
+                    })
+            };
+
+            let url = match url {
                 Some(u) => u.to_string(),
                 _ => bail!("No link found"),
             };
-            urls.push(url);
+
+            anime.push(ScraperItemDetails::from(url, id));
         }
 
-        Ok(urls)
+        Ok(anime)
     }
 
     async fn parse(url: &str, client: &Client) -> Result<Html> {
@@ -310,9 +432,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_animeworld() {
-        let url = Scraper::animeworld("bunny girl").await.unwrap();
+        let anime = Scraper::animeworld("bunny girl").await.unwrap();
         let file = "SeishunButaYarouWaBunnyGirlSenpaiNoYumeWoMinai_Ep_01_SUB_ITA.mp4";
-        let info = Url::parse(url.first().unwrap())
+        let info = Url::parse(&anime.first().unwrap().url)
             .unwrap()
             .path_segments()
             .and_then(|segments| segments.last())
@@ -339,9 +461,9 @@ mod tests {
     #[tokio::test]
     async fn test_scraper() {
         let s = Scraper::new();
-        let url = s.site(&Site::AW).query("bunny girl").run().await.unwrap();
+        let anime = s.site(&Site::AW).query("bunny girl").run().await.unwrap();
         let file = "SeishunButaYarouWaBunnyGirlSenpaiNoYumeWoMinai_Ep_01_SUB_ITA.mp4";
-        let info = Url::parse(url.first().unwrap())
+        let info = Url::parse(&anime.last().unwrap().url)
             .unwrap()
             .path_segments()
             .and_then(|segments| segments.last())
