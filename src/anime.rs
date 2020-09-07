@@ -93,6 +93,7 @@ impl Manager {
             let anime = Anime::parse(props).await?;
 
             let episodes = anime
+                .episodes
                 .iter()
                 .map(|u| {
                     let info = utils::extract_info(u).unwrap();
@@ -151,6 +152,7 @@ impl Manager {
 
             let episodes = if args.interactive {
                 let episodes = anime
+                    .episodes
                     .iter()
                     .map(|u| {
                         let info = utils::extract_info(u).unwrap();
@@ -161,7 +163,7 @@ impl Manager {
 
                 tui::prompt_choices(episodes)?
             } else {
-                anime.into_iter().collect::<Vec<_>>()
+                anime.episodes
             };
 
             pool.extend(
@@ -330,56 +332,6 @@ impl Anime {
 
     fn path(&self) -> PathBuf {
         self.path.clone()
-    }
-
-    fn iter(&self) -> AnimeIterator {
-        self.into_iter()
-    }
-}
-
-struct AnimeIntoIterator {
-    iter: ::std::vec::IntoIter<String>,
-}
-
-impl<'a> IntoIterator for Anime {
-    type Item = String;
-    type IntoIter = AnimeIntoIterator;
-
-    fn into_iter(self) -> Self::IntoIter {
-        AnimeIntoIterator {
-            iter: self.episodes.clone().into_iter(),
-        }
-    }
-}
-
-impl<'a> Iterator for AnimeIntoIterator {
-    type Item = String;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.iter.next()
-    }
-}
-
-struct AnimeIterator<'a> {
-    iter: ::std::slice::Iter<'a, String>,
-}
-
-impl<'a> IntoIterator for &'a Anime {
-    type Item = &'a String;
-    type IntoIter = AnimeIterator<'a>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        AnimeIterator {
-            iter: self.episodes.iter(),
-        }
-    }
-}
-
-impl<'a> Iterator for AnimeIterator<'a> {
-    type Item = &'a String;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.iter.next()
     }
 }
 
