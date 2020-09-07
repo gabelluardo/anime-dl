@@ -12,13 +12,17 @@ arg_enum! {
     }
 }
 
-#[derive(Debug)]
+#[derive(Default, Debug, Copy, Clone)]
 pub struct Range {
-    start: u32,
-    end: u32,
+    pub start: u32,
+    pub end: u32,
 }
 
 impl Range {
+    pub fn from((start, end): (u32, u32)) -> Self {
+        Self { start, end }
+    }
+
     pub fn extract(&self) -> (u32, u32) {
         (self.start, self.end)
     }
@@ -106,7 +110,7 @@ pub struct Args {
     #[structopt(
         long,
         short = "S",
-        possible_values = &Site::variants(), 
+        possible_values = &Site::variants()
     )]
     pub search: Option<Site>,
 
