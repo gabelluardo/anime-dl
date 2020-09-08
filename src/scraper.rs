@@ -13,12 +13,6 @@ pub struct ScraperItemDetails {
     pub id: Option<u32>,
 }
 
-impl ScraperItemDetails {
-    pub fn from(url: String, id: Option<u32>) -> Self {
-        Self { url, id }
-    }
-}
-
 #[derive(Default, Clone)]
 pub struct ScraperItems {
     items: Vec<ScraperItemDetails>,
@@ -27,6 +21,10 @@ pub struct ScraperItems {
 impl ScraperItems {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    pub fn item(url: String, id: Option<u32>) -> ScraperItemDetails {
+        ScraperItemDetails { url, id }
     }
 
     pub fn push(&mut self, item: ScraperItemDetails) {
@@ -274,7 +272,7 @@ impl<'a> Scraper {
                 _ => bail!("No link found"),
             };
 
-            anime.push(ScraperItemDetails::from(url, id));
+            anime.push(ScraperItems::item(url, id));
         }
 
         Ok(anime)

@@ -1,3 +1,4 @@
+use crate::api::AniList;
 use crate::cli::*;
 use crate::scraper::*;
 use crate::utils::{self, bars, tui};
@@ -52,7 +53,7 @@ impl Manager {
                 .urls
                 .to_vec()
                 .iter()
-                .map(|s| ScraperItemDetails::from(s.to_owned(), None))
+                .map(|s| ScraperItems::item(s.to_owned(), None))
                 .collect::<ScraperItems>(),
         };
 
@@ -251,6 +252,18 @@ impl AnimeBuilder {
         }
     }
 
+    async fn build(self) -> Result<Anime> {
+        let info = utils::extract_info(&self.url)?;
+        let episodes = self.episodes(&info.raw).await?;
+        let last_viewed = self.last_viewed().await?;
+
+        Ok(Anime {
+            episodes,
+            last_viewed,
+            path: self.path,
+        })
+    }
+
     async fn episodes(&self, url: &str) -> Result<Vec<String>> {
         let ((start, end), auto) = (self.range.extract(), self.auto);
 
@@ -300,26 +313,10 @@ impl AnimeBuilder {
         Ok(episodes)
     }
 
-    #[allow(unused_variables)]
     async fn last_viewed(&self) -> Result<Option<u32>> {
         Ok(match self.id {
-            Some(id) => {
-                let client = Client::new();
-                None
-            }
+            Some(id) => AniList::new().id(id).last_viewed(),
             _ => None,
-        })
-    }
-
-    async fn build(self) -> Result<Anime> {
-        let info = utils::extract_info(&self.url)?;
-        let episodes = self.episodes(&info.raw).await?;
-        let last_viewed = self.last_viewed().await?;
-
-        Ok(Anime {
-            episodes,
-            last_viewed,
-            path: self.path,
         })
     }
 }

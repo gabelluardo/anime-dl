@@ -2,6 +2,7 @@
 mod macros;
 
 mod anime;
+mod api;
 mod cli;
 mod scraper;
 mod utils;

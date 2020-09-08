@@ -1,3 +1,4 @@
 /target
 /prova
 script*
+.env
