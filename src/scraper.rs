@@ -7,13 +7,13 @@ use scraper::{Html, Selector};
 
 use std::iter::FromIterator;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ScraperItemDetails {
     pub url: String,
     pub id: Option<u32>,
 }
 
-#[derive(Default, Clone)]
+#[derive(Clone, Debug, Default)]
 pub struct ScraperItems {
     items: Vec<ScraperItemDetails>,
 }
@@ -58,7 +58,7 @@ impl FromIterator<ScraperItemDetails> for ScraperItems {
 
 impl Extend<ScraperItemDetails> for ScraperItems {
     fn extend<T: IntoIterator<Item = ScraperItemDetails>>(&mut self, iter: T) {
-        iter.into_iter().for_each(drop)
+        iter.into_iter().for_each(move |c| self.push(c))
     }
 }
 
