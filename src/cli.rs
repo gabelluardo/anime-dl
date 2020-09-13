@@ -121,6 +121,10 @@ pub struct Args {
     /// Interactive choice of episodes
     #[structopt(short, long)]
     pub interactive: bool,
+
+    /// Delete app cache
+    #[structopt(long)]
+    pub clean: bool,
 }
 
 impl Args {

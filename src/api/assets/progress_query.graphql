@@ -1,0 +1,7 @@
+query ProgressQuery($id: Int){
+  Media(id: $id, type: ANIME) {
+    mediaListEntry {
+      progress
+    }
+  }
+}

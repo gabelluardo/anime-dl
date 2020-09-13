@@ -23,13 +23,19 @@ impl Manager {
     }
 
     pub async fn run(&self) -> Result<()> {
-        if self.args.stream {
-            self.stream().await
-        } else if self.args.single {
-            self.single().await
-        } else {
-            self.multi().await
+        if self.args.clean {
+            AniList::clean_cache()?
         }
+
+        if self.args.stream {
+            self.stream().await?
+        } else if self.args.single {
+            self.single().await?
+        } else {
+            self.multi().await?
+        }
+
+        Ok(())
     }
 
     async fn filter_args(&self) -> Result<(Range, ScraperItems)> {
@@ -315,7 +321,7 @@ impl AnimeBuilder {
 
     async fn last_viewed(&self) -> Result<Option<u32>> {
         Ok(match self.id {
-            Some(id) => AniList::new().id(id).last_viewed(),
+            Some(id) => AniList::new().id(id).last_viewed().await?,
             _ => None,
         })
     }
@@ -340,7 +346,7 @@ impl Anime {
                 let mut name = format!("{} ep. {}", info.name, info.num);
 
                 if let Some(last) = self.last_viewed {
-                    if info.num <= last {
+                    if info.num <= last as u32 {
                         name = format!("{} ✔️", name);
                     }
                 }
