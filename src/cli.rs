@@ -75,7 +75,7 @@ impl FromIterator<String> for Urls {
 #[structopt(name = "anime-dl", about = "Efficient cli app for downloading anime")]
 pub struct Args {
     /// Source urls or scraper's queries
-    #[structopt(required = true)]
+    #[structopt(required_unless("clean"))]
     pub entries: Vec<String>,
 
     /// Root paths where store files

@@ -13,8 +13,7 @@ impl Default for Config {
     #[cfg(not(windows))]
     fn default() -> Self {
         let mut path = PathBuf::from(dotenv::var("HOME").unwrap());
-        // path.push(".conf/anime-dl/.anime-dl.cache");
-        path.push("Documenti/anime-dl/.anime-dl.cache");
+        path.push(".config/anime-dl/.anime-dl.cache");
 
         Self { path }
     }
