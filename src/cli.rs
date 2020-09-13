@@ -1,6 +1,7 @@
 use structopt::clap::arg_enum;
 use structopt::StructOpt;
 
+use std::iter::FromIterator;
 use std::path::PathBuf;
 use std::str::FromStr;
 
@@ -62,27 +63,22 @@ impl Urls {
     }
 }
 
-impl FromStr for Urls {
-    type Err = std::str::Utf8Error;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(Urls {
-            value: s
-                .split_ascii_whitespace()
-                .map(|s| s.to_string())
-                .collect::<Vec<_>>(),
-        })
+impl FromIterator<String> for Urls {
+    fn from_iter<I: IntoIterator<Item = String>>(iter: I) -> Self {
+        let mut c = Urls::default();
+        c.value.extend(iter);
+        c
     }
 }
 
 #[derive(Debug, Default, StructOpt)]
 #[structopt(name = "anime-dl", about = "Efficient cli app for downloading anime")]
 pub struct Args {
-    /// Source url
+    /// Source urls or scraper's queries
     #[structopt(required = true)]
-    pub urls: Urls,
+    pub entries: Vec<String>,
 
-    /// Root folders where save files
+    /// Root paths where store files
     #[structopt(default_value = ".", short, long)]
     pub dir: Vec<PathBuf>,
 
@@ -91,7 +87,7 @@ pub struct Args {
     pub range: Option<Range>,
 
     /// Find automatically output folder name
-    #[structopt(short = "a", long = "auto")]
+    #[structopt(short, long = "auto")]
     pub auto_dir: bool,
 
     /// Find automatically last episode (override `-r <range>` option)
@@ -102,7 +98,7 @@ pub struct Args {
     #[structopt(short, long)]
     pub force: bool,
 
-    /// Download only the file form the url (equivalent to `curl -O <url>`)
+    /// Download the file without in-app controll (equivalent to `curl -O <url>` or `wget <url>`)
     #[structopt(short = "O", long = "one-file")]
     pub single: bool,
 
@@ -118,18 +114,25 @@ pub struct Args {
     #[structopt(short, long)]
     pub stream: bool,
 
-    /// Interactive choice of episodes
+    /// Interactive mode
     #[structopt(short, long)]
     pub interactive: bool,
 
     /// Delete app cache
     #[structopt(long)]
     pub clean: bool,
+
+    #[structopt(skip)]
+    pub urls: Urls,
 }
 
 impl Args {
     pub fn new() -> Self {
-        Self::from_args()
+        let args = Self::from_args();
+        Self {
+            urls: Urls::from_iter(args.entries.clone()),
+            ..args
+        }
     }
 }
 

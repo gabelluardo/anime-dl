@@ -72,8 +72,7 @@ impl Manager {
         let (_, items) = self.filter_args().await?;
         let opts = (args.dir.last().unwrap().to_owned(), args.force, pb);
 
-        Self::download(&items.first().unwrap().url, opts).await?;
-        Ok(())
+        Self::download(&items.first().unwrap().url, opts).await
     }
 
     async fn stream(&self) -> Result<()> {
