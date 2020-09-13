@@ -98,7 +98,7 @@ pub struct Args {
     #[structopt(short, long)]
     pub force: bool,
 
-    /// Download the file without in-app controll (equivalent to `curl -O <url>` or `wget <url>`)
+    /// Download file without in-app control (equivalent to `curl -O <url>` or `wget <url>`)
     #[structopt(short = "O", long = "one-file")]
     pub single: bool,
 
