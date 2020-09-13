@@ -1,4 +1,4 @@
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use graphql_client::*;
 use reqwest::{header, header::HeaderValue, Client};
 
@@ -62,7 +62,7 @@ impl Config {
 }
 
 pub struct AniListBuilder {
-    client_id: String,
+    client_id: Option<String>,
     token: Option<String>,
 }
 
@@ -73,53 +73,61 @@ impl<'a> AniListBuilder {
         response_type=token&client_id=";
 
     pub fn build(self) -> Result<AniList> {
-        let oauth_url = format!("{}{}", Self::OAUTH_URL, self.client_id);
-        let config = Config::default();
+        Ok(match self.client_id {
+            None => bail!("No `CLIENT_ID` env varibale"),
+            Some(client_id) => {
+                let oauth_url = format!("{}{}", Self::OAUTH_URL, client_id);
+                let config = Config::default();
 
-        let token = match self.token {
-            Some(t) => t,
-            None => match config.load() {
-                Some(t) => t,
-                None => {
-                    println!(
-                        "For autentication go to: {}\n\nAnd paste token here:",
-                        oauth_url
-                    );
-                    let mut line = String::new();
-                    std::io::stdin().read_line(&mut line)?;
+                let token = match self.token {
+                    Some(t) => t,
+                    None => match config.load() {
+                        Some(t) => t,
+                        None => {
+                            println!(
+                                "For autentication go to: {}\n\nAnd paste token here:",
+                                oauth_url
+                            );
+                            let mut line = String::new();
+                            std::io::stdin().read_line(&mut line)?;
 
-                    let token = line.trim().to_string();
-                    config.save(&token)?;
+                            let token = line.trim().to_string();
+                            config.save(&token)?;
 
-                    token
+                            token
+                        }
+                    },
+                };
+
+                let mut headers = header::HeaderMap::new();
+                let auth = HeaderValue::from_str(&format!("{}{}", Self::AUTHORIZATION, token))?;
+
+                headers.insert(header::AUTHORIZATION, auth);
+                headers.insert(header::ACCEPT, HeaderValue::from_static(Self::ACCEPT));
+                headers.insert(header::CONTENT_TYPE, HeaderValue::from_static(Self::ACCEPT));
+
+                let client = Client::builder().default_headers(headers).build()?;
+
+                AniList {
+                    client,
+                    anime_id: None,
                 }
-            },
-        };
-
-        let mut headers = header::HeaderMap::new();
-        let auth = HeaderValue::from_str(&format!("{}{}", Self::AUTHORIZATION, token))?;
-
-        headers.insert(header::AUTHORIZATION, auth);
-        headers.insert(header::ACCEPT, HeaderValue::from_static(Self::ACCEPT));
-        headers.insert(header::CONTENT_TYPE, HeaderValue::from_static(Self::ACCEPT));
-
-        let client = Client::builder().default_headers(headers).build()?;
-
-        Ok(AniList {
-            client,
-            anime_id: None,
+            }
         })
     }
 
     #[allow(dead_code)]
-    pub fn token(self, token: Option<String>) -> Self {
-        Self { token, ..self }
+    pub fn token(self, token: &str) -> Self {
+        Self {
+            token: Some(token.to_string()),
+            ..self
+        }
     }
 
     #[allow(dead_code)]
     pub fn client_id(self, client_id: &str) -> Self {
         Self {
-            client_id: client_id.to_string(),
+            client_id: Some(client_id.to_string()),
             ..self
         }
     }
@@ -130,7 +138,7 @@ impl Default for AniListBuilder {
         dotenv::dotenv().ok();
 
         Self {
-            client_id: dotenv::var("CLIENT_ID").unwrap_or(String::from("4047")),
+            client_id: dotenv::var("CLIENT_ID").ok(),
             token: None,
         }
     }
@@ -144,8 +152,8 @@ pub struct AniList {
 impl<'a> AniList {
     const REQUEST_URL: &'a str = "https://graphql.anilist.co";
 
-    pub fn new() -> Self {
-        AniListBuilder::default().build().expect("AniList::new()")
+    pub fn new() -> Option<Self> {
+        AniListBuilder::default().build().ok()
     }
 
     #[allow(dead_code)]

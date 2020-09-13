@@ -320,7 +320,10 @@ impl AnimeBuilder {
 
     async fn last_viewed(&self) -> Result<Option<u32>> {
         Ok(match self.id {
-            Some(id) => AniList::new().id(id).last_viewed().await?,
+            Some(id) => match AniList::new() {
+                Some(a) => a.id(id).last_viewed().await?,
+                _ => None,
+            },
             _ => None,
         })
     }
