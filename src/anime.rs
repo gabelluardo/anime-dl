@@ -84,9 +84,8 @@ impl Manager {
         } else {
             let item = items.first().unwrap();
             let anime = Anime::builder()
-                .url(&item.url)
+                .item(item)
                 .path(args.dir.first().unwrap())
-                .id(item.id)
                 .range(range)
                 .auto(true)
                 .build()
@@ -130,7 +129,7 @@ impl Manager {
             };
 
             let anime = Anime::builder()
-                .url(item.url.as_str())
+                .item(item)
                 .path(&path)
                 .range(range)
                 .auto(args.auto_episode || args.interactive)
@@ -235,10 +234,6 @@ impl AnimeBuilder {
         Self { auto, ..self }
     }
 
-    fn id(self, id: Option<u32>) -> Self {
-        Self { id, ..self }
-    }
-
     fn range(self, range: Range) -> Self {
         Self { range, ..self }
     }
@@ -250,9 +245,10 @@ impl AnimeBuilder {
         }
     }
 
-    fn url(self, url: &str) -> Self {
+    fn item(self, item: &ScraperItemDetails) -> Self {
         Self {
-            url: url.to_owned(),
+            url: item.url.to_owned(),
+            id: item.id,
             ..self
         }
     }
