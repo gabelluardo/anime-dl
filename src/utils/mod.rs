@@ -1,6 +1,8 @@
 pub mod bars;
-pub mod crypt;
 pub mod tui;
+
+#[cfg(feature = "aes")]
+pub mod crypt;
 
 use anyhow::{bail, Result};
 use rand::prelude::*;

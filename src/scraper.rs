@@ -1,5 +1,8 @@
 use crate::cli::Site;
-use crate::utils::{self, crypt, tui};
+use crate::utils::{self, tui};
+
+#[cfg(feature = "aes")]
+use crate::utils::crypt;
 
 use anyhow::{bail, Context, Result};
 use reqwest::{header, header::HeaderValue, Client, Url};
@@ -119,6 +122,8 @@ impl<'a> Scraper {
  Gecko/20070725 Firefox/2.0.0.6";
     const ACCEPT: &'a str = "text/html,application/xhtml+xml,application/\
     xml;q=0.9,image/webp,*/*;q=0.8";
+    const COOKIES: &'a str = "__cfduid=df375aea9c761e29fe312136a2b0af16b1599087133;\
+    _csrf=ITVgw-fJSainaeRefw2IFwWG";
 
     pub fn new() -> Self {
         Self::default()
@@ -149,7 +154,7 @@ impl<'a> Scraper {
         }
     }
 
-    async fn init_client(_site: Option<(&str, &str)>) -> Result<Client> {
+    async fn init_client(site: (&str, &str)) -> Result<Client> {
         let mut headers = header::HeaderMap::new();
 
         let proxy = {
@@ -170,27 +175,7 @@ impl<'a> Scraper {
             format!("http://{}", proxies[utils::rand_range(0, proxies.len())])
         };
 
-        let mut cookies = match _site {
-            Some((cookie_name, url)) => {
-                let response = reqwest::get(url).await?.text().await?;
-
-                match crypt::extract_hex(&response, r"\(.(\d|\w)+.\)") {
-                    Ok(v) => {
-                        let (a, b, c) = (&v[0], &v[1], &v[2]);
-                        let output = crypt::encode(a, b, c)?;
-
-                        format!("{}={};", cookie_name, output)
-                    }
-                    _ => String::new(),
-                }
-            }
-            _ => String::new(),
-        };
-
-        cookies.push_str(
-            "__cfduid=df375aea9c761e29fe312136a2b0af16b1599087133;\
-            _csrf=ITVgw-fJSainaeRefw2IFwWG",
-        );
+        let cookies = Self::set_cookies(site).await?;
 
         headers.insert(header::COOKIE, HeaderValue::from_str(&cookies)?);
         headers.insert(header::ACCEPT, HeaderValue::from_static(Self::ACCEPT));
@@ -205,9 +190,28 @@ impl<'a> Scraper {
             .unwrap())
     }
 
+    #[cfg(feature = "aes")]
+    async fn set_cookies((cookie_name, url): (&str, &str)) -> Result<String> {
+        let response = reqwest::get(url).await?.text().await?;
+
+        Ok(match crypt::extract_hex(&response, r"\(.(\d|\w)+.\)") {
+            Ok(v) => {
+                let (a, b, c) = (&v[0], &v[1], &v[2]);
+                let output = crypt::encode(a, b, c)?;
+
+                format!("{}={};", cookie_name, output)
+            }
+            _ => String::from(Self::COOKIES),
+        })
+    }
+
+    #[cfg(not(feature = "aes"))]
+    async fn set_cookies(_: (&str, &str)) -> Result<String> {
+        Ok(String::from(Self::COOKIES))
+    }
+
     async fn animeworld(query: &str) -> Result<ScraperItems> {
-        // if doesn't work add: `Some(("AWCookietest", "https://animeworld.tv"))`
-        let client = Self::init_client(None).await?;
+        let client = Self::init_client(("AWCookietest", "https://animeworld.tv")).await?;
 
         let source = "https://www.animeworld.tv/search?keyword=";
         let search_url = format!("{}{}", source, query);
@@ -278,9 +282,9 @@ impl<'a> Scraper {
         Ok(anime)
     }
 
+    #[cfg(feature = "aes")]
     async fn parse(url: &str, client: &Client) -> Result<Html> {
-        // NOTE: Uncomment if is implemented an antiscraper
-        // delay_for!(rand_range(100, 300));
+        delay_for!(utils::rand_range(100, 300));
 
         let response = client
             .get(url)
@@ -292,124 +296,134 @@ impl<'a> Scraper {
         Ok(Html::parse_fragment(&response.text().await?))
     }
 
-    // DEPRECATED: since 1.0.4
-    #[allow(dead_code)]
-    async fn animesaturn(query: &str) -> Result<Vec<String>> {
-        // if doesn't work add: `Some(("ASCookie", "https://animesaturn.com"))`
-        let client = Self::init_client(None).await?;
+    #[cfg(not(feature = "aes"))]
+    async fn parse(url: &str, client: &Client) -> Result<Html> {
+        let response = client
+            .get(url)
+            .send()
+            .await?
+            .error_for_status()
+            .context(format!("Unable to get anime page"))?;
 
-        let source = "https://www.animesaturn.com/animelist?search=";
-        let search_url = format!("{}{}", source, query);
-
-        let fragment = Self::parse(&search_url, &client).await?;
-        let results = {
-            let div = Selector::parse("div.info-archivio").unwrap();
-            let a = Selector::parse("a.badge-archivio").unwrap();
-
-            match fragment.select(&div).next() {
-                Some(_) => fragment
-                    .select(&a)
-                    .into_iter()
-                    .map(|a| {
-                        tui::Choice::from(
-                            a.value().attr("href").expect("No link found").to_string(),
-                            a.first_child()
-                                .and_then(|a| a.value().as_text())
-                                .expect("No name found")
-                                .to_string(),
-                        )
-                    })
-                    .collect::<Vec<_>>(),
-                _ => bail!("Request blocked, retry"),
-            }
-        };
-
-        let choices = tui::prompt_choices(results)?;
-
-        let mut urls = vec![];
-        for choice in choices {
-            let fragment = Self::parse(&choice, &client).await?;
-            let results = {
-                let a = Selector::parse("a.bottone-ep").unwrap();
-
-                fragment
-                    .select(&a)
-                    .next()
-                    .and_then(|a| a.value().attr("href"))
-                    .expect("No link found")
-            };
-
-            let fragment = Self::parse(&results, &client).await?;
-            let results = {
-                let div = Selector::parse("div.card-body").unwrap();
-                let a = Selector::parse("a").unwrap();
-
-                fragment
-                    .select(&div)
-                    .next()
-                    .and_then(|div| div.select(&a).next())
-                    .and_then(|a| a.value().attr("href"))
-                    .expect("No link found")
-            };
-
-            let fragment = Self::parse(&results, &client).await?;
-            let results = {
-                let source = Selector::parse(r#"source[type="video/mp4"]"#).unwrap();
-
-                fragment
-                    .select(&source)
-                    .next()
-                    .and_then(|s| s.value().attr("src"))
-            };
-
-            // delay_for!(300);
-            let url = match results {
-                Some(u) => match client.get(u).send().await?.error_for_status() {
-                    Ok(_) => u.to_string(),
-                    _ => Self::as_change_server(&fragment, &client).await?,
-                },
-                _ => Self::as_change_server(&fragment, &client).await?,
-            };
-            urls.push(url);
-        }
-
-        Ok(urls)
+        Ok(Html::parse_fragment(&response.text().await?))
     }
 
     // DEPRECATED: since 1.0.4
-    #[allow(dead_code)]
-    async fn as_change_server(fragment: &Html, client: &Client) -> Result<String> {
-        let results = {
-            let div = Selector::parse("div.button").unwrap();
-            let a = Selector::parse("a").unwrap();
-            let opt = fragment
-                .select(&div)
-                .next()
-                .and_then(|div| div.select(&a).last())
-                .and_then(|a| a.value().attr("href"));
+    // async fn animesaturn(query: &str) -> Result<Vec<String>> {
+    //     // if doesn't work add: `Some(("ASCookie", "https://animesaturn.com"))`
+    //     let client = Self::init_client(None).await?;
 
-            match opt {
-                Some(v) => v,
-                _ => bail!("No link found"),
-            }
-        };
-        let fragment = Self::parse(results, client).await?;
+    //     let source = "https://www.animesaturn.com/animelist?search=";
+    //     let search_url = format!("{}{}", source, query);
 
-        let url = {
-            let source = Selector::parse(r#"source[type="video/mp4"]"#).unwrap();
-            let opt = fragment
-                .select(&source)
-                .next()
-                .and_then(|s| s.value().attr("src"));
+    //     let fragment = Self::parse(&search_url, &client).await?;
+    //     let results = {
+    //         let div = Selector::parse("div.info-archivio").unwrap();
+    //         let a = Selector::parse("a.badge-archivio").unwrap();
 
-            match opt {
-                Some(v) => v.to_string(),
-                _ => bail!("No link found"),
-            }
-        };
+    //         match fragment.select(&div).next() {
+    //             Some(_) => fragment
+    //                 .select(&a)
+    //                 .into_iter()
+    //                 .map(|a| {
+    //                     tui::Choice::from(
+    //                         a.value().attr("href").expect("No link found").to_string(),
+    //                         a.first_child()
+    //                             .and_then(|a| a.value().as_text())
+    //                             .expect("No name found")
+    //                             .to_string(),
+    //                     )
+    //                 })
+    //                 .collect::<Vec<_>>(),
+    //             _ => bail!("Request blocked, retry"),
+    //         }
+    //     };
 
-        Ok(url)
-    }
+    //     let choices = tui::prompt_choices(results)?;
+
+    //     let mut urls = vec![];
+    //     for choice in choices {
+    //         let fragment = Self::parse(&choice, &client).await?;
+    //         let results = {
+    //             let a = Selector::parse("a.bottone-ep").unwrap();
+
+    //             fragment
+    //                 .select(&a)
+    //                 .next()
+    //                 .and_then(|a| a.value().attr("href"))
+    //                 .expect("No link found")
+    //         };
+
+    //         let fragment = Self::parse(&results, &client).await?;
+    //         let results = {
+    //             let div = Selector::parse("div.card-body").unwrap();
+    //             let a = Selector::parse("a").unwrap();
+
+    //             fragment
+    //                 .select(&div)
+    //                 .next()
+    //                 .and_then(|div| div.select(&a).next())
+    //                 .and_then(|a| a.value().attr("href"))
+    //                 .expect("No link found")
+    //         };
+
+    //         let fragment = Self::parse(&results, &client).await?;
+    //         let results = {
+    //             let source = Selector::parse(r#"source[type="video/mp4"]"#).unwrap();
+
+    //             fragment
+    //                 .select(&source)
+    //                 .next()
+    //                 .and_then(|s| s.value().attr("src"))
+    //         };
+
+    //         // delay_for!(300);
+    //         let url = match results {
+    //             Some(u) => match client.get(u).send().await?.error_for_status() {
+    //                 Ok(_) => u.to_string(),
+    //                 _ => Self::as_change_server(&fragment, &client).await?,
+    //             },
+    //             _ => Self::as_change_server(&fragment, &client).await?,
+    //         };
+    //         urls.push(url);
+    //     }
+
+    //     Ok(urls)
+    // }
+
+    // DEPRECATED: since 1.0.4
+    // async fn as_change_server(fragment: &Html, client: &Client) -> Result<String> {
+    //     let results = {
+    //         let div = Selector::parse("div.button").unwrap();
+    //         let a = Selector::parse("a").unwrap();
+    //         let opt = fragment
+    //             .select(&div)
+    //             .next()
+    //             .and_then(|div| div.select(&a).last())
+    //             .and_then(|a| a.value().attr("href"));
+
+    //         match opt {
+    //             Some(v) => v,
+    //             _ => bail!("No link found"),
+    //         }
+    //     };
+    //     let fragment = Self::parse(results, client).await?;
+
+    //     let url = {
+    //         let source = Selector::parse(r#"source[type="video/mp4"]"#).unwrap();
+    //         let opt = fragment
+    //             .select(&source)
+    //             .next()
+    //             .and_then(|s| s.value().attr("src"));
+
+    //         match opt {
+    //             Some(v) => v.to_string(),
+    //             _ => bail!("No link found"),
+    //         }
+    //     };
+
+    //     Ok(url)
+    // }
 }
 
 #[cfg(test)]
@@ -419,13 +433,11 @@ mod tests {
 
     #[tokio::test]
     async fn test_init_client() {
-        let aw_c = Scraper::init_client(Some(("AWCookietest", "https://animeworld.tv"))).await;
-        let as_c = Scraper::init_client(Some(("ASCookie", "https://animesaturn.com"))).await;
-        let n_c = Scraper::init_client(None).await;
+        let aw_c = Scraper::init_client(("AWCookietest", "https://animeworld.tv")).await;
+        let as_c = Scraper::init_client(("ASCookie", "https://animesaturn.com")).await;
 
         aw_c.unwrap();
         as_c.unwrap();
-        n_c.unwrap();
     }
 
     #[tokio::test]

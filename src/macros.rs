@@ -19,10 +19,10 @@ macro_rules! gen_url {
     };
 }
 
-#[allow(unused_macros)]
+#[cfg(feature = "aes")]
 macro_rules! delay_for {
     ($time:expr) => {
-        tokio::time::delay_for(std::time::Duration::from_millis($time)).await;
+        tokio::time::delay_for(std::time::Duration::from_millis($time as u64)).await;
     };
 }
 
