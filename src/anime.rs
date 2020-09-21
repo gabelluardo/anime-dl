@@ -12,7 +12,6 @@ use tokio::{fs, io::AsyncWriteExt, task};
 use std::path::PathBuf;
 use std::process::Command;
 
-#[derive(Default)]
 pub struct Manager {
     args: Args,
 }
@@ -406,6 +405,7 @@ impl FileDest {
             fs::OpenOptions::new()
                 .write(true)
                 .create(true)
+                .truncate(true)
                 .open(&self.file)
                 .await?
         };

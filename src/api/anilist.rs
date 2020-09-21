@@ -28,6 +28,17 @@ impl Default for Config {
 }
 
 impl Config {
+    fn new() -> Self {
+        Self::default()
+    }
+
+    #[allow(dead_code)]
+    fn path(self, path: &str) -> Self {
+        Self {
+            path: PathBuf::from(path),
+        }
+    }
+
     fn load(&self) -> Option<String> {
         std::fs::OpenOptions::new()
             .read(true)
@@ -50,6 +61,7 @@ impl Config {
         let mut buf = std::fs::OpenOptions::new()
             .write(true)
             .create(true)
+            .truncate(true)
             .open(&self.path)?;
 
         buf.write_all(token.as_bytes())
@@ -77,7 +89,7 @@ impl<'a> AniListBuilder {
             None => bail!("No `CLIENT_ID` env varibale"),
             Some(client_id) => {
                 let oauth_url = format!("{}{}", Self::OAUTH_URL, client_id);
-                let config = Config::default();
+                let config = Config::new();
 
                 let token = match self.token {
                     Some(t) => t,
@@ -197,3 +209,29 @@ impl<'a> AniList {
     response_derives = "Debug"
 )]
 pub struct ProgressQuery;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const TEST_PATH: &str = "test.cache";
+
+    #[test]
+    fn test_config() {
+        let string = "asdfasdfasdf";
+        let c = Config::new().path(TEST_PATH);
+
+        assert!(c.save(string).is_ok());
+        let loaded_string = c.load().unwrap();
+        assert_eq!(string, loaded_string);
+        assert!(c.clean().is_ok());
+    }
+
+    #[test]
+    #[should_panic(expected = "Unable to remove config file")]
+    fn test_config_clean() {
+        let c = Config::new().path(TEST_PATH);
+
+        c.clean().unwrap()
+    }
+}
