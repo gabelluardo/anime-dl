@@ -20,7 +20,7 @@ impl Default for Config {
 
     #[cfg(windows)]
     fn default() -> Self {
-        let mut path = PathBuf::from(dotenv::var("HOME").unwrap());
+        let mut path = PathBuf::from(dotenv::var("HOMEPATH").unwrap());
         path.push(r"AppData\Roaming\anime-dl\.anime-dl.cache");
 
         Self { path }
