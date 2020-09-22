@@ -1,6 +1,6 @@
 use super::*;
 
-use colored::Colorize;
+use bunt::{print, println};
 use std::io::prelude::*;
 
 pub struct Choice {
@@ -19,25 +19,16 @@ pub fn get_choice(choices: Vec<Choice>) -> Result<Vec<String>> {
         0 => bail!("No match found"),
         1 => vec![choices[0].link.to_string()],
         _ => {
-            println!(
-                "{}",
-                format!("{} results found\n", choices.len())
-                    .bright_cyan()
-                    .bold()
-            );
+            println!("{$cyan+bold}{} results found{/$}\n", choices.len());
             for i in 0..choices.len() {
-                println!(
-                    "[{}] {}",
-                    format!("{}", i + 1).bright_purple(),
-                    format!("{}", choices[i].name).bright_green()
-                );
+                println!("[{[magenta]}] {[green]}", i + 1, choices[i].name);
             }
 
             print!(
-                "\n{}{}\n{}",
-                format!("==> ").bright_red().bold(),
-                format!("What to watch (eg: 1 2 3 or 1-3) [default=All]").bold(),
-                format!("==> ").bright_red().bold()
+                "\n\
+                {$red}==> {/$}\
+                {$bold}What to watch (eg: 1 2 3 or 1-3) [default=All]{/$}\n\
+                {$red}==> {/$}",
             );
             std::io::stdout().flush()?;
 
@@ -88,13 +79,13 @@ pub fn get_choice(choices: Vec<Choice>) -> Result<Vec<String>> {
 
 pub fn get_token(url: &str) -> Result<String> {
     print!(
-        "{}\n\n{}\n{}\n\n{}{}\n{}",
-        format!("Anilist Oauth").bright_cyan().bold(),
-        format!("Autenticate to: ").bright_green(),
-        format!("{}", url).bright_purple().bold(),
-        format!("==> ").bright_red().bold(),
-        format!("Paste token here: ").bold(),
-        format!("==> ").bright_red().bold()
+        "{$cyan+bold}Anilist Oauth{/$}\n\n\
+        {$green}Autenticate to: {/$}\n\
+        {[magenta+bold]}\n\n\
+        {$red}==> {/$}\
+        {$bold}Paste token here: {/$}\n\
+        {$red}==> {/$}",
+        url
     );
     std::io::stdout().flush()?;
 
@@ -102,8 +93,4 @@ pub fn get_token(url: &str) -> Result<String> {
     std::io::stdin().read_line(&mut line)?;
 
     Ok(line.trim().to_string())
-}
-
-pub fn format_err(s: anyhow::Error) -> colored::ColoredString {
-    format!("[ERR] {}", s).red()
 }

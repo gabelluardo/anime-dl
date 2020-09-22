@@ -39,7 +39,7 @@ features = ["macros", "fs"]
 
 [dependencies]
 anyhow = "1.0"
-colored = "2.0"
+bunt = "0.2"
 futures = "0.3.5"
 indicatif = "0.15"
 rand = "0.7"
