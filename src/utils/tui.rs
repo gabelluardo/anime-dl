@@ -14,7 +14,7 @@ impl Choice {
     }
 }
 
-pub fn prompt_choices(choices: Vec<Choice>) -> Result<Vec<String>> {
+pub fn get_choice(choices: Vec<Choice>) -> Result<Vec<String>> {
     Ok(match choices.len() {
         0 => bail!("No match found"),
         1 => vec![choices[0].link.to_string()],
@@ -34,8 +34,8 @@ pub fn prompt_choices(choices: Vec<Choice>) -> Result<Vec<String>> {
             }
 
             print!(
-                "\n{} {}\n{}",
-                format!("==>").bright_red().bold(),
+                "\n{}{}\n{}",
+                format!("==> ").bright_red().bold(),
                 format!("What to watch (eg: 1 2 3 or 1-3) [default=All]").bold(),
                 format!("==> ").bright_red().bold()
             );
@@ -84,6 +84,24 @@ pub fn prompt_choices(choices: Vec<Choice>) -> Result<Vec<String>> {
             }
         }
     })
+}
+
+pub fn get_token(url: &str) -> Result<String> {
+    print!(
+        "{}\n\n{}\n{}\n\n{}{}\n{}",
+        format!("Anilist Oauth").bright_cyan().bold(),
+        format!("Autenticate to: ").bright_green(),
+        format!("{}", url).bright_purple().bold(),
+        format!("==> ").bright_red().bold(),
+        format!("Paste token here: ").bold(),
+        format!("==> ").bright_red().bold()
+    );
+    std::io::stdout().flush()?;
+
+    let mut line = String::new();
+    std::io::stdin().read_line(&mut line)?;
+
+    Ok(line.trim().to_string())
 }
 
 pub fn format_err(s: anyhow::Error) -> colored::ColoredString {

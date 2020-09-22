@@ -1,3 +1,5 @@
+use crate::utils::tui;
+
 use anyhow::{bail, Context, Result};
 use graphql_client::*;
 use reqwest::{header, header::HeaderValue, Client};
@@ -96,16 +98,8 @@ impl<'a> AniListBuilder {
                     None => match config.load() {
                         Some(t) => t,
                         None => {
-                            println!(
-                                "For autentication go to: {}\n\nAnd paste token here:",
-                                oauth_url
-                            );
-                            let mut line = String::new();
-                            std::io::stdin().read_line(&mut line)?;
-
-                            let token = line.trim().to_string();
+                            let token = tui::get_token(&oauth_url)?;
                             config.save(&token)?;
-
                             token
                         }
                     },

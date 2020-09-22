@@ -93,7 +93,7 @@ impl Manager {
                 .build()
                 .await?;
 
-            tui::prompt_choices(anime.choices())?
+            tui::get_choice(anime.choices())?
         };
 
         Command::new("vlc")
@@ -140,7 +140,7 @@ impl Manager {
 
             let path = anime.path();
             let episodes = if args.interactive {
-                tui::prompt_choices(anime.choices())?
+                tui::get_choice(anime.choices())?
             } else {
                 anime.episodes
             };

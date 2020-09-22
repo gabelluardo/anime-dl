@@ -239,7 +239,7 @@ impl<'a> Scraper {
             }
         };
 
-        let choices = tui::prompt_choices(results)?;
+        let choices = tui::get_choice(results)?;
 
         let mut anime = ScraperItems::new();
         for choice in choices {
@@ -339,7 +339,7 @@ impl<'a> Scraper {
     //         }
     //     };
 
-    //     let choices = tui::prompt_choices(results)?;
+    //     let choices = tui::get_choice(results)?;
 
     //     let mut urls = vec![];
     //     for choice in choices {
