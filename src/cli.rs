@@ -13,19 +13,21 @@ arg_enum! {
     }
 }
 
-#[derive(Default, Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct Range {
     pub start: u32,
     pub end: u32,
 }
 
 impl Range {
-    pub fn from((start, end): (u32, u32)) -> Self {
-        Self { start, end }
-    }
-
     pub fn extract(&self) -> (u32, u32) {
         (self.start, self.end)
+    }
+}
+
+impl Default for Range {
+    fn default() -> Self {
+        Self { start: 1, end: 0 }
     }
 }
 
@@ -41,7 +43,7 @@ impl FromStr for Range {
         let start_fromstr = coords[0].parse::<u32>()?;
         let end_fromstr = coords[1].parse::<u32>()?;
 
-        Ok(Range {
+        Ok(Self {
             start: start_fromstr,
             end: end_fromstr,
         })
@@ -144,16 +146,19 @@ mod tests {
     fn test_range() {
         let range1 = Range { start: 0, end: 1 };
         let (start, end) = range1.extract();
-
         assert_eq!(start, 0);
         assert_eq!(end, 1);
 
         let range2 = Range::from_str("(0,1)").unwrap();
         let (start, end) = range2.extract();
-
         assert_eq!(start, 0);
         assert_eq!(end, 1);
 
         assert_eq!(range1.extract(), range2.extract());
+
+        let range3 = Range::default();
+        let (start, end) = range3.extract();
+        assert_eq!(start, 1);
+        assert_eq!(end, 0);
     }
 }

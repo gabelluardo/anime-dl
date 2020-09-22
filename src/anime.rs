@@ -45,7 +45,7 @@ impl Manager {
 
         let range = match args.range {
             Some(range) => range,
-            _ => Range::from((1, 0)),
+            None => Range::default(),
         };
 
         // Scrape from archive and find correct url
@@ -57,7 +57,7 @@ impl Manager {
                     .run()
                     .await?
             }
-            _ => args
+            None => args
                 .urls
                 .to_vec()
                 .iter()
@@ -126,7 +126,7 @@ impl Manager {
 
                 match args.dir.get(pos) {
                     Some(path) => path.to_owned(),
-                    _ => dir,
+                    None => dir,
                 }
             };
 
@@ -196,7 +196,7 @@ impl Manager {
 
         let msg = match utils::extract_info(&filename) {
             Ok(info) => format!("Ep. {:02} {}", info.num, info.name),
-            _ => utils::to_title_case(&filename),
+            Err(_) => utils::to_title_case(&filename),
         };
 
         pb.set_position(file.size);
@@ -291,7 +291,7 @@ impl AnimeBuilder {
                 last = counter / 2;
                 match client.head(&url).send().await?.error_for_status() {
                     Err(_) => break,
-                    _ => counter *= 2,
+                    Ok(_) => counter *= 2,
                 }
             }
 
@@ -318,15 +318,15 @@ impl AnimeBuilder {
 
         Ok(episodes)
     }
-    
+
     #[cfg(feature = "anilist")]
     async fn last_viewed(&self) -> Result<Option<u32>> {
         Ok(match self._id {
             Some(id) => match AniList::new() {
                 Some(a) => a.id(id).last_viewed().await?,
-                _ => None,
+                None => None,
             },
-            _ => None,
+            None => None,
         })
     }
 }
@@ -387,7 +387,7 @@ impl FileDest {
 
         let size = match file.exists() && !overwrite {
             true => fs::File::open(&file).await?.metadata().await?.len(),
-            _ => 0,
+            false => 0,
         };
 
         let root = root.to_owned();
