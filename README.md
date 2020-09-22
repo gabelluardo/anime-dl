@@ -36,6 +36,8 @@ Or for stream after scraped an archive:
 anime-dl -sS AW <entries>
 ```
 
+![](screenshots/demo.gif)
+
 Anyway, the helper is this: 
 
 ``` 
