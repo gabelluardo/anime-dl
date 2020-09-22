@@ -28,7 +28,6 @@ macro_rules! delay_for {
 
 #[cfg(test)]
 mod tests {
-
     #[test]
     fn test_zfill() {
         assert_eq!(zfill!(1), "_01");

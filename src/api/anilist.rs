@@ -222,8 +222,11 @@ mod tests {
         let c = Config::new().path(TEST_PATH);
 
         assert!(c.save(string).is_ok());
-        let loaded_string = c.load().unwrap();
-        assert_eq!(string, loaded_string);
+
+        let loaded_string = c.load();
+        assert!(loaded_string.is_some());
+        assert_eq!(string, loaded_string.unwrap());
+
         assert!(c.clean().is_ok());
     }
 

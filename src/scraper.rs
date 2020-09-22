@@ -201,7 +201,7 @@ impl<'a> Scraper {
 
                 format!("{}={};", cookie_name, output)
             }
-            _ => String::from(Self::COOKIES),
+            Err(_) => String::from(Self::COOKIES),
         })
     }
 
@@ -235,7 +235,7 @@ impl<'a> Scraper {
                         )
                     })
                     .collect::<Vec<_>>(),
-                _ => bail!("Request blocked, retry"),
+                None => bail!("Request blocked, retry"),
             }
         };
 
@@ -273,7 +273,7 @@ impl<'a> Scraper {
 
             let url = match url {
                 Some(u) => u.to_string(),
-                _ => bail!("No link found"),
+                None => bail!("No link found"),
             };
 
             anime.push(ScraperItems::item(url, id));
@@ -335,7 +335,7 @@ impl<'a> Scraper {
     //                     )
     //                 })
     //                 .collect::<Vec<_>>(),
-    //             _ => bail!("Request blocked, retry"),
+    //             None => bail!("Request blocked, retry"),
     //         }
     //     };
 
@@ -381,9 +381,9 @@ impl<'a> Scraper {
     //         let url = match results {
     //             Some(u) => match client.get(u).send().await?.error_for_status() {
     //                 Ok(_) => u.to_string(),
-    //                 _ => Self::as_change_server(&fragment, &client).await?,
+    //                 None => Self::as_change_server(&fragment, &client).await?,
     //             },
-    //             _ => Self::as_change_server(&fragment, &client).await?,
+    //             None => Self::as_change_server(&fragment, &client).await?,
     //         };
     //         urls.push(url);
     //     }
@@ -404,7 +404,7 @@ impl<'a> Scraper {
 
     //         match opt {
     //             Some(v) => v,
-    //             _ => bail!("No link found"),
+    //             None => bail!("No link found"),
     //         }
     //     };
     //     let fragment = Self::parse(results, client).await?;
@@ -418,7 +418,7 @@ impl<'a> Scraper {
 
     //         match opt {
     //             Some(v) => v.to_string(),
-    //             _ => bail!("No link found"),
+    //             None => bail!("No link found"),
     //         }
     //     };
 
