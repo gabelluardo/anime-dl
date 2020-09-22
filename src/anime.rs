@@ -1,7 +1,9 @@
-use crate::api::AniList;
 use crate::cli::*;
 use crate::scraper::*;
 use crate::utils::{self, bars, tui};
+
+#[cfg(feature = "anilist")]
+use crate::api::AniList;
 
 use anyhow::{bail, Context, Result};
 use futures::future::join_all;
@@ -22,6 +24,7 @@ impl Manager {
     }
 
     pub async fn run(&self) -> Result<()> {
+        #[cfg(feature = "anilist")]
         if self.args.clean {
             AniList::clean_cache()?
         }
@@ -225,7 +228,7 @@ struct AnimeBuilder {
     range: Range,
     path: PathBuf,
     url: String,
-    id: Option<u32>,
+    _id: Option<u32>,
 }
 
 impl AnimeBuilder {
@@ -247,7 +250,7 @@ impl AnimeBuilder {
     fn item(self, item: &ScraperItemDetails) -> Self {
         Self {
             url: item.url.to_owned(),
-            id: item.id,
+            _id: item.id,
             ..self
         }
     }
@@ -255,11 +258,14 @@ impl AnimeBuilder {
     async fn build(self) -> Result<Anime> {
         let info = utils::extract_info(&self.url)?;
         let episodes = self.episodes(&info.raw).await?;
-        let last_viewed = self.last_viewed().await?;
+        let _last: Option<u32> = None;
+
+        #[cfg(feature = "anilist")]
+        let _last = self.last_viewed().await?;
 
         Ok(Anime {
             episodes,
-            last_viewed,
+            last_viewed: _last,
             path: self.path,
         })
     }
@@ -312,9 +318,10 @@ impl AnimeBuilder {
 
         Ok(episodes)
     }
-
+    
+    #[cfg(feature = "anilist")]
     async fn last_viewed(&self) -> Result<Option<u32>> {
-        Ok(match self.id {
+        Ok(match self._id {
             Some(id) => match AniList::new() {
                 Some(a) => a.id(id).last_viewed().await?,
                 _ => None,
