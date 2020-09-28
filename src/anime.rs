@@ -96,7 +96,13 @@ impl Manager {
             tui::get_choice(anime.choices())?
         };
 
-        Command::new("vlc")
+        // NOTE: Workaround for streaming in win
+        let cmd = match cfg!(windows) {
+            true => r"C:\Program Files\VideoLAN\VLC\vlc",
+            false => "vlc",
+        };
+
+        Command::new(cmd)
             .args(urls)
             .output()
             .context("vlc is needed for streaming")?;
