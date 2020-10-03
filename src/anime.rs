@@ -1,6 +1,9 @@
 use crate::cli::*;
-use crate::scraper::Scraper;
+use crate::scraper::*;
 use crate::utils::{self, bars, tui};
+
+#[cfg(feature = "anilist")]
+use crate::api::AniList;
 
 use anyhow::{bail, Context, Result};
 use futures::future::join_all;
@@ -11,92 +14,95 @@ use tokio::{fs, io::AsyncWriteExt, task};
 use std::path::PathBuf;
 use std::process::Command;
 
-#[derive(Default)]
 pub struct Manager {
     args: Args,
 }
 
 impl Manager {
-    #[allow(dead_code)]
-    pub fn new() -> Self {
-        Self::default()
-    }
-
     pub fn from(args: Args) -> Self {
         Self { args }
     }
 
     pub async fn run(&self) -> Result<()> {
-        if self.args.stream {
-            self.stream().await
-        } else if self.args.single {
-            self.single().await
-        } else {
-            self.multi().await
+        #[cfg(feature = "anilist")]
+        if self.args.clean {
+            AniList::clean_cache()?
         }
+
+        if self.args.stream {
+            self.stream().await?
+        } else if self.args.single {
+            self.single().await?
+        } else {
+            self.multi().await?
+        }
+
+        Ok(())
     }
 
-    async fn filter_args(&self) -> Result<(u32, u32, Vec<String>)> {
+    async fn filter_args(&self) -> Result<(Range, ScraperItems)> {
         let args = &self.args;
 
-        let (start, end) = match &args.range {
-            Some(range) => range.extract(),
-            _ => (1, 0),
+        let range = match args.range {
+            Some(range) => range,
+            None => Range::default(),
         };
 
         // Scrape from archive and find correct url
-        let urls = match &args.search {
+        let items = match &args.search {
             Some(site) => {
-                let query = &args.urls.join("+");
-                Scraper::new().site(site).query(query).run().await?
+                Scraper::new()
+                    .site(site)
+                    .query(&args.urls.to_query())
+                    .run()
+                    .await?
             }
-            _ => args.urls.to_vec(),
+            None => args
+                .urls
+                .to_vec()
+                .iter()
+                .map(|s| ScraperItems::item(s.to_owned(), None))
+                .collect::<ScraperItems>(),
         };
 
-        Ok((start, end, urls))
+        Ok((range, items))
     }
 
     async fn single(&self) -> Result<()> {
         let args = &self.args;
-
         let pb = bars::instance_bar();
-        let (_, _, anime_urls) = self.filter_args().await?;
-
+        let (_, items) = self.filter_args().await?;
         let opts = (args.dir.last().unwrap().to_owned(), args.force, pb);
 
-        Self::download(&anime_urls.first().unwrap(), opts).await?;
-        Ok(())
+        Self::download(&items.first().unwrap().url, opts).await
     }
 
     async fn stream(&self) -> Result<()> {
-        let (start, end, anime_urls) = self.filter_args().await?;
+        let (range, items) = self.filter_args().await?;
         let args = &self.args;
 
         let urls = if args.single {
-            anime_urls
+            items.iter().map(|a| a.url.clone()).collect::<Vec<_>>()
         } else {
-            let props = (
-                anime_urls.first().unwrap().as_str(),
-                args.dir.first().unwrap(),
-                start,
-                end,
-                true,
-            );
-            let anime = Anime::parse(props).await?;
+            let item = items.first().unwrap();
+            let anime = Anime::builder()
+                .item(item)
+                .path(args.dir.first().unwrap())
+                .range(range)
+                .auto(true)
+                .build()
+                .await?;
 
-            let episodes = anime
-                .iter()
-                .map(|u| {
-                    let info = utils::extract_info(u).unwrap();
-
-                    tui::Choice::from(u.to_string(), format!("{} ep. {}", info.name, info.num))
-                })
-                .collect::<Vec<_>>();
-
-            tui::prompt_choices(episodes)?
+            tui::get_choice(anime.choices())?
         };
 
-        Command::new("vlc")
+        // NOTE: Workaround for streaming in win
+        let cmd = match cfg!(windows) {
+            true => r"C:\Program Files\VideoLAN\VLC\vlc",
+            false => "vlc",
+        };
+
+        Command::new(cmd)
             .args(urls)
             .output()
             .context("vlc is needed for streaming")?;
@@ -106,54 +112,43 @@ impl Manager {
 
     async fn multi(&self) -> Result<()> {
         let multi_bars = bars::instance_multi_bars();
-        let (start, end, anime_urls) = self.filter_args().await?;
+        let (range, items) = self.filter_args().await?;
         let args = &self.args;
 
         let mut pool = vec![];
-        for url in &anime_urls {
+        for item in &items {
             let mut dir = args.dir.last().unwrap().to_owned();
 
             let path = if args.auto_dir {
-                let subfolder = utils::extract_info(&url)?;
-
+                let subfolder = utils::extract_info(&item.url)?;
                 dir.push(subfolder.name);
                 dir
             } else {
-                let pos = anime_urls
+                let pos = items
                     .iter()
-                    .map(|u| u.as_str())
-                    .position(|u| u == url)
+                    .map(|i| i.url.as_str())
+                    .position(|u| u == item.url)
                     .unwrap();
 
                 match args.dir.get(pos) {
                     Some(path) => path.to_owned(),
-                    _ => dir,
+                    None => dir,
                 }
             };
 
-            let props = (
-                url.as_str(),
-                &path,
-                start,
-                end,
-                (args.auto_episode || args.interactive),
-            );
-            let anime = Anime::parse(props).await?;
+            let anime = Anime::builder()
+                .item(item)
+                .path(&path)
+                .range(range)
+                .auto(args.auto_episode || args.interactive)
+                .build()
+                .await?;
+
             let path = anime.path();
-
             let episodes = if args.interactive {
-                let episodes = anime
-                    .iter()
-                    .map(|u| {
-                        let info = utils::extract_info(u).unwrap();
-
-                        tui::Choice::from(u.to_string(), format!("{} ep. {}", info.name, info.num))
-                    })
-                    .collect::<Vec<_>>();
-
-                tui::prompt_choices(episodes)?
+                tui::get_choice(anime.choices())?
             } else {
-                anime.into_iter().collect::<Vec<_>>()
+                anime.episodes
             };
 
             pool.extend(
@@ -207,7 +202,7 @@ impl Manager {
 
         let msg = match utils::extract_info(&filename) {
             Ok(info) => format!("Ep. {:02} {}", info.num, info.name),
-            _ => utils::to_title_case(&filename),
+            Err(_) => utils::to_title_case(&filename),
         };
 
         pb.set_position(file.size);
@@ -234,84 +229,55 @@ impl Manager {
 }
 
 #[derive(Default)]
-struct Anime {
+struct AnimeBuilder {
+    auto: bool,
+    range: Range,
     path: PathBuf,
-    episodes: Vec<String>,
+    url: String,
+    _id: Option<u32>,
 }
 
-struct AnimeIntoIterator {
-    iter: ::std::vec::IntoIter<String>,
-}
-
-impl<'a> IntoIterator for Anime {
-    type Item = String;
-    type IntoIter = AnimeIntoIterator;
-
-    fn into_iter(self) -> Self::IntoIter {
-        AnimeIntoIterator {
-            iter: self.episodes.clone().into_iter(),
-        }
-    }
-}
-
-impl<'a> Iterator for AnimeIntoIterator {
-    type Item = String;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.iter.next()
-    }
-}
-
-struct AnimeIterator<'a> {
-    iter: ::std::slice::Iter<'a, String>,
-}
-
-impl<'a> IntoIterator for &'a Anime {
-    type Item = &'a String;
-    type IntoIter = AnimeIterator<'a>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        AnimeIterator {
-            iter: self.episodes.iter(),
-        }
-    }
-}
-
-impl<'a> Iterator for AnimeIterator<'a> {
-    type Item = &'a String;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.iter.next()
-    }
-}
-
-type AnimeProps<'a> = (&'a str, &'a PathBuf, u32, u32, bool);
-
-impl Anime {
-    #[allow(dead_code)]
-    pub fn new() -> Self {
-        Self::default()
+impl AnimeBuilder {
+    fn auto(self, auto: bool) -> Self {
+        Self { auto, ..self }
     }
 
-    async fn parse<'a>(props: AnimeProps<'a>) -> Result<Self> {
-        let (url, path, start, end, auto) = props;
-        let info = utils::extract_info(&url)?;
+    fn range(self, range: Range) -> Self {
+        Self { range, ..self }
+    }
 
-        let end = match end {
-            0 => info.num,
-            _ => end,
-        };
-
-        let episodes = Self::episodes(&info.raw, (start, end, auto)).await?;
-
-        Ok(Self {
+    fn path(self, path: &PathBuf) -> Self {
+        Self {
             path: path.to_owned(),
+            ..self
+        }
+    }
+
+    fn item(self, item: &ScraperItemDetails) -> Self {
+        Self {
+            url: item.url.to_owned(),
+            _id: item.id,
+            ..self
+        }
+    }
+
+    async fn build(self) -> Result<Anime> {
+        let info = utils::extract_info(&self.url)?;
+        let episodes = self.episodes(&info.raw).await?;
+        let _last: Option<u32> = None;
+
+        #[cfg(feature = "anilist")]
+        let _last = self.last_viewed().await?;
+
+        Ok(Anime {
             episodes,
+            last_viewed: _last,
+            path: self.path,
         })
     }
 
-    async fn episodes(url: &str, opts: (u32, u32, bool)) -> Result<Vec<String>> {
-        let (start, end, auto) = opts;
+    async fn episodes(&self, url: &str) -> Result<Vec<String>> {
+        let ((start, end), auto) = (self.range.extract(), self.auto);
 
         let num_episodes = if !auto {
             end
@@ -331,7 +297,7 @@ impl Anime {
                 last = counter / 2;
                 match client.head(&url).send().await?.error_for_status() {
                     Err(_) => break,
-                    _ => counter *= 2,
+                    Ok(_) => counter *= 2,
                 }
             }
 
@@ -359,16 +325,52 @@ impl Anime {
         Ok(episodes)
     }
 
-    fn path(&self) -> PathBuf {
-        self.path.clone()
-    }
-
-    fn iter(&self) -> AnimeIterator {
-        self.into_iter()
+    #[cfg(feature = "anilist")]
+    async fn last_viewed(&self) -> Result<Option<u32>> {
+        Ok(match self._id {
+            Some(id) => match AniList::new() {
+                Some(a) => a.id(id).last_viewed().await?,
+                None => None,
+            },
+            None => None,
+        })
     }
 }
 
-#[derive(Default)]
+struct Anime {
+    last_viewed: Option<u32>,
+    episodes: Vec<String>,
+    path: PathBuf,
+}
+
+impl Anime {
+    fn builder() -> AnimeBuilder {
+        AnimeBuilder::default()
+    }
+
+    fn choices(&self) -> Vec<tui::Choice> {
+        self.episodes
+            .iter()
+            .map(|u| {
+                let info = utils::extract_info(u).unwrap();
+                let mut name = format!("{} ep. {}", info.name, info.num);
+
+                if let Some(last) = self.last_viewed {
+                    if info.num <= last as u32 {
+                        name = format!("{} ✔️", name);
+                    }
+                }
+
+                tui::Choice::from(u.to_string(), name)
+            })
+            .collect::<Vec<_>>()
+    }
+
+    fn path(&self) -> PathBuf {
+        self.path.clone()
+    }
+}
+
 struct FileDest {
     pub size: u64,
     pub root: PathBuf,
@@ -379,11 +381,6 @@ struct FileDest {
 type FileProps<'a> = (&'a PathBuf, &'a str, &'a bool);
 
 impl FileDest {
-    #[allow(dead_code)]
-    pub fn new() -> Self {
-        Self::default()
-    }
-
     async fn from<'a>(props: FileProps<'a>) -> Result<Self> {
         let (root, filename, overwrite) = props;
 
@@ -396,7 +393,7 @@ impl FileDest {
 
         let size = match file.exists() && !overwrite {
             true => fs::File::open(&file).await?.metadata().await?.len(),
-            _ => 0,
+            false => 0,
         };
 
         let root = root.to_owned();
@@ -421,6 +418,7 @@ impl FileDest {
             fs::OpenOptions::new()
                 .write(true)
                 .create(true)
+                .truncate(true)
                 .open(&self.file)
                 .await?
         };

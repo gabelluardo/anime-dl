@@ -1,3 +1,5 @@
 /target
 /prova
 script*
+.env
+.anime-dl.cache

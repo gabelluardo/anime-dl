@@ -2,7 +2,7 @@ macro_rules! print_err {
     ($x:expr) => {
         match $x {
             Ok(item) => item,
-            Err(err) => return eprintln!("{}", crate::utils::tui::format_err(err)),
+            Err(err) => return bunt::eprintln!("{$red}[ERR] {}{/$}", err),
         }
     };
 }
@@ -19,16 +19,15 @@ macro_rules! gen_url {
     };
 }
 
-#[allow(unused_macros)]
+#[cfg(feature = "aes")]
 macro_rules! delay_for {
     ($time:expr) => {
-        tokio::time::delay_for(std::time::Duration::from_millis($time)).await;
+        tokio::time::delay_for(std::time::Duration::from_millis($time as u64)).await;
     };
 }
 
 #[cfg(test)]
 mod tests {
-
     #[test]
     fn test_zfill() {
         assert_eq!(zfill!(1), "_01");

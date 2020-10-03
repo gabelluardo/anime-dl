@@ -1,6 +1,7 @@
 use structopt::clap::arg_enum;
 use structopt::StructOpt;
 
+use std::iter::FromIterator;
 use std::path::PathBuf;
 use std::str::FromStr;
 
@@ -12,15 +13,21 @@ arg_enum! {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct Range {
-    start: u32,
-    end: u32
+    pub start: u32,
+    pub end: u32,
 }
 
 impl Range {
-    pub fn extract(&self) -> (u32, u32){
+    pub fn extract(&self) -> (u32, u32) {
         (self.start, self.end)
+    }
+}
+
+impl Default for Range {
+    fn default() -> Self {
+        Self { start: 1, end: 0 }
     }
 }
 
@@ -28,25 +35,52 @@ impl FromStr for Range {
     type Err = std::num::ParseIntError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let coords = s.trim_matches(|p| p == '(' || p == ')' )
-                                 .split(',')
-                                 .collect::<Vec<_>>();
+        let coords = s
+            .trim_matches(|p| p == '(' || p == ')')
+            .split(',')
+            .collect::<Vec<_>>();
 
         let start_fromstr = coords[0].parse::<u32>()?;
         let end_fromstr = coords[1].parse::<u32>()?;
 
-        Ok(Range { start: start_fromstr, end: end_fromstr })
+        Ok(Self {
+            start: start_fromstr,
+            end: end_fromstr,
+        })
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct Urls {
+    value: Vec<String>,
+}
+
+impl Urls {
+    pub fn to_vec(&self) -> Vec<String> {
+        self.value.clone()
+    }
+
+    pub fn to_query(&self) -> String {
+        self.value.join("+")
+    }
+}
+
+impl FromIterator<String> for Urls {
+    fn from_iter<I: IntoIterator<Item = String>>(iter: I) -> Self {
+        let mut c = Urls::default();
+        c.value.extend(iter);
+        c
     }
 }
 
 #[derive(Debug, Default, StructOpt)]
 #[structopt(name = "anime-dl", about = "Efficient cli app for downloading anime")]
 pub struct Args {
-    /// Source url
-    #[structopt(required = true)]
-    pub urls: Vec<String>,
+    /// Source urls or scraper's queries
+    #[structopt(required_unless("clean"))]
+    pub entries: Vec<String>,
 
-    /// Root folders where save files
+    /// Root paths where store files
     #[structopt(default_value = ".", short, long)]
     pub dir: Vec<PathBuf>,
 
@@ -55,7 +89,7 @@ pub struct Args {
     pub range: Option<Range>,
 
     /// Find automatically output folder name
-    #[structopt(short = "a", long = "auto")]
+    #[structopt(short, long = "auto")]
     pub auto_dir: bool,
 
     /// Find automatically last episode (override `-r <range>` option)
@@ -66,7 +100,7 @@ pub struct Args {
     #[structopt(short, long)]
     pub force: bool,
 
-    /// Download only the file form the url (equivalent to `curl -O <url>`)
+    /// Download file without in-app control (equivalent to `curl -O <url>` or `wget <url>`)
     #[structopt(short = "O", long = "one-file")]
     pub single: bool,
 
@@ -74,7 +108,7 @@ pub struct Args {
     #[structopt(
         long,
         short = "S",
-        possible_values = &Site::variants(), 
+        possible_values = &Site::variants()
     )]
     pub search: Option<Site>,
 
@@ -82,14 +116,25 @@ pub struct Args {
     #[structopt(short, long)]
     pub stream: bool,
 
-    /// Interactive choice of episodes
+    /// Interactive mode
     #[structopt(short, long)]
     pub interactive: bool,
+
+    /// Delete app cache
+    #[structopt(long)]
+    pub clean: bool,
+
+    #[structopt(skip)]
+    pub urls: Urls,
 }
 
 impl Args {
     pub fn new() -> Self {
-        Self::from_args()
+        let args = Self::from_args();
+        Self {
+            urls: Urls::from_iter(args.entries.clone()),
+            ..args
+        }
     }
 }
 
@@ -98,20 +143,22 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_range(){
-        let range1 = Range{start:0,end:1};
+    fn test_range() {
+        let range1 = Range { start: 0, end: 1 };
         let (start, end) = range1.extract();
-
         assert_eq!(start, 0);
         assert_eq!(end, 1);
 
         let range2 = Range::from_str("(0,1)").unwrap();
         let (start, end) = range2.extract();
-
         assert_eq!(start, 0);
         assert_eq!(end, 1);
 
         assert_eq!(range1.extract(), range2.extract());
 
+        let range3 = Range::default();
+        let (start, end) = range3.extract();
+        assert_eq!(start, 1);
+        assert_eq!(end, 0);
     }
 }
