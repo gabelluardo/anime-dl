@@ -85,7 +85,7 @@ anime-dl -sc <entries>
 
 For [Anilist](https://anilist.co) integration create an enviroment variable 
 `CLIENT_ID` with the ID of your [developer api client](https://anilist.co/settings/developer), 
-or the default of the app: `4047`
+or use the default of the app: `4047`
 
 ### Known issue
 
