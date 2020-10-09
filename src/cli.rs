@@ -35,13 +35,13 @@ impl FromStr for Range {
     type Err = std::num::ParseIntError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let coords = s
+        let range = s
             .trim_matches(|p| p == '(' || p == ')')
             .split(',')
             .collect::<Vec<_>>();
 
-        let start_fromstr = coords[0].parse::<u32>()?;
-        let end_fromstr = coords[1].parse::<u32>()?;
+        let start_fromstr = range[0].parse::<u32>()?;
+        let end_fromstr = range[1].parse::<u32>()?;
 
         Ok(Self {
             start: start_fromstr,
@@ -88,6 +88,15 @@ pub struct Args {
     #[structopt(short, long)]
     pub range: Option<Range>,
 
+    /// Search anime in remote archive
+    #[structopt(
+        long,
+        short = "S",
+        case_insensitive = true,
+        possible_values = &Site::variants(),
+    )]
+    pub search: Option<Option<Site>>,
+
     /// Find automatically output folder name
     #[structopt(short, long = "auto")]
     pub auto_dir: bool,
@@ -103,14 +112,6 @@ pub struct Args {
     /// Download file without in-app control (equivalent to `curl -O <url>` or `wget <url>`)
     #[structopt(short = "O", long = "one-file")]
     pub single: bool,
-
-    /// Search anime in remote archive
-    #[structopt(
-        long,
-        short = "S",
-        possible_values = &Site::variants()
-    )]
-    pub search: Option<Site>,
 
     /// Stream episode in a media player (add -O for single file)
     #[structopt(short, long)]

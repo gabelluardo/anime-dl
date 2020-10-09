@@ -129,9 +129,9 @@ impl<'a> Scraper {
         Self::default()
     }
 
-    pub fn site(self, site: &Site) -> Self {
+    pub fn site(self, site: Option<Site>) -> Self {
         Self {
-            site: Some(site.to_owned()),
+            site: site.to_owned(),
             ..self
         }
     }
@@ -144,13 +144,12 @@ impl<'a> Scraper {
     }
 
     pub async fn run(&self) -> Result<ScraperItems> {
-        // Concat string if is passed with "" in shell
+        // Concat strings if is passed with "" in shell
         let query = self.query.replace(" ", "+");
 
         match self.site {
-            Some(Site::AW) => Self::animeworld(&query).await,
+            Some(Site::AW) | None => Self::animeworld(&query).await,
             Some(Site::AS) => bail!("Scraper `AS` parameter is deprecated"),
-            None => bail!("Missing Scraper `site` parameter"),
         }
     }
 
@@ -307,123 +306,6 @@ impl<'a> Scraper {
 
         Ok(Html::parse_fragment(&response.text().await?))
     }
-
-    // DEPRECATED: since 1.0.4
-    // async fn animesaturn(query: &str) -> Result<Vec<String>> {
-    //     // if doesn't work add: `Some(("ASCookie", "https://animesaturn.com"))`
-    //     let client = Self::init_client(None).await?;
-
-    //     let source = "https://www.animesaturn.com/animelist?search=";
-    //     let search_url = format!("{}{}", source, query);
-
-    //     let fragment = Self::parse(&search_url, &client).await?;
-    //     let results = {
-    //         let div = Selector::parse("div.info-archivio").unwrap();
-    //         let a = Selector::parse("a.badge-archivio").unwrap();
-
-    //         match fragment.select(&div).next() {
-    //             Some(_) => fragment
-    //                 .select(&a)
-    //                 .into_iter()
-    //                 .map(|a| {
-    //                     tui::Choice::from(
-    //                         a.value().attr("href").expect("No link found").to_string(),
-    //                         a.first_child()
-    //                             .and_then(|a| a.value().as_text())
-    //                             .expect("No name found")
-    //                             .to_string(),
-    //                     )
-    //                 })
-    //                 .collect::<Vec<_>>(),
-    //             None => bail!("Request blocked, retry"),
-    //         }
-    //     };
-
-    //     let choices = tui::get_choice(results)?;
-
-    //     let mut urls = vec![];
-    //     for choice in choices {
-    //         let fragment = Self::parse(&choice, &client).await?;
-    //         let results = {
-    //             let a = Selector::parse("a.bottone-ep").unwrap();
-
-    //             fragment
-    //                 .select(&a)
-    //                 .next()
-    //                 .and_then(|a| a.value().attr("href"))
-    //                 .expect("No link found")
-    //         };
-
-    //         let fragment = Self::parse(&results, &client).await?;
-    //         let results = {
-    //             let div = Selector::parse("div.card-body").unwrap();
-    //             let a = Selector::parse("a").unwrap();
-
-    //             fragment
-    //                 .select(&div)
-    //                 .next()
-    //                 .and_then(|div| div.select(&a).next())
-    //                 .and_then(|a| a.value().attr("href"))
-    //                 .expect("No link found")
-    //         };
-
-    //         let fragment = Self::parse(&results, &client).await?;
-    //         let results = {
-    //             let source = Selector::parse(r#"source[type="video/mp4"]"#).unwrap();
-
-    //             fragment
-    //                 .select(&source)
-    //                 .next()
-    //                 .and_then(|s| s.value().attr("src"))
-    //         };
-
-    //         // delay_for!(300);
-    //         let url = match results {
-    //             Some(u) => match client.get(u).send().await?.error_for_status() {
-    //                 Ok(_) => u.to_string(),
-    //                 None => Self::as_change_server(&fragment, &client).await?,
-    //             },
-    //             None => Self::as_change_server(&fragment, &client).await?,
-    //         };
-    //         urls.push(url);
-    //     }
-
-    //     Ok(urls)
-    // }
-
-    // DEPRECATED: since 1.0.4
-    // async fn as_change_server(fragment: &Html, client: &Client) -> Result<String> {
-    //     let results = {
-    //         let div = Selector::parse("div.button").unwrap();
-    //         let a = Selector::parse("a").unwrap();
-    //         let opt = fragment
-    //             .select(&div)
-    //             .next()
-    //             .and_then(|div| div.select(&a).last())
-    //             .and_then(|a| a.value().attr("href"));
-
-    //         match opt {
-    //             Some(v) => v,
-    //             None => bail!("No link found"),
-    //         }
-    //     };
-    //     let fragment = Self::parse(results, client).await?;
-
-    //     let url = {
-    //         let source = Selector::parse(r#"source[type="video/mp4"]"#).unwrap();
-    //         let opt = fragment
-    //             .select(&source)
-    //             .next()
-    //             .and_then(|s| s.value().attr("src"));
-
-    //         match opt {
-    //             Some(v) => v.to_string(),
-    //             None => bail!("No link found"),
-    //         }
-    //     };
-
-    //     Ok(url)
-    // }
 }
 
 #[cfg(test)]
@@ -454,24 +336,15 @@ mod tests {
         assert_eq!(file, info)
     }
 
-    // #[tokio::test]
-    // async fn test_animesaturn() {
-    //     let url = Scraper::animesaturn("bunny girl").await.unwrap();
-    //     let file = "SeishunButaYarouWaBunnyGirlSenpaiNoYumeWoMinai_Ep_01_SUB_ITA.mp4";
-    //     let info = Url::parse(url.first().unwrap())
-    //         .unwrap()
-    //         .path_segments()
-    //         .and_then(|segments| segments.last())
-    //         .unwrap()
-    //         .to_owned();
-
-    //     assert_eq!(file, info)
-    // }
-
     #[tokio::test]
     async fn test_scraper() {
         let s = Scraper::new();
-        let anime = s.site(&Site::AW).query("bunny girl").run().await.unwrap();
+        let anime = s
+            .site(Some(Site::AW))
+            .query("bunny girl")
+            .run()
+            .await
+            .unwrap();
         let file = "SeishunButaYarouWaBunnyGirlSenpaiNoYumeWoMinai_Ep_01_SUB_ITA.mp4";
         let info = Url::parse(&anime.last().unwrap().url)
             .unwrap()
@@ -481,11 +354,5 @@ mod tests {
             .to_owned();
 
         assert_eq!(file, info)
-    }
-
-    #[tokio::test]
-    #[should_panic(expected = "Missing Scraper `site` parameter")]
-    async fn test_scraper_err() {
-        Scraper::new().run().await.unwrap();
     }
 }

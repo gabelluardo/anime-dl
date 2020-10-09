@@ -49,7 +49,7 @@ impl Manager {
         };
 
         // Scrape from archive and find correct url
-        let items = match &args.search {
+        let items = match args.search {
             Some(site) => {
                 Scraper::new()
                     .site(site)
