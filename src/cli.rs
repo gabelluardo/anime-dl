@@ -1,7 +1,8 @@
-use structopt::clap::arg_enum;
-use structopt::StructOpt;
+use anyhow::{bail, Result};
+use structopt::{clap::arg_enum, StructOpt};
 
 use std::iter::FromIterator;
+use std::ops::{self, Deref};
 use std::path::PathBuf;
 use std::str::FromStr;
 
@@ -13,40 +14,61 @@ arg_enum! {
     }
 }
 
-#[derive(Debug, Copy, Clone)]
-pub struct Range {
-    pub start: u32,
-    pub end: u32,
-}
+#[derive(Debug, Clone)]
+pub struct Range<T>(ops::Range<T>);
 
-impl Range {
-    pub fn extract(&self) -> (u32, u32) {
-        (self.start, self.end)
+impl<'a, T> Range<T>
+where
+    T: Copy + Clone + FromStr,
+{
+    pub fn new(start: T, end: T) -> Self {
+        Self(start..end)
+    }
+
+    pub fn range(&self) -> ops::Range<T> {
+        self.start..self.end
+    }
+
+    pub fn parse(s: &str) -> Result<Self, <Self as FromStr>::Err> {
+        Self::from_str(s)
     }
 }
 
-impl Default for Range {
+impl Default for Range<u32> {
     fn default() -> Self {
-        Self { start: 1, end: 0 }
+        Self(1..0)
     }
 }
 
-impl FromStr for Range {
-    type Err = std::num::ParseIntError;
+impl<T> Deref for Range<T> {
+    type Target = ops::Range<T>;
 
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let range = s
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<T> FromStr for Range<T>
+where
+    T: Copy + Clone + FromStr,
+{
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, <Self as FromStr>::Err> {
+        let range_str = s
             .trim_matches(|p| p == '(' || p == ')')
-            .split(',')
+            .split(&[',', '-', '.'][..])
             .collect::<Vec<_>>();
 
-        let start_fromstr = range[0].parse::<u32>()?;
-        let end_fromstr = range[1].parse::<u32>()?;
+        let (start_str, end_str) = match (range_str.first(), range_str.last()) {
+            (Some(f), Some(l)) => match (f.parse::<T>(), l.parse::<T>()) {
+                (Ok(s), Ok(e)) => (s, e),
+                _ => bail!("Unable to parse range"),
+            },
+            _ => bail!("Unable to parse range"),
+        };
 
-        Ok(Self {
-            start: start_fromstr,
-            end: end_fromstr,
-        })
+        Ok(Self(start_str..end_str))
     }
 }
 
@@ -86,7 +108,7 @@ pub struct Args {
 
     /// Range of episodes to download
     #[structopt(short, long)]
-    pub range: Option<Range>,
+    pub range: Option<Range<u32>>,
 
     /// Search anime in remote archive
     #[structopt(
@@ -145,21 +167,18 @@ mod tests {
 
     #[test]
     fn test_range() {
-        let range1 = Range { start: 0, end: 1 };
-        let (start, end) = range1.extract();
+        let range1 = Range::new(0, 1);
+        let (start, end) = (range1.start, range1.end);
         assert_eq!(start, 0);
         assert_eq!(end, 1);
 
-        let range2 = Range::from_str("(0,1)").unwrap();
-        let (start, end) = range2.extract();
-        assert_eq!(start, 0);
-        assert_eq!(end, 1);
+        let range2 = Range::<i32>::from_str("(0..1)").unwrap();
+        assert_eq!(range2.start, 0);
+        assert_eq!(range2.end, 1);
 
-        assert_eq!(range1.extract(), range2.extract());
+        assert!(range1.range().eq(range2.range()));
 
         let range3 = Range::default();
-        let (start, end) = range3.extract();
-        assert_eq!(start, 1);
-        assert_eq!(end, 0);
+        assert_eq!((range3.start, range3.end), (1, 0));
     }
 }

@@ -40,10 +40,10 @@ impl Manager {
         Ok(())
     }
 
-    async fn filter_args(&self) -> Result<(Range, ScraperItems)> {
+    async fn filter_args(&self) -> Result<(Range<u32>, ScraperItems)> {
         let args = &self.args;
 
-        let range = match args.range {
+        let range = match args.range.clone() {
             Some(range) => range,
             None => Range::default(),
         };
@@ -88,7 +88,7 @@ impl Manager {
             let anime = Anime::builder()
                 .item(item)
                 .path(args.dir.first().unwrap())
-                .range(range)
+                .range(&range)
                 .auto(true)
                 .build()
                 .await?;
@@ -139,7 +139,7 @@ impl Manager {
             let anime = Anime::builder()
                 .item(item)
                 .path(&path)
-                .range(range)
+                .range(&range)
                 .auto(args.auto_episode || args.interactive)
                 .build()
                 .await?;
@@ -231,7 +231,7 @@ impl Manager {
 #[derive(Default)]
 struct AnimeBuilder {
     auto: bool,
-    range: Range,
+    range: Range<u32>,
     path: PathBuf,
     url: String,
     _id: Option<u32>,
@@ -242,8 +242,11 @@ impl AnimeBuilder {
         Self { auto, ..self }
     }
 
-    fn range(self, range: Range) -> Self {
-        Self { range, ..self }
+    fn range(self, range: &Range<u32>) -> Self {
+        Self {
+            range: range.to_owned(),
+            ..self
+        }
     }
 
     fn path(self, path: &PathBuf) -> Self {
@@ -277,10 +280,8 @@ impl AnimeBuilder {
     }
 
     async fn episodes(&self, url: &str) -> Result<Vec<String>> {
-        let ((start, end), auto) = (self.range.extract(), self.auto);
-
-        let num_episodes = if !auto {
-            end
+        let num_episodes = if !self.auto {
+            self.range.end
         } else {
             let client = Client::new();
             let mut err;
@@ -313,7 +314,7 @@ impl AnimeBuilder {
             last
         };
 
-        let episodes = (start..num_episodes + 1)
+        let episodes = (self.range.start..num_episodes + 1)
             .into_iter()
             .map(|i| gen_url!(url, i))
             .collect::<Vec<_>>();

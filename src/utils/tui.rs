@@ -1,6 +1,8 @@
 use super::*;
 
+use crate::cli::Range;
 use bunt::{print, println};
+
 use std::io::prelude::*;
 
 pub struct Choice {
@@ -44,21 +46,19 @@ pub fn get_choice(choices: Vec<Choice>) -> Result<Vec<String>> {
                 .filter(|i| i.gt(&0) && i.le(&choices.len()))
                 .collect::<Vec<_>>();
 
-            if line.contains('-') {
-                let re = Regex::new(r"(?:\d+\-\d*)").unwrap();
+            if line.contains(&[',', '-', '.'][..]) {
+                let re = Regex::new(r"(?:\d+[-|,|\.]+\d*)").unwrap();
                 re.captures_iter(&line)
                     .map(|c| c[0].to_string())
                     .for_each(|s| {
-                        let range = s
-                            .split('-')
-                            .into_iter()
-                            .map(|v| v.parse().unwrap_or(choices.len()) as usize)
-                            .filter(|i| i.gt(&0) && i.le(&choices.len()))
-                            .collect::<Vec<_>>();
-                        let start = range.first().unwrap();
-                        let end = range.last().unwrap();
+                        let range = Range::<usize>::parse(&s)
+                            .map(|r| match r.end.gt(&choices.len()) {
+                                true => Range::new(r.start, choices.len() + 1),
+                                _ => r,
+                            })
+                            .unwrap();
 
-                        multi.extend((start + 1..end + 1).collect::<Vec<_>>())
+                        multi.extend(range.range().collect::<Vec<_>>())
                     });
             }
 
