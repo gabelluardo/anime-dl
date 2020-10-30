@@ -34,7 +34,7 @@ features = ["json"]
 
 [dependencies.tokio]
 default-features = false
-version = "0.2"
+version = "0.3"
 features = ["macros", "fs"]
 
 [dependencies]
