@@ -33,7 +33,7 @@ to store every anime in a properly named directory.
 Or for stream after scraped an archive:
 
 ``` sh
-anime-dl -sS AW <entries>
+anime-dl -sS <archive> -- <entries>
 ```
 
 ![](screenshots/demo.gif)
