@@ -63,7 +63,7 @@ impl Manager {
                 .to_vec()
                 .iter()
                 .map(|s| ScraperItems::item(s.to_owned(), None))
-                .collect::<ScraperItems>(),
+                .collect::<_>(),
         };
 
         Ok((range, items))
@@ -117,7 +117,7 @@ impl Manager {
         let args = &self.args;
 
         let mut pool = vec![];
-        for item in &items {
+        for item in items.iter() {
             let mut dir = args.dir.last().unwrap().to_owned();
 
             let path = if args.auto_dir {

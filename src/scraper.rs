@@ -9,7 +9,7 @@ use reqwest::{header, header::HeaderValue, Client, Url};
 use scraper::{Html, Selector};
 
 use std::iter::FromIterator;
-use std::ops::Deref;
+use std::ops::{Deref, DerefMut};
 
 #[derive(Clone, Debug)]
 pub struct ScraperItemDetails {
@@ -18,9 +18,7 @@ pub struct ScraperItemDetails {
 }
 
 #[derive(Clone, Debug, Default)]
-pub struct ScraperItems {
-    items: Vec<ScraperItemDetails>,
-}
+pub struct ScraperItems(Vec<ScraperItemDetails>);
 
 impl ScraperItems {
     pub fn new() -> Self {
@@ -30,25 +28,19 @@ impl ScraperItems {
     pub fn item(url: String, id: Option<u32>) -> ScraperItemDetails {
         ScraperItemDetails { url, id }
     }
+}
 
-    pub fn push(&mut self, item: ScraperItemDetails) {
-        self.items.push(item)
+impl Deref for ScraperItems {
+    type Target = Vec<ScraperItemDetails>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
+}
 
-    pub fn to_vec(&self) -> Vec<ScraperItemDetails> {
-        self.items.clone()
-    }
-
-    pub fn first(&self) -> Option<&ScraperItemDetails> {
-        self.items.first()
-    }
-
-    pub fn last(&self) -> Option<&ScraperItemDetails> {
-        self.items.last()
-    }
-
-    pub fn iter(&self) -> ScraperItemsIterator {
-        self.into_iter()
+impl DerefMut for ScraperItems {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
     }
 }
 
@@ -60,66 +52,14 @@ impl FromIterator<ScraperItemDetails> for ScraperItems {
     }
 }
 
-impl Extend<ScraperItemDetails> for ScraperItems {
-    fn extend<T: IntoIterator<Item = ScraperItemDetails>>(&mut self, iter: T) {
-        iter.into_iter().for_each(move |c| self.push(c))
-    }
-}
-
-pub struct ScraperItemsIntoIterator {
-    iter: ::std::vec::IntoIter<ScraperItemDetails>,
-}
-
-impl<'a> IntoIterator for ScraperItems {
-    type Item = ScraperItemDetails;
-    type IntoIter = ScraperItemsIntoIterator;
-
-    fn into_iter(self) -> Self::IntoIter {
-        ScraperItemsIntoIterator {
-            iter: self.items.into_iter(),
-        }
-    }
-}
-
-impl<'a> Iterator for ScraperItemsIntoIterator {
-    type Item = ScraperItemDetails;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.iter.next()
-    }
-}
-
-pub struct ScraperItemsIterator<'a> {
-    iter: ::std::slice::Iter<'a, ScraperItemDetails>,
-}
-
-impl<'a> IntoIterator for &'a ScraperItems {
-    type Item = &'a ScraperItemDetails;
-    type IntoIter = ScraperItemsIterator<'a>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        ScraperItemsIterator {
-            iter: self.items.iter(),
-        }
-    }
-}
-
-impl<'a> Iterator for ScraperItemsIterator<'a> {
-    type Item = &'a ScraperItemDetails;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.iter.next()
-    }
-}
-
 #[derive(Default)]
-pub struct Scraper {
+pub struct Scraper<'a> {
     proxy: bool,
-    query: String,
+    query: &'a str,
     site: Option<Site>,
 }
 
-impl<'a> Scraper {
+impl<'a> Scraper<'a> {
     pub fn new() -> Self {
         Self::default()
     }
@@ -128,11 +68,8 @@ impl<'a> Scraper {
         Self { proxy, ..self }
     }
 
-    pub fn query(self, query: &str) -> Self {
-        Self {
-            query: query.to_owned(),
-            ..self
-        }
+    pub fn query(self, query: &'a str) -> Self {
+        Self { query, ..self }
     }
 
     pub fn site(self, site: Option<Site>) -> Self {
