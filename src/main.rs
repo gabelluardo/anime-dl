@@ -12,7 +12,7 @@ use cli::Args;
 
 #[tokio::main]
 async fn main() {
-    match Manager::from(Args::new()).run().await {
+    match Manager::new(Args::new()).run().await {
         Ok(_) => (),
         Err(e) => bunt::eprintln!("{$red}[ERR] {}{/$}", e),
     }

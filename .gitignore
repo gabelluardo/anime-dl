@@ -3,3 +3,4 @@
 script*
 .env
 .anime-dl.cache
+.idea

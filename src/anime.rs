@@ -19,7 +19,7 @@ pub struct Manager {
 }
 
 impl Manager {
-    pub fn from(args: Args) -> Self {
+    pub fn new(args: Args) -> Self {
         Self { args }
     }
 
@@ -52,8 +52,9 @@ impl Manager {
         let items = match args.search {
             Some(site) => {
                 Scraper::new()
-                    .site(site)
+                    .proxy(!args.no_proxy)
                     .query(&args.urls.to_query())
+                    .site(site)
                     .run()
                     .await?
             }
