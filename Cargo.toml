@@ -40,7 +40,7 @@ features = ["macros", "fs"]
 [dependencies]
 anyhow = "1.0"
 bunt = "0.2"
-futures = "0.3.7"
+futures = "0.3.8"
 indicatif = "0.15"
 rand = "0.7"
 regex = "1.4"
