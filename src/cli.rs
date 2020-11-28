@@ -110,6 +110,8 @@ pub struct Args {
     #[structopt(
         short = "r",
         long = "range",
+        required_unless("single"),
+        required_unless("stream"),
         required_unless("interactive"),
         required_unless("auto-episode")
     )]
