@@ -107,8 +107,13 @@ pub struct Args {
     pub dir: Vec<PathBuf>,
 
     /// Range of episodes to download
-    #[structopt(short, long)]
-    pub range: Option<Range<u32>>,
+    #[structopt(
+        short = "r",
+        long = "range",
+        required_unless("interactive"),
+        required_unless("auto-episode")
+    )]
+    pub opt_range: Option<Range<u32>>,
 
     /// Search anime in remote archive
     #[structopt(
@@ -153,13 +158,24 @@ pub struct Args {
 
     #[structopt(skip)]
     pub urls: Urls,
+
+    #[structopt(skip)]
+    pub range: Range<u32>,
 }
 
 impl Args {
-    pub fn new() -> Self {
+    pub fn parse() -> Self {
         let args = Self::from_args();
+
+        let urls = Urls::from_iter(args.entries.clone());
+        let range = match &args.opt_range {
+            Some(range) => range.to_owned(),
+            None => Range::default(),
+        };
+
         Self {
-            urls: Urls::from_iter(args.entries.clone()),
+            urls,
+            range,
             ..args
         }
     }
