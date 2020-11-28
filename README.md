@@ -53,7 +53,7 @@ FLAGS:
     -f, --force          Override existent files
     -h, --help           Prints help information
     -i, --interactive    Interactive mode
-    -p, --no-proxy       Disable automatic proxy (useful for slow conections)
+    -p, --no-proxy       Disable automatic proxy (useful for slow connections)
     -O, --one-file       Download file without in-app control (equivalent to `curl -O <url>` or `wget <url>` )
     -s, --stream         Stream episode in a media player (add -O for single file)
     -V, --version        Prints version information
