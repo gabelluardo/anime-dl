@@ -1,6 +1,6 @@
 # Anime-dl
 
-[![Crates.io](https://img.shields.io/crates/v/anime-dl?color=orange)](https://crates.io/crates/anime-dl)
+[![Crates.io](https://img.shields.io/crates/v/anime-dl?color=orange)](https://crates.io/crates/anime-dl) 
 
 ![Crates.io](https://img.shields.io/crates/l/anime-dl)
 
@@ -53,7 +53,8 @@ FLAGS:
     -f, --force          Override existent files
     -h, --help           Prints help information
     -i, --interactive    Interactive mode
-    -O, --one-file       Download file without in-app controll (equivalent to `curl -O <url>` or `wget <url>` )
+    -p, --no-proxy       Disable automatic proxy (useful for slow connections)
+    -O, --one-file       Download file without in-app control (equivalent to `curl -O <url>` or `wget <url>` )
     -s, --stream         Stream episode in a media player (add -O for single file)
     -V, --version        Prints version information
 
