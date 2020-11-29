@@ -154,9 +154,9 @@ checksum = "2e8c087f005730276d1096a652e92a8bacee2e2472bcc9715a74d2bec38b5820"
 
 [[package]]
 name = "bunt"
-version = "0.2.3"
+version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "219e88f5a1df3f5b8a471055ae5bf58d0cdb895ec212b6ef4a00a9a1495b9fb4"
+checksum = "25ae469fdd2750327907287e2aa8487964f7015e968bbdf71d4309d6f4b6360e"
 dependencies = [
  "bunt-macros",
  "termcolor",
@@ -164,9 +164,9 @@ dependencies = [
 
 [[package]]
 name = "bunt-macros"
-version = "0.2.3"
+version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a9b0d33584af687b4dfc0b9ceb1406635c4582ae126f2979f362bbe8ec11512e"
+checksum = "32e7b5e5ba5b913f8d68407ae2083d166ab0cd306521e9259d58a63f456f699b"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1616,9 +1616,9 @@ dependencies = [
 
 [[package]]
 name = "termcolor"
-version = "1.1.0"
+version = "1.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bb6bfa289a4d7c5766392812c0a1f4c1ba45afa1ad47803c11e1f407d846d75f"
+checksum = "2dfed899f0eb03f32ee8c6a0aabdb8a7949659e3466561fc0adf54e26d88c5f4"
 dependencies = [
  "winapi-util",
 ]
