@@ -15,13 +15,34 @@ use std::cell::RefCell;
 use std::path::PathBuf;
 use std::process::Command;
 
+enum Action {
+    MultiDownload,
+    SingleDownload,
+    Streaming,
+}
+
+impl Action {
+    fn parse(args: &Args) -> Self {
+        if args.stream {
+            Self::Streaming
+        } else if args.single {
+            Self::SingleDownload
+        } else {
+            Self::MultiDownload
+        }
+    }
+}
+
 pub struct Manager {
+    action: Action,
     args: Args,
     items: ScraperItems,
 }
 
 impl Manager {
     pub async fn new(args: Args) -> Result<Self> {
+        let action = Action::parse(&args);
+
         // Scrape from archive and find correct url
         let items = match args.search {
             Some(site) => {
@@ -40,7 +61,11 @@ impl Manager {
                 .collect::<_>(),
         };
 
-        Ok(Self { args, items })
+        Ok(Self {
+            action,
+            args,
+            items,
+        })
     }
 
     pub async fn run(self) -> Result<()> {
@@ -49,15 +74,11 @@ impl Manager {
             AniList::clean_cache()?
         }
 
-        if self.args.stream {
-            self.stream().await?
-        } else if self.args.single {
-            self.single().await?
-        } else {
-            self.multi().await?
+        match self.action {
+            Action::Streaming => self.stream().await,
+            Action::MultiDownload => self.multi().await,
+            Action::SingleDownload => self.single().await,
         }
-
-        Ok(())
     }
 
     async fn single(&self) -> Result<()> {
