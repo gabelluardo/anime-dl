@@ -43,6 +43,11 @@ impl Manager {
     pub async fn new(args: Args) -> Result<Self> {
         let action = Action::parse(&args);
 
+        #[cfg(feature = "anilist")]
+        if args.clean {
+            AniList::clean_cache()?
+        }
+
         // Scrape from archive and find correct url
         let items = match args.search {
             Some(site) => {
@@ -69,11 +74,6 @@ impl Manager {
     }
 
     pub async fn run(self) -> Result<()> {
-        #[cfg(feature = "anilist")]
-        if self.args.clean {
-            AniList::clean_cache()?
-        }
-
         match self.action {
             Action::Streaming => self.stream().await,
             Action::MultiDownload => self.multi().await,
