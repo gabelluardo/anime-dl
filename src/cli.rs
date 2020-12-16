@@ -1,85 +1,16 @@
-use anyhow::{bail, Result};
+use crate::utils::Range;
+
 use structopt::{clap::arg_enum, StructOpt};
 
 use std::iter::FromIterator;
-use std::ops::{Deref, Range as OpsRange};
+use std::ops::Deref;
 use std::path::PathBuf;
-use std::str::FromStr;
 
 arg_enum! {
     #[derive(Debug, Copy, Clone)]
     pub enum Site {
         AW,
         AS,
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct Range<T>(OpsRange<T>);
-
-impl<'a, T> Range<T>
-where
-    T: Copy + Clone + FromStr + Ord,
-{
-    pub fn new(start: T, end: T) -> Self {
-        Self(start..end)
-    }
-
-    pub fn range(&self) -> OpsRange<T> {
-        self.start..self.end
-    }
-
-    pub fn parse(s: &str) -> Result<Self, <Self as FromStr>::Err> {
-        Self::from_str(s)
-    }
-
-    pub fn parse_and_fill(s: &str, end: T) -> Result<Self, <Self as FromStr>::Err> {
-        Self::parse(s).map(|r| {
-            if r.end.gt(&end) || r.end.eq(&r.start) {
-                Self::new(r.start, end)
-            } else {
-                r
-            }
-        })
-    }
-}
-
-impl Default for Range<u32> {
-    fn default() -> Self {
-        Self(1..0)
-    }
-}
-
-impl<T> Deref for Range<T> {
-    type Target = OpsRange<T>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl<T> FromStr for Range<T>
-where
-    T: Copy + Clone + FromStr + Ord,
-{
-    type Err = anyhow::Error;
-
-    fn from_str(s: &str) -> Result<Self, <Self as FromStr>::Err> {
-        let range_str = s
-            .trim_matches(|p| p == '(' || p == ')')
-            .split(&[',', '-', '.'][..])
-            .collect::<Vec<_>>();
-
-        let (start_str, end_str) = match (range_str.first(), range_str.last()) {
-            (Some(f), Some(l)) => match (f.parse::<T>(), l.parse::<T>()) {
-                (Ok(s), Ok(e)) => (s, e),
-                (Ok(s), Err(_)) => (s, s),
-                _ => bail!("Unable to parse range"),
-            },
-            _ => bail!("Unable to parse range"),
-        };
-
-        Ok(Self(start_str..end_str))
     }
 }
 
@@ -193,36 +124,5 @@ impl Args {
             range,
             ..args
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_range() {
-        let range1 = Range::new(0, 1);
-        let (start, end) = (range1.start, range1.end);
-        assert_eq!(start, 0);
-        assert_eq!(end, 1);
-
-        let range2 = Range::<i32>::from_str("(0..1)").unwrap();
-        assert_eq!(range2.start, 0);
-        assert_eq!(range2.end, 1);
-
-        assert!(range1.range().eq(range2.range()));
-
-        let range3 = Range::default();
-        assert_eq!((range3.start, range3.end), (1, 0));
-
-        let range4 = Range::<i32>::from_str("1-5").unwrap();
-        assert_eq!((range4.start, range4.end), (1, 5));
-
-        let range5 = Range::<i32>::from_str("1-").unwrap();
-        assert_eq!((range5.start, range5.end), (1, 1));
-
-        let range6 = Range::<i32>::parse_and_fill("1-", 6).unwrap();
-        assert_eq!((range6.start, range6.end), (1, 6));
     }
 }

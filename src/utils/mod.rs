@@ -1,4 +1,5 @@
 pub mod bars;
+pub mod range;
 pub mod tui;
 
 #[cfg(feature = "aes")]
@@ -10,6 +11,7 @@ use regex::Regex;
 
 use std::path::PathBuf;
 
+pub use range::Range;
 pub const PLACEHOLDER: &str = "_{}";
 
 pub struct RegInfo {

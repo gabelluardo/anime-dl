@@ -1,6 +1,6 @@
 use crate::cli::*;
 use crate::scraper::*;
-use crate::utils::{self, bars, tui};
+use crate::utils::{self, *};
 
 #[cfg(feature = "anilist")]
 use crate::api::AniList;

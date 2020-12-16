@@ -1,8 +1,6 @@
 use super::*;
 
-use crate::cli::Range;
 use bunt::{print, println};
-
 use std::io::prelude::*;
 
 pub struct Choice {

@@ -2,7 +2,6 @@ use super::*;
 
 use aes_soft::Aes128;
 use block_modes::{block_padding, BlockMode, Cbc};
-use hex;
 
 pub fn extract_hex(text: &str, matcher: &str) -> Result<Vec<Vec<u8>>> {
     let re = Regex::new(matcher).unwrap();
