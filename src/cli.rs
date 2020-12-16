@@ -19,7 +19,7 @@ pub struct Range<T>(ops::Range<T>);
 
 impl<'a, T> Range<T>
 where
-    T: Copy + Clone + FromStr,
+    T: Copy + Clone + FromStr + Ord,
 {
     pub fn new(start: T, end: T) -> Self {
         Self(start..end)
@@ -31,6 +31,16 @@ where
 
     pub fn parse(s: &str) -> Result<Self, <Self as FromStr>::Err> {
         Self::from_str(s)
+    }
+
+    pub fn parse_and_fill(s: &str, end: T) -> Result<Self, <Self as FromStr>::Err> {
+        Self::parse(s).map(|r| {
+            if r.end.gt(&end) || r.end.eq(&r.start) {
+                Self::new(r.start, end)
+            } else {
+                r
+            }
+        })
     }
 }
 
@@ -50,7 +60,7 @@ impl<T> Deref for Range<T> {
 
 impl<T> FromStr for Range<T>
 where
-    T: Copy + Clone + FromStr,
+    T: Copy + Clone + FromStr + Ord,
 {
     type Err = anyhow::Error;
 
@@ -63,6 +73,7 @@ where
         let (start_str, end_str) = match (range_str.first(), range_str.last()) {
             (Some(f), Some(l)) => match (f.parse::<T>(), l.parse::<T>()) {
                 (Ok(s), Ok(e)) => (s, e),
+                (Ok(s), Err(_)) => (s, s),
                 _ => bail!("Unable to parse range"),
             },
             _ => bail!("Unable to parse range"),
@@ -184,5 +195,14 @@ mod tests {
 
         let range3 = Range::default();
         assert_eq!((range3.start, range3.end), (1, 0));
+
+        let range4 = Range::<i32>::from_str("1-5").unwrap();
+        assert_eq!((range4.start, range4.end), (1, 5));
+
+        let range5 = Range::<i32>::from_str("1-").unwrap();
+        assert_eq!((range5.start, range5.end), (1, 1));
+
+        let range6 = Range::<i32>::parse_and_fill("1-", 6).unwrap();
+        assert_eq!((range6.start, range6.end), (1, 6));
     }
 }
