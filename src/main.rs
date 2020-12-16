@@ -8,12 +8,17 @@ mod scraper;
 mod utils;
 
 use anime::Manager;
+use anyhow::Result;
 use cli::Args;
 
 #[tokio::main]
 async fn main() {
-    match Manager::new(Args::new()).run().await {
+    match run().await {
         Ok(_) => (),
         Err(e) => bunt::eprintln!("{$red}[ERR] {}{/$}", e),
     }
+}
+
+async fn run() -> Result<()> {
+    Manager::new(Args::parse()).await?.run().await
 }

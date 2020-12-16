@@ -2,7 +2,7 @@ use anyhow::{bail, Result};
 use structopt::{clap::arg_enum, StructOpt};
 
 use std::iter::FromIterator;
-use std::ops::{self, Deref};
+use std::ops::{Deref, Range as OpsRange};
 use std::path::PathBuf;
 use std::str::FromStr;
 
@@ -15,7 +15,7 @@ arg_enum! {
 }
 
 #[derive(Debug, Clone)]
-pub struct Range<T>(ops::Range<T>);
+pub struct Range<T>(OpsRange<T>);
 
 impl<'a, T> Range<T>
 where
@@ -25,7 +25,7 @@ where
         Self(start..end)
     }
 
-    pub fn range(&self) -> ops::Range<T> {
+    pub fn range(&self) -> OpsRange<T> {
         self.start..self.end
     }
 
@@ -51,7 +51,7 @@ impl Default for Range<u32> {
 }
 
 impl<T> Deref for Range<T> {
-    type Target = ops::Range<T>;
+    type Target = OpsRange<T>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -84,24 +84,26 @@ where
 }
 
 #[derive(Debug, Default)]
-pub struct Urls {
-    value: Vec<String>,
+pub struct Urls(Vec<String>);
+
+impl Deref for Urls {
+    type Target = Vec<String>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
 }
 
 impl Urls {
-    pub fn to_vec(&self) -> Vec<String> {
-        self.value.clone()
-    }
-
     pub fn to_query(&self) -> String {
-        self.value.join("+")
+        self.0.join("+")
     }
 }
 
 impl FromIterator<String> for Urls {
     fn from_iter<I: IntoIterator<Item = String>>(iter: I) -> Self {
         let mut c = Urls::default();
-        c.value.extend(iter);
+        c.0.extend(iter);
         c
     }
 }
@@ -118,8 +120,15 @@ pub struct Args {
     pub dir: Vec<PathBuf>,
 
     /// Range of episodes to download
-    #[structopt(short, long)]
-    pub range: Option<Range<u32>>,
+    #[structopt(
+        short = "r",
+        long = "range",
+        required_unless("single"),
+        required_unless("stream"),
+        required_unless("interactive"),
+        required_unless("auto-episode")
+    )]
+    pub opt_range: Option<Range<u32>>,
 
     /// Search anime in remote archive
     #[structopt(
@@ -164,13 +173,24 @@ pub struct Args {
 
     #[structopt(skip)]
     pub urls: Urls,
+
+    #[structopt(skip)]
+    pub range: Range<u32>,
 }
 
 impl Args {
-    pub fn new() -> Self {
+    pub fn parse() -> Self {
         let args = Self::from_args();
+
+        let urls = Urls::from_iter(args.entries.clone());
+        let range = match &args.opt_range {
+            Some(range) => range.to_owned(),
+            None => Range::default(),
+        };
+
         Self {
-            urls: Urls::from_iter(args.entries.clone()),
+            urls,
+            range,
             ..args
         }
     }

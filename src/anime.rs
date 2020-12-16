@@ -11,42 +11,42 @@ use reqwest::header::{CONTENT_LENGTH, RANGE};
 use reqwest::{Client, Url};
 use tokio::{fs, io::AsyncWriteExt, task};
 
+use std::cell::RefCell;
 use std::path::PathBuf;
 use std::process::Command;
 
+enum Action {
+    MultiDownload,
+    SingleDownload,
+    Streaming,
+}
+
+impl Action {
+    fn parse(args: &Args) -> Self {
+        if args.stream {
+            Self::Streaming
+        } else if args.single {
+            Self::SingleDownload
+        } else {
+            Self::MultiDownload
+        }
+    }
+}
+
 pub struct Manager {
+    action: Action,
     args: Args,
+    items: ScraperItems,
 }
 
 impl Manager {
-    pub fn new(args: Args) -> Self {
-        Self { args }
-    }
+    pub async fn new(args: Args) -> Result<Self> {
+        let action = Action::parse(&args);
 
-    pub async fn run(&self) -> Result<()> {
         #[cfg(feature = "anilist")]
-        if self.args.clean {
+        if args.clean {
             AniList::clean_cache()?
         }
-
-        if self.args.stream {
-            self.stream().await?
-        } else if self.args.single {
-            self.single().await?
-        } else {
-            self.multi().await?
-        }
-
-        Ok(())
-    }
-
-    async fn filter_args(&self) -> Result<(Range<u32>, ScraperItems)> {
-        let args = &self.args;
-
-        let range = match args.range.clone() {
-            Some(range) => range,
-            None => Range::default(),
-        };
 
         // Scrape from archive and find correct url
         let items = match args.search {
@@ -66,30 +66,51 @@ impl Manager {
                 .collect::<_>(),
         };
 
-        Ok((range, items))
+        Ok(Self {
+            action,
+            args,
+            items,
+        })
+    }
+
+    pub async fn run(self) -> Result<()> {
+        match self.action {
+            Action::Streaming => self.stream().await,
+            Action::MultiDownload => self.multi().await,
+            Action::SingleDownload => self.single().await,
+        }
     }
 
     async fn single(&self) -> Result<()> {
-        let args = &self.args;
-        let pb = bars::instance_bar();
-        let (_, items) = self.filter_args().await?;
-        let opts = (args.dir.last().unwrap().to_owned(), args.force, pb);
+        let pool = Pool::new();
 
-        Self::download(&items.first().unwrap().url, opts).await
+        for (pos, item) in self.items.iter().enumerate() {
+            let url = item.url.clone();
+            let opts = (
+                utils::get_path(&self.args, &item.url, pos)?,
+                self.args.force,
+                pool.add_bar(),
+            );
+
+            pool.add_task(tokio::spawn(async move {
+                print_err!(Self::download(&url, opts).await)
+            }))
+        }
+
+        pool.join_all().await;
+
+        Ok(())
     }
 
     async fn stream(&self) -> Result<()> {
-        let (range, items) = self.filter_args().await?;
-        let args = &self.args;
-
-        let urls = if args.single {
-            items.iter().map(|a| a.url.clone()).collect::<Vec<_>>()
+        let urls = if self.args.single {
+            self.items.iter().map(|a| a.url.clone()).collect::<Vec<_>>()
         } else {
-            let item = items.first().unwrap();
+            let item = self.items.first().unwrap();
             let anime = Anime::builder()
                 .item(item)
-                .path(args.dir.first().unwrap())
-                .range(&range)
+                .path(&self.args.dir.first().unwrap())
+                .range(&self.args.range)
                 .auto(true)
                 .build()
                 .await?;
@@ -112,40 +133,20 @@ impl Manager {
     }
 
     async fn multi(&self) -> Result<()> {
-        let multi_bars = bars::instance_multi_bars();
-        let (range, items) = self.filter_args().await?;
         let args = &self.args;
 
-        let mut pool = vec![];
-        for item in items.iter() {
-            let mut dir = args.dir.last().unwrap().to_owned();
-
-            let path = if args.auto_dir {
-                let subfolder = utils::extract_info(&item.url)?;
-                dir.push(subfolder.name);
-                dir
-            } else {
-                let pos = items
-                    .iter()
-                    .map(|i| i.url.as_str())
-                    .position(|u| u == item.url)
-                    .unwrap();
-
-                match args.dir.get(pos) {
-                    Some(path) => path.to_owned(),
-                    None => dir,
-                }
-            };
+        let pool = Pool::new();
+        for (pos, item) in self.items.iter().enumerate() {
+            let path = utils::get_path(&args, &item.url, pos)?;
 
             let anime = Anime::builder()
                 .item(item)
                 .path(&path)
-                .range(&range)
+                .range(&args.range)
                 .auto(args.auto_episode || args.interactive)
                 .build()
                 .await?;
 
-            let path = anime.path();
             let episodes = if args.interactive {
                 tui::get_choice(anime.choices())?
             } else {
@@ -156,19 +157,15 @@ impl Manager {
                 episodes
                     .into_iter()
                     .map(|u| {
-                        let pb = bars::instance_bar();
-                        let opts = (path.clone(), args.force, multi_bars.add(pb));
+                        let opts = (path.clone(), args.force, pool.add_bar());
 
                         tokio::spawn(async move { print_err!(Self::download(&u, opts).await) })
                     })
-                    .collect::<Vec<task::JoinHandle<()>>>(),
+                    .collect::<TaskPool>(),
             )
         }
 
-        let bars = task::spawn_blocking(move || multi_bars.join().unwrap());
-
-        join_all(pool).await;
-        bars.await.unwrap();
+        pool.join_all().await;
 
         Ok(())
     }
@@ -229,7 +226,43 @@ impl Manager {
     }
 }
 
-#[derive(Default)]
+type Task = task::JoinHandle<()>;
+type TaskPool = Vec<Task>;
+
+struct Pool {
+    tasks: RefCell<TaskPool>,
+    bars: bars::MultiProgress,
+}
+
+impl Pool {
+    fn new() -> Self {
+        Self {
+            tasks: RefCell::new(vec![]),
+            bars: bars::instance_multi_bars(),
+        }
+    }
+
+    fn extend(&self, pool: TaskPool) {
+        self.tasks.borrow_mut().extend(pool)
+    }
+
+    fn add_task(&self, task: Task) {
+        self.tasks.borrow_mut().push(task)
+    }
+
+    fn add_bar(&self) -> bars::ProgressBar {
+        self.bars.add(bars::instance_bar())
+    }
+
+    async fn join_all(self) {
+        let bars = self.bars;
+        let join_bars = task::spawn_blocking(move || bars.join().unwrap());
+        join_all(self.tasks.into_inner()).await;
+        join_bars.await.unwrap();
+    }
+}
+
+#[derive(Default, Debug)]
 struct AnimeBuilder {
     auto: bool,
     range: Range<u32>,
@@ -276,7 +309,7 @@ impl AnimeBuilder {
         Ok(Anime {
             episodes,
             last_viewed: _last,
-            path: self.path,
+            _path: self.path,
         })
     }
 
@@ -339,10 +372,11 @@ impl AnimeBuilder {
     }
 }
 
+#[derive(Default, Debug)]
 struct Anime {
     last_viewed: Option<u32>,
     episodes: Vec<String>,
-    path: PathBuf,
+    _path: PathBuf,
 }
 
 impl Anime {
@@ -366,10 +400,6 @@ impl Anime {
                 tui::Choice::from(u.to_string(), name)
             })
             .collect::<Vec<_>>()
-    }
-
-    fn path(&self) -> PathBuf {
-        self.path.clone()
     }
 }
 
