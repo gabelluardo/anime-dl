@@ -320,7 +320,7 @@ impl AnimeBuilder {
             let client = Client::new();
             let mut err;
             let mut last;
-            let mut counter = 2;
+            let mut counter = 5;
 
             // Last episode search is an O(log2 n) algorithm:
             // first loop finds a possible least upper bound [O(log2 n)]
