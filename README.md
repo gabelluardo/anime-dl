@@ -1,8 +1,9 @@
 # Anime-dl
 
-[![Crates.io](https://img.shields.io/crates/v/anime-dl?color=orange)](https://crates.io/crates/anime-dl) 
-
+[![Crates.io](https://img.shields.io/crates/v/anime-dl?color=orange)](https://crates.io/crates/anime-dl)
+[![dependency status](https://deps.rs/crate/anime-dl/1.1.1/status.svg)](https://deps.rs/crate/anime-dl/1.1.1)
 ![Crates.io](https://img.shields.io/crates/l/anime-dl)
+
 
 Efficient cli app for downloading anime
 
