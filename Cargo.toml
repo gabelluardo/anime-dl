@@ -51,7 +51,7 @@ structopt = "0.3"
 
 ## aes
 aes-soft = { version = "0.5",  optional = true }
-block-modes  = { version = "0.6", optional = true }
+block-modes  = { version = "0.7", optional = true }
 hex = { version = "0.4", optional = true }
 
 ## anilist
