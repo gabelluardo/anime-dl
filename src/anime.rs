@@ -393,7 +393,7 @@ impl Anime {
 
                 if let Some(last) = self.last_viewed {
                     if info.num <= last as u32 {
-                        name = format!("{} ✔️", name);
+                        name = format!("{} 🗸", name);
                     }
                 }
 

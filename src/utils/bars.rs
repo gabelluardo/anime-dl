@@ -1,7 +1,7 @@
 pub use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 
 fn instance_style() -> ProgressStyle {
-    ProgressStyle::default_bar().template("{spinner:.green} [{elapsed}] [{bar:30.cyan/blue}] {bytes_per_sec} {bytes}/{total_bytes} ({eta}) {wide_msg}").progress_chars("#>-")
+    ProgressStyle::default_bar().template("{spinner:.green} [{elapsed}] [{bar:20.cyan/blue}] {bytes_per_sec} {bytes}/{total_bytes} ({eta}) {wide_msg}").progress_chars("#>-")
 }
 
 pub fn instance_multi_bars() -> MultiProgress {
