@@ -105,7 +105,7 @@ pub struct Args {
     #[structopt(short, long)]
     pub interactive: bool,
 
-    /// Disable automatic proxy (useful for slow conections)
+    /// Disable automatic proxy (useful for slow connections)
     #[structopt(short = "p", long)]
     pub no_proxy: bool,
 

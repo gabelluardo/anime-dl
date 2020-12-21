@@ -43,11 +43,9 @@ Anyway, the helper is this:
 
 ``` 
 USAGE:
-
     anime-dl [FLAGS] [OPTIONS] <entries>...
 
 FLAGS:
-
     -a, --auto           Find automatically output folder name
     -c, --continue       Find automatically last episode (override `-r <range>` option)
         --clean          Delete app cache
@@ -55,20 +53,18 @@ FLAGS:
     -h, --help           Prints help information
     -i, --interactive    Interactive mode
     -p, --no-proxy       Disable automatic proxy (useful for slow connections)
-    -O, --one-file       Download file without in-app control (equivalent to `curl -O <url>` or `wget <url>` )
+    -O, --one-file       Download file without in-app control (equivalent to `curl -O <url>` or `wget <url>`)
     -s, --stream         Stream episode in a media player (add -O for single file)
     -V, --version        Prints version information
 
 OPTIONS:
-
-    -d, --dir <dir>...       Root paths where store files [default: .]
-    -r, --range <range>      Range of episodes to download
-    -S, --search <search>    Search anime in remote archive [possible values: AW, AS]
+    -d, --dir <dir>...            Root paths where store files [default: .]
+    -m, --max-concurrent <max>    Maximum number of simultaneous downloads allowed [default: 24]
+    -r, --range <range>           Range of episodes to download
+    -S, --search <site>           Search anime in remote archive [possible values: AW, AS]
 
 ARGS:
-
     <entries>...    Source urls or scraper's queries
-
 ```
 
 For parsing urls from a file (es. `urls` ):
