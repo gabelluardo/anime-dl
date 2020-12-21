@@ -50,14 +50,20 @@ pub struct Args {
     #[structopt(default_value = ".", short, long)]
     pub dir: Vec<PathBuf>,
 
-    /// Maximum concurrent downloads allowed
-    #[structopt(default_value = "24", short = "M", long = "max-concurrent")]
+    /// Maximum number of simultaneous downloads allowed
+    #[structopt(
+        default_value = "24",
+        short = "m",
+        long = "max-concurrent",
+        name = "max"
+    )]
     pub dim_buff: usize,
 
     /// Range of episodes to download
     #[structopt(
         short = "r",
         long = "range",
+        name = "range",
         required_unless("single"),
         required_unless("stream"),
         required_unless("interactive"),
@@ -69,6 +75,7 @@ pub struct Args {
     #[structopt(
         long,
         short = "S",
+        name = "site",
         case_insensitive = true,
         possible_values = &Site::variants(),
     )]
@@ -118,6 +125,7 @@ impl Args {
         let args = Self::from_args();
 
         let urls = Urls::from_iter(args.entries.clone());
+        let dim_buff = if args.dim_buff <= 0 { 1 } else { args.dim_buff };
         let range = match &args.opt_range {
             Some(range) => range.to_owned(),
             None => Range::default(),
@@ -126,6 +134,7 @@ impl Args {
         Self {
             urls,
             range,
+            dim_buff,
             ..args
         }
     }
