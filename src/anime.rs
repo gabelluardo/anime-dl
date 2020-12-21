@@ -6,12 +6,13 @@ use crate::utils::{self, *};
 use crate::api::AniList;
 
 use anyhow::{bail, Context, Result};
-use futures::future::join_all;
+// use futures::future::join_all;
+use futures::stream::StreamExt;
 use reqwest::header::{CONTENT_LENGTH, RANGE};
 use reqwest::{Client, Url};
-use tokio::{fs, io::AsyncWriteExt, task};
+use tokio::{fs, io::AsyncWriteExt, stream, task};
 
-use std::cell::RefCell;
+// use std::cell::RefCell;
 use std::path::PathBuf;
 use std::process::Command;
 
@@ -82,22 +83,25 @@ impl Manager {
     }
 
     async fn single(&self) -> Result<()> {
-        let pool = Pool::new();
+        let bars = bars::instance_multi_bars();
+        let mut pool = vec![];
 
         for (pos, item) in self.items.iter().enumerate() {
             let url = item.url.clone();
             let opts = (
                 utils::get_path(&self.args, &item.url, pos)?,
                 self.args.force,
-                pool.add_bar(),
+                bars.add(bars::instance_bar()),
             );
 
-            pool.add_task(tokio::spawn(async move {
-                print_err!(Self::download(&url, opts).await)
-            }))
+            pool.push(async move { print_err!(Self::download(&url, opts).await) })
         }
 
-        pool.join_all().await;
+        task::spawn_blocking(move || bars.join().unwrap());
+        stream::iter(pool)
+            .buffer_unordered(self.args.dim_buff)
+            .collect::<Vec<_>>()
+            .await;
 
         Ok(())
     }
@@ -135,7 +139,9 @@ impl Manager {
     async fn multi(&self) -> Result<()> {
         let args = &self.args;
 
-        let pool = Pool::new();
+        let bars = bars::instance_multi_bars();
+        let mut pool = vec![];
+
         for (pos, item) in self.items.iter().enumerate() {
             let path = utils::get_path(&args, &item.url, pos)?;
 
@@ -157,15 +163,19 @@ impl Manager {
                 episodes
                     .into_iter()
                     .map(|u| {
-                        let opts = (path.clone(), args.force, pool.add_bar());
+                        let opts = (path.clone(), args.force, bars.add(bars::instance_bar()));
 
-                        tokio::spawn(async move { print_err!(Self::download(&u, opts).await) })
+                        async move { print_err!(Self::download(&u, opts).await) }
                     })
-                    .collect::<TaskPool>(),
+                    .collect::<Vec<_>>(),
             )
         }
 
-        pool.join_all().await;
+        task::spawn_blocking(move || bars.join().unwrap());
+        stream::iter(pool)
+            .buffer_unordered(args.dim_buff)
+            .collect::<Vec<_>>()
+            .await;
 
         Ok(())
     }
@@ -226,42 +236,6 @@ impl Manager {
     }
 }
 
-type Task = task::JoinHandle<()>;
-type TaskPool = Vec<Task>;
-
-struct Pool {
-    tasks: RefCell<TaskPool>,
-    bars: bars::MultiProgress,
-}
-
-impl Pool {
-    fn new() -> Self {
-        Self {
-            tasks: RefCell::new(vec![]),
-            bars: bars::instance_multi_bars(),
-        }
-    }
-
-    fn extend(&self, pool: TaskPool) {
-        self.tasks.borrow_mut().extend(pool)
-    }
-
-    fn add_task(&self, task: Task) {
-        self.tasks.borrow_mut().push(task)
-    }
-
-    fn add_bar(&self) -> bars::ProgressBar {
-        self.bars.add(bars::instance_bar())
-    }
-
-    async fn join_all(self) {
-        let bars = self.bars;
-        let join_bars = task::spawn_blocking(move || bars.join().unwrap());
-        join_all(self.tasks.into_inner()).await;
-        join_bars.await.unwrap();
-    }
-}
-
 #[derive(Default, Debug)]
 struct AnimeBuilder {
     auto: bool,
@@ -309,7 +283,7 @@ impl AnimeBuilder {
         Ok(Anime {
             episodes,
             last_viewed: _last,
-            _path: self.path,
+            path: self.path,
         })
     }
 
@@ -376,7 +350,7 @@ impl AnimeBuilder {
 struct Anime {
     last_viewed: Option<u32>,
     episodes: Vec<String>,
-    _path: PathBuf,
+    path: PathBuf,
 }
 
 impl Anime {

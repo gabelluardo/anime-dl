@@ -50,6 +50,10 @@ pub struct Args {
     #[structopt(default_value = ".", short, long)]
     pub dir: Vec<PathBuf>,
 
+    /// Maximum concurrent downloads allowed
+    #[structopt(default_value = "24", short = "M", long = "max-concurrent")]
+    pub dim_buff: usize,
+
     /// Range of episodes to download
     #[structopt(
         short = "r",
