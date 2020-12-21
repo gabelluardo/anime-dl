@@ -11,6 +11,7 @@ use regex::Regex;
 
 use std::path::PathBuf;
 
+pub use bars::Bars;
 pub use range::Range;
 pub const PLACEHOLDER: &str = "_{}";
 

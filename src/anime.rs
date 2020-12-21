@@ -83,7 +83,7 @@ impl Manager {
     }
 
     async fn single(&self) -> Result<()> {
-        let bars = bars::instance_multi_bars();
+        let bars = Bars::new();
         let mut pool = vec![];
 
         for (pos, item) in self.items.iter().enumerate() {
@@ -91,7 +91,7 @@ impl Manager {
             let opts = (
                 utils::get_path(&self.args, &item.url, pos)?,
                 self.args.force,
-                bars.add(bars::instance_bar()),
+                bars.add_bar(),
             );
 
             pool.push(async move { print_err!(Self::download(&url, opts).await) })
@@ -139,7 +139,7 @@ impl Manager {
     async fn multi(&self) -> Result<()> {
         let args = &self.args;
 
-        let bars = bars::instance_multi_bars();
+        let bars = Bars::new();
         let mut pool = vec![];
 
         for (pos, item) in self.items.iter().enumerate() {
@@ -163,7 +163,7 @@ impl Manager {
                 episodes
                     .into_iter()
                     .map(|u| {
-                        let opts = (path.clone(), args.force, bars.add(bars::instance_bar()));
+                        let opts = (path.clone(), args.force, bars.add_bar());
 
                         async move { print_err!(Self::download(&u, opts).await) }
                     })
