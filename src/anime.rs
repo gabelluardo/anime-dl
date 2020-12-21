@@ -6,13 +6,11 @@ use crate::utils::{self, *};
 use crate::api::AniList;
 
 use anyhow::{bail, Context, Result};
-// use futures::future::join_all;
 use futures::stream::StreamExt;
 use reqwest::header::{CONTENT_LENGTH, RANGE};
 use reqwest::{Client, Url};
 use tokio::{fs, io::AsyncWriteExt, stream, task};
 
-// use std::cell::RefCell;
 use std::path::PathBuf;
 use std::process::Command;
 
@@ -122,7 +120,7 @@ impl Manager {
             tui::get_choice(anime.choices())?
         };
 
-        // NOTE: Workaround for streaming in win
+        // NOTE: Workaround for streaming in Windows
         let cmd = match cfg!(windows) {
             true => r"C:\Program Files\VideoLAN\VLC\vlc",
             false => "vlc",
