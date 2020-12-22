@@ -221,7 +221,7 @@ impl Manager {
             .send()
             .await?
             .error_for_status()
-            .context(format!("Unable get data from source"))?;
+            .context("Unable get data from source")?;
 
         let mut dest = file.open().await?;
         while let Some(chunk) = source.chunk().await? {
@@ -308,7 +308,7 @@ impl AnimeBuilder {
                 }
             }
 
-            while !(err == last + 1) {
+            while err != last + 1 {
                 counter = (err + last) / 2;
                 let url = gen_url!(url, counter);
 
@@ -385,7 +385,7 @@ struct FileDest {
 type FileProps<'a> = (&'a PathBuf, &'a str, &'a bool);
 
 impl FileDest {
-    async fn from<'a>(props: FileProps<'a>) -> Result<Self> {
+    async fn from(props: FileProps<'_>) -> Result<Self> {
         let (root, filename, overwrite) = props;
 
         if !root.exists() {

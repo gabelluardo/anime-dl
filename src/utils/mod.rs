@@ -33,7 +33,7 @@ pub fn extract_info(string: &str) -> Result<RegInfo> {
 
 pub fn extract_name(string: &str) -> Result<String> {
     let reg_name = find_first_match(string, r"\w+[^/]\w+_")?;
-    let res = reg_name.split("_").collect::<Vec<_>>();
+    let res = reg_name.split('_').collect::<Vec<_>>();
     let name = to_title_case(res[0]);
 
     Ok(name)

@@ -20,8 +20,8 @@ pub fn get_choice(choices: Vec<Choice>) -> Result<Vec<String>> {
         1 => vec![choices[0].link.to_string()],
         _ => {
             println!("{$cyan+bold}{} results found{/$}\n", choices.len());
-            for i in 0..choices.len() {
-                println!("[{[magenta]}] {[green]}", i + 1, choices[i].name);
+            for (i, c) in choices.iter().enumerate() {
+                println!("[{[magenta]}] {[green]}", i + 1, c.name);
             }
 
             print!(
@@ -58,8 +58,9 @@ pub fn get_choice(choices: Vec<Choice>) -> Result<Vec<String>> {
                     })
             }
 
-            multi.sort();
             multi.dedup();
+            multi.sort_unstable();
+
             let res = multi
                 .iter()
                 .map(|i| choices[i - 1].link.to_string())

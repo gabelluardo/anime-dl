@@ -125,7 +125,7 @@ impl Args {
         let args = Self::from_args();
 
         let urls = Urls::from_iter(args.entries.clone());
-        let dim_buff = if args.dim_buff <= 0 { 1 } else { args.dim_buff };
+        let dim_buff = if args.dim_buff == 0 { 1 } else { args.dim_buff };
         let range = match &args.opt_range {
             Some(range) => range.to_owned(),
             None => Range::default(),
