@@ -26,7 +26,7 @@ post-release-commit-message = "(dev) {{next_version}}"
 [features]
 default = ["anilist"]
 aes = ["aes-soft", "block-modes", "hex"]
-anilist = ["dotenv", "graphql_client", "serde"]
+anilist = ["graphql_client", "serde"]
 
 [dependencies.reqwest]
 version = "0.10"
@@ -55,6 +55,5 @@ block-modes  = { version = "0.7", optional = true }
 hex = { version = "0.4", optional = true }
 
 ## anilist
-dotenv = { version = "0.15", optional = true }
 graphql_client = { version = "0.9", optional = true }
 serde = { version = "1.0", optional = true }

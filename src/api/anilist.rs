@@ -14,7 +14,7 @@ struct Config {
 impl Default for Config {
     #[cfg(not(windows))]
     fn default() -> Self {
-        let mut path = PathBuf::from(dotenv::var("HOME").unwrap());
+        let mut path = PathBuf::from(std::env::var("HOME").unwrap());
         path.push(".config/anime-dl/.anime-dl.cache");
 
         Self { path }
@@ -22,7 +22,7 @@ impl Default for Config {
 
     #[cfg(windows)]
     fn default() -> Self {
-        let mut path = PathBuf::from(dotenv::var("HOMEPATH").unwrap());
+        let mut path = PathBuf::from(std::env::var("HOMEPATH").unwrap());
         path.push(r"AppData\Roaming\anime-dl\.anime-dl.cache");
 
         Self { path }
@@ -88,7 +88,7 @@ impl<'a> AniListBuilder {
 
     pub fn build(self) -> Result<AniList> {
         Ok(match self.client_id {
-            None => bail!("No `CLIENT_ID` env varibale"),
+            None => bail!("No `ANIMEDL_ID` env varibale"),
             Some(client_id) => {
                 let oauth_url = format!("{}{}", Self::OAUTH_URL, client_id);
                 let config = Config::new();
@@ -141,10 +141,8 @@ impl<'a> AniListBuilder {
 
 impl Default for AniListBuilder {
     fn default() -> Self {
-        dotenv::dotenv().ok();
-
         Self {
-            client_id: dotenv::var("CLIENT_ID").ok(),
+            client_id: std::env::var("ANIMEDL_ID").ok(),
             token: None,
         }
     }
