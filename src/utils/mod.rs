@@ -6,7 +6,6 @@ pub mod tui;
 pub mod crypt;
 
 use anyhow::{bail, Result};
-use rand::prelude::*;
 use regex::Regex;
 
 use std::path::PathBuf;
@@ -64,10 +63,6 @@ pub fn to_title_case(s: &str) -> String {
         .for_each(|c| res = res.replace(&c, &format!(" {}", c)));
 
     res.trim().to_string()
-}
-
-pub fn rand_range(low: usize, high: usize) -> usize {
-    thread_rng().gen_range(low, high)
 }
 
 pub fn get_path(args: &crate::cli::Args, url: &str, pos: usize) -> Result<PathBuf> {

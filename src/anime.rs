@@ -59,7 +59,6 @@ impl Manager {
             }
             None => args
                 .urls
-                .to_vec()
                 .iter()
                 .map(|s| ScraperItems::item(s.to_owned(), None))
                 .collect::<_>(),
@@ -157,16 +156,11 @@ impl Manager {
                 anime.episodes
             };
 
-            pool.extend(
-                episodes
-                    .into_iter()
-                    .map(|u| {
-                        let opts = (path.clone(), args.force, bars.add_bar());
+            pool.extend(episodes.into_iter().map(|u| {
+                let opts = (path.clone(), args.force, bars.add_bar());
 
-                        async move { print_err!(Self::download(&u, opts).await) }
-                    })
-                    .collect::<Vec<_>>(),
-            )
+                async move { print_err!(Self::download(&u, opts).await) }
+            }))
         }
 
         task::spawn_blocking(move || bars.join().unwrap());
@@ -303,8 +297,8 @@ impl AnimeBuilder {
                 err = counter;
                 last = counter / 2;
                 match client.head(&url).send().await?.error_for_status() {
-                    Err(_) => break,
                     Ok(_) => counter *= 2,
+                    Err(_) => break,
                 }
             }
 
@@ -365,7 +359,7 @@ impl Anime {
 
                 if let Some(last) = self.last_viewed {
                     if info.num <= last as u32 {
-                        name = format!("{} 🗸", name);
+                        name = format!("{} ✔️", name);
                     }
                 }
 

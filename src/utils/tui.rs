@@ -40,8 +40,7 @@ pub fn get_choice(choices: Vec<Choice>) -> Result<Vec<String>> {
                 .replace_all(&line, " ")
                 .split_ascii_whitespace()
                 .into_iter()
-                .map(|v| v.parse().unwrap_or(1) as usize)
-                .filter(|i| i.gt(&0) && i.le(&choices.len()))
+                .filter_map(|v| v.parse().ok())
                 .collect::<Vec<_>>();
 
             if line.contains(&[',', '-', '.'][..]) {
@@ -52,23 +51,21 @@ pub fn get_choice(choices: Vec<Choice>) -> Result<Vec<String>> {
                         multi.extend(
                             Range::<usize>::parse_and_fill(&s, &choices.len() + 1)
                                 .unwrap()
-                                .range()
-                                .collect::<Vec<_>>(),
+                                .range(),
                         )
                     })
             }
 
-            multi.dedup();
             multi.sort_unstable();
+            multi.dedup();
 
-            let res = multi
-                .iter()
-                .map(|i| choices[i - 1].link.to_string())
-                .collect::<Vec<_>>();
-
-            match res.len() {
+            match multi.len() {
                 0 => choices.into_iter().map(|c| c.link).collect::<Vec<_>>(),
-                _ => res,
+                _ => multi
+                    .into_iter()
+                    .filter_map(|i| choices.get(i - 1))
+                    .map(|c| c.link.to_string())
+                    .collect::<Vec<_>>(),
             }
         }
     })

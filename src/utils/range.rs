@@ -35,7 +35,7 @@ where
 
 impl Default for Range<u32> {
     fn default() -> Self {
-        Self(OpsRange::default())
+        Self(1..1)
     }
 }
 

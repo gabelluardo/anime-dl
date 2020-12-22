@@ -1,10 +1,11 @@
 use crate::cli::Site;
-use crate::utils::{self, tui};
+use crate::utils::tui;
 
 #[cfg(feature = "aes")]
 use crate::utils::crypt;
 
 use anyhow::{bail, Context, Result};
+use rand::seq::IteratorRandom;
 use reqwest::{header, header::HeaderValue, Client, Url};
 use scraper::{Html, Selector};
 
@@ -101,6 +102,7 @@ impl<'a> Scraper<'a> {
             let a = Selector::parse("a.name").unwrap();
 
             match fragment.select(&div).next() {
+                None => bail!("Request blocked, retry"),
                 Some(e) => e
                     .select(&a)
                     .into_iter()
@@ -114,7 +116,6 @@ impl<'a> Scraper<'a> {
                         )
                     })
                     .collect::<Vec<_>>(),
-                None => bail!("Request blocked, retry"),
             }
         };
 
@@ -163,7 +164,7 @@ impl<'a> Scraper<'a> {
 
     #[cfg(feature = "aes")]
     async fn parse(url: &str, client: &Client) -> Result<Html> {
-        delay_for!(utils::rand_range(100, 300));
+        delay_for!(crypt::rand_range(100, 300));
 
         let response = client
             .get(url)
@@ -214,6 +215,7 @@ impl<'a> ScraperClient {
         Ok(Self(client.build().unwrap()))
     }
 
+    #[rustfmt::allow]
     async fn set_proxy() -> Result<reqwest::Proxy> {
         let response = reqwest::get(
             "https://api.proxyscrape.com/\
@@ -224,16 +226,12 @@ impl<'a> ScraperClient {
         .text()
         .await?;
 
-        let proxies = response
+        let proxy = response
             .split_ascii_whitespace()
-            .into_iter()
-            .collect::<Vec<_>>();
+            .choose( &mut rand::thread_rng())
+            .map(|s| format!("http://{}",s));
 
-        reqwest::Proxy::http(&format!(
-            "http://{}",
-            proxies[utils::rand_range(0, proxies.len())]
-        ))
-        .context("Unable to parse proxyscrape")
+        reqwest::Proxy::http(&proxy.unwrap()).context("Unable to parse proxyscrape")
     }
 
     async fn set_headers(site_props: CookieInfo<'_>) -> Result<header::HeaderMap> {
