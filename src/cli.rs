@@ -2,7 +2,6 @@ use crate::utils::Range;
 
 use structopt::{clap::arg_enum, StructOpt};
 
-use std::iter::FromIterator;
 use std::ops::Deref;
 use std::path::PathBuf;
 
@@ -31,14 +30,6 @@ impl Urls {
     }
 }
 
-impl FromIterator<String> for Urls {
-    fn from_iter<I: IntoIterator<Item = String>>(iter: I) -> Self {
-        let mut c = Urls::default();
-        c.0.extend(iter);
-        c
-    }
-}
-
 #[derive(Debug, Default, StructOpt)]
 #[structopt(name = "anime-dl", about = "Efficient cli app for downloading anime")]
 pub struct Args {
@@ -50,10 +41,20 @@ pub struct Args {
     #[structopt(default_value = ".", short, long)]
     pub dir: Vec<PathBuf>,
 
+    /// Maximum number of simultaneous downloads allowed
+    #[structopt(
+        default_value = "24",
+        short = "m",
+        long = "max-concurrent",
+        name = "max"
+    )]
+    pub dim_buff: usize,
+
     /// Range of episodes to download
     #[structopt(
         short = "r",
         long = "range",
+        name = "range",
         required_unless("single"),
         required_unless("stream"),
         required_unless("interactive"),
@@ -65,6 +66,7 @@ pub struct Args {
     #[structopt(
         long,
         short = "S",
+        name = "site",
         case_insensitive = true,
         possible_values = &Site::variants(),
     )]
@@ -94,7 +96,7 @@ pub struct Args {
     #[structopt(short, long)]
     pub interactive: bool,
 
-    /// Disable automatic proxy (useful for slow conections)
+    /// Disable automatic proxy (useful for slow connections)
     #[structopt(short = "p", long)]
     pub no_proxy: bool,
 
@@ -113,15 +115,20 @@ impl Args {
     pub fn parse() -> Self {
         let args = Self::from_args();
 
-        let urls = Urls::from_iter(args.entries.clone());
+        let dim_buff = match args.dim_buff {
+            0 => 1,
+            _ => args.dim_buff,
+        };
         let range = match &args.opt_range {
             Some(range) => range.to_owned(),
             None => Range::default(),
         };
 
         Self {
-            urls,
             range,
+            dim_buff,
+            entries: vec![],
+            urls: Urls(args.entries),
             ..args
         }
     }

@@ -35,7 +35,7 @@ where
 
 impl Default for Range<u32> {
     fn default() -> Self {
-        Self(1..0)
+        Self(1..1)
     }
 }
 
@@ -90,7 +90,7 @@ mod tests {
         assert!(range1.range().eq(range2.range()));
 
         let range3 = Range::default();
-        assert_eq!((range3.start, range3.end), (1, 0));
+        assert_eq!((range3.start, range3.end), (1, 1));
 
         let range4 = Range::<i32>::from_str("1-5").unwrap();
         assert_eq!((range4.start, range4.end), (1, 5));

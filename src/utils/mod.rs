@@ -6,11 +6,11 @@ pub mod tui;
 pub mod crypt;
 
 use anyhow::{bail, Result};
-use rand::prelude::*;
 use regex::Regex;
 
 use std::path::PathBuf;
 
+pub use bars::Bars;
 pub use range::Range;
 pub const PLACEHOLDER: &str = "_{}";
 
@@ -32,7 +32,7 @@ pub fn extract_info(string: &str) -> Result<RegInfo> {
 
 pub fn extract_name(string: &str) -> Result<String> {
     let reg_name = find_first_match(string, r"\w+[^/]\w+_")?;
-    let res = reg_name.split("_").collect::<Vec<_>>();
+    let res = reg_name.split('_').collect::<Vec<_>>();
     let name = to_title_case(res[0]);
 
     Ok(name)
@@ -63,10 +63,6 @@ pub fn to_title_case(s: &str) -> String {
         .for_each(|c| res = res.replace(&c, &format!(" {}", c)));
 
     res.trim().to_string()
-}
-
-pub fn rand_range(low: usize, high: usize) -> usize {
-    thread_rng().gen_range(low, high)
 }
 
 pub fn get_path(args: &crate::cli::Args, url: &str, pos: usize) -> Result<PathBuf> {

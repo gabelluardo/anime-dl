@@ -1,10 +1,11 @@
 use crate::cli::Site;
-use crate::utils::{self, tui};
+use crate::utils::tui;
 
 #[cfg(feature = "aes")]
 use crate::utils::crypt;
 
 use anyhow::{bail, Context, Result};
+use rand::seq::IteratorRandom;
 use reqwest::{header, header::HeaderValue, Client, Url};
 use scraper::{Html, Selector};
 
@@ -101,6 +102,7 @@ impl<'a> Scraper<'a> {
             let a = Selector::parse("a.name").unwrap();
 
             match fragment.select(&div).next() {
+                None => bail!("Request blocked, retry"),
                 Some(e) => e
                     .select(&a)
                     .into_iter()
@@ -114,7 +116,6 @@ impl<'a> Scraper<'a> {
                         )
                     })
                     .collect::<Vec<_>>(),
-                None => bail!("Request blocked, retry"),
             }
         };
 
@@ -163,7 +164,7 @@ impl<'a> Scraper<'a> {
 
     #[cfg(feature = "aes")]
     async fn parse(url: &str, client: &Client) -> Result<Html> {
-        delay_for!(utils::rand_range(100, 300));
+        delay_for!(crypt::rand_range(100, 300));
 
         let response = client
             .get(url)
@@ -182,7 +183,7 @@ impl<'a> Scraper<'a> {
             .send()
             .await?
             .error_for_status()
-            .context(format!("Unable to get anime page"))?;
+            .context("Unable to get anime page")?;
 
         Ok(Html::parse_fragment(&response.text().await?))
     }
@@ -191,15 +192,14 @@ impl<'a> Scraper<'a> {
 type CookieInfo<'a> = (&'a str, &'a str);
 
 struct ScraperClient(Client);
-impl<'a> ScraperClient {
-    const USER_AGENT: &'a str = "Mozilla/5.0 (Windows; U; Windows NT 5.1; en-GB; rv:1.8.1.6)\
- Gecko/20070725 Firefox/2.0.0.6";
-    const ACCEPT: &'a str = "text/html,application/xhtml+xml,application/\
-    xml;q=0.9,image/webp,*/*;q=0.8";
-    const COOKIES: &'a str = "__cfduid=df375aea9c761e29fe312136a2b0af16b1599087133;\
-    _csrf=ITVgw-fJSainaeRefw2IFwWG";
 
-    async fn new(site_props: CookieInfo<'a>, enable_proxy: bool) -> Result<Self> {
+#[rustfmt::skip]
+impl<'a> ScraperClient {
+    const ACCEPT: &'a str ="text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8";
+    const COOKIES: &'a str = "__cfduid=df375aea9c761e29fe312136a2b0af16b1599087133;_csrf=ITVgw-fJSainaeRefw2IFwWG";
+    const USER_AGENT: &'a str = "Mozilla/5.0 (Windows; U; Windows NT 5.1; en-GB; rv:1.8.1.6) Gecko/20070725 Firefox/2.0.0.6";
+
+    async fn new(site_props: CookieInfo<'_>, enable_proxy: bool) -> Result<Self> {
         let headers = Self::set_headers(site_props).await?;
         let client = Client::builder()
             .referer(true)
@@ -225,19 +225,15 @@ impl<'a> ScraperClient {
         .text()
         .await?;
 
-        let proxies = response
+        let proxy = response
             .split_ascii_whitespace()
-            .into_iter()
-            .collect::<Vec<_>>();
+            .choose( &mut rand::thread_rng())
+            .map(|s| format!("http://{}",s));
 
-        reqwest::Proxy::http(&format!(
-            "http://{}",
-            proxies[utils::rand_range(0, proxies.len())]
-        ))
-        .context("Unable to parse proxyscrape")
+        reqwest::Proxy::http(&proxy.unwrap()).context("Unable to parse proxyscrape")
     }
 
-    async fn set_headers(site_props: CookieInfo<'a>) -> Result<header::HeaderMap> {
+    async fn set_headers(site_props: CookieInfo<'_>) -> Result<header::HeaderMap> {
         let mut headers = header::HeaderMap::new();
         let cookies = Self::set_cookies(site_props).await?;
 
@@ -249,7 +245,7 @@ impl<'a> ScraperClient {
     }
 
     #[cfg(feature = "aes")]
-    async fn set_cookies((cookie_name, url): CookieInfo<'a>) -> Result<String> {
+    async fn set_cookies((cookie_name, url): CookieInfo<'_>) -> Result<String> {
         let response = reqwest::get(url).await?.text().await?;
 
         Ok(match crypt::extract_hex(&response, r"\(.(\d|\w)+.\)") {

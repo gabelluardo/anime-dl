@@ -2,6 +2,7 @@ use super::*;
 
 use aes_soft::Aes128;
 use block_modes::{block_padding, BlockMode, Cbc};
+use rand::prelude::*;
 
 pub fn extract_hex(text: &str, matcher: &str) -> Result<Vec<Vec<u8>>> {
     let re = Regex::new(matcher).unwrap();
@@ -11,8 +12,7 @@ pub fn extract_hex(text: &str, matcher: &str) -> Result<Vec<Vec<u8>>> {
         .map(|s| {
             s.trim_matches(|c| c == '(' || c == ')' || c == '"')
                 .to_string()
-        })
-        .collect::<Vec<_>>();
+        });
 
     let mut res = vec![];
     for s in cap {
@@ -29,4 +29,8 @@ pub fn encode(key: &[u8], iv: &[u8], data: &[u8]) -> Result<String> {
     let out = hex::encode(cipher.decrypt_vec(&data)?);
 
     Ok(out)
+}
+
+pub fn rand_range(low: usize, high: usize) -> usize {
+    thread_rng().gen_range(low, high)
 }

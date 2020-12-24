@@ -6,12 +6,11 @@ use crate::utils::{self, *};
 use crate::api::AniList;
 
 use anyhow::{bail, Context, Result};
-use futures::future::join_all;
+use futures::stream::StreamExt;
 use reqwest::header::{CONTENT_LENGTH, RANGE};
 use reqwest::{Client, Url};
-use tokio::{fs, io::AsyncWriteExt, task};
+use tokio::{fs, io::AsyncWriteExt, stream, task};
 
-use std::cell::RefCell;
 use std::path::PathBuf;
 use std::process::Command;
 
@@ -60,7 +59,6 @@ impl Manager {
             }
             None => args
                 .urls
-                .to_vec()
                 .iter()
                 .map(|s| ScraperItems::item(s.to_owned(), None))
                 .collect::<_>(),
@@ -82,22 +80,25 @@ impl Manager {
     }
 
     async fn single(&self) -> Result<()> {
-        let pool = Pool::new();
+        let bars = Bars::new();
+        let mut pool = vec![];
 
         for (pos, item) in self.items.iter().enumerate() {
             let url = item.url.clone();
             let opts = (
                 utils::get_path(&self.args, &item.url, pos)?,
                 self.args.force,
-                pool.add_bar(),
+                bars.add_bar(),
             );
 
-            pool.add_task(tokio::spawn(async move {
-                print_err!(Self::download(&url, opts).await)
-            }))
+            pool.push(async move { print_err!(Self::download(&url, opts).await) })
         }
 
-        pool.join_all().await;
+        task::spawn_blocking(move || bars.join().unwrap());
+        stream::iter(pool)
+            .buffer_unordered(self.args.dim_buff)
+            .collect::<Vec<_>>()
+            .await;
 
         Ok(())
     }
@@ -118,7 +119,7 @@ impl Manager {
             tui::get_choice(anime.choices())?
         };
 
-        // NOTE: Workaround for streaming in win
+        // NOTE: Workaround for streaming in Windows
         let cmd = match cfg!(windows) {
             true => r"C:\Program Files\VideoLAN\VLC\vlc",
             false => "vlc",
@@ -135,7 +136,9 @@ impl Manager {
     async fn multi(&self) -> Result<()> {
         let args = &self.args;
 
-        let pool = Pool::new();
+        let bars = Bars::new();
+        let mut pool = vec![];
+
         for (pos, item) in self.items.iter().enumerate() {
             let path = utils::get_path(&args, &item.url, pos)?;
 
@@ -153,19 +156,18 @@ impl Manager {
                 anime.episodes
             };
 
-            pool.extend(
-                episodes
-                    .into_iter()
-                    .map(|u| {
-                        let opts = (path.clone(), args.force, pool.add_bar());
+            pool.extend(episodes.into_iter().map(|u| {
+                let opts = (path.clone(), args.force, bars.add_bar());
 
-                        tokio::spawn(async move { print_err!(Self::download(&u, opts).await) })
-                    })
-                    .collect::<TaskPool>(),
-            )
+                async move { print_err!(Self::download(&u, opts).await) }
+            }))
         }
 
-        pool.join_all().await;
+        task::spawn_blocking(move || bars.join().unwrap());
+        stream::iter(pool)
+            .buffer_unordered(args.dim_buff)
+            .collect::<Vec<_>>()
+            .await;
 
         Ok(())
     }
@@ -213,7 +215,7 @@ impl Manager {
             .send()
             .await?
             .error_for_status()
-            .context(format!("Unable get data from source"))?;
+            .context("Unable get data from source")?;
 
         let mut dest = file.open().await?;
         while let Some(chunk) = source.chunk().await? {
@@ -223,42 +225,6 @@ impl Manager {
         pb.finish_with_message(&format!("{} 👍", msg));
 
         Ok(())
-    }
-}
-
-type Task = task::JoinHandle<()>;
-type TaskPool = Vec<Task>;
-
-struct Pool {
-    tasks: RefCell<TaskPool>,
-    bars: bars::MultiProgress,
-}
-
-impl Pool {
-    fn new() -> Self {
-        Self {
-            tasks: RefCell::new(vec![]),
-            bars: bars::instance_multi_bars(),
-        }
-    }
-
-    fn extend(&self, pool: TaskPool) {
-        self.tasks.borrow_mut().extend(pool)
-    }
-
-    fn add_task(&self, task: Task) {
-        self.tasks.borrow_mut().push(task)
-    }
-
-    fn add_bar(&self) -> bars::ProgressBar {
-        self.bars.add(bars::instance_bar())
-    }
-
-    async fn join_all(self) {
-        let bars = self.bars;
-        let join_bars = task::spawn_blocking(move || bars.join().unwrap());
-        join_all(self.tasks.into_inner()).await;
-        join_bars.await.unwrap();
     }
 }
 
@@ -309,7 +275,7 @@ impl AnimeBuilder {
         Ok(Anime {
             episodes,
             last_viewed: _last,
-            _path: self.path,
+            path: self.path,
         })
     }
 
@@ -331,12 +297,12 @@ impl AnimeBuilder {
                 err = counter;
                 last = counter / 2;
                 match client.head(&url).send().await?.error_for_status() {
-                    Err(_) => break,
                     Ok(_) => counter *= 2,
+                    Err(_) => break,
                 }
             }
 
-            while !(err == last + 1) {
+            while err != last + 1 {
                 counter = (err + last) / 2;
                 let url = gen_url!(url, counter);
 
@@ -376,7 +342,7 @@ impl AnimeBuilder {
 struct Anime {
     last_viewed: Option<u32>,
     episodes: Vec<String>,
-    _path: PathBuf,
+    path: PathBuf,
 }
 
 impl Anime {
@@ -393,7 +359,7 @@ impl Anime {
 
                 if let Some(last) = self.last_viewed {
                     if info.num <= last as u32 {
-                        name = format!("{} 🗸", name);
+                        name = format!("{} ✔️", name);
                     }
                 }
 
@@ -413,7 +379,7 @@ struct FileDest {
 type FileProps<'a> = (&'a PathBuf, &'a str, &'a bool);
 
 impl FileDest {
-    async fn from<'a>(props: FileProps<'a>) -> Result<Self> {
+    async fn from(props: FileProps<'_>) -> Result<Self> {
         let (root, filename, overwrite) = props;
 
         if !root.exists() {
