@@ -2,7 +2,6 @@ use crate::utils::Range;
 
 use structopt::{clap::arg_enum, StructOpt};
 
-use std::iter::FromIterator;
 use std::ops::Deref;
 use std::path::PathBuf;
 
@@ -28,14 +27,6 @@ impl Deref for Urls {
 impl Urls {
     pub fn to_query(&self) -> String {
         self.0.join("+")
-    }
-}
-
-impl FromIterator<String> for Urls {
-    fn from_iter<I: IntoIterator<Item = String>>(iter: I) -> Self {
-        let mut c = Urls::default();
-        c.0.extend(iter);
-        c
     }
 }
 
@@ -124,17 +115,20 @@ impl Args {
     pub fn parse() -> Self {
         let args = Self::from_args();
 
-        let urls = Urls::from_iter(args.entries.clone());
-        let dim_buff = if args.dim_buff == 0 { 1 } else { args.dim_buff };
+        let dim_buff = match args.dim_buff {
+            0 => 1,
+            _ => args.dim_buff,
+        };
         let range = match &args.opt_range {
             Some(range) => range.to_owned(),
             None => Range::default(),
         };
 
         Self {
-            urls,
             range,
             dim_buff,
+            entries: vec![],
+            urls: Urls(args.entries),
             ..args
         }
     }

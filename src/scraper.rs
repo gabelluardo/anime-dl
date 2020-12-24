@@ -215,7 +215,6 @@ impl<'a> ScraperClient {
         Ok(Self(client.build().unwrap()))
     }
 
-    #[rustfmt::allow]
     async fn set_proxy() -> Result<reqwest::Proxy> {
         let response = reqwest::get(
             "https://api.proxyscrape.com/\
