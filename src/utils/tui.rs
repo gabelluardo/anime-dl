@@ -71,6 +71,7 @@ pub fn get_choice(choices: Vec<Choice>) -> Result<Vec<String>> {
     })
 }
 
+#[cfg(feature = "anilist")]
 pub fn get_token(url: &str) -> Result<String> {
     print!(
         "{$cyan+bold}Anilist Oauth{/$}\n\n\

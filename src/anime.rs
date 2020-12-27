@@ -234,7 +234,7 @@ struct AnimeBuilder {
     range: Range<u32>,
     path: PathBuf,
     url: String,
-    _id: Option<u32>,
+    id: Option<u32>,
 }
 
 impl AnimeBuilder {
@@ -259,7 +259,7 @@ impl AnimeBuilder {
     fn item(self, item: &ScraperItemDetails) -> Self {
         Self {
             url: item.url.to_owned(),
-            _id: item.id,
+            id: item.id,
             ..self
         }
     }
@@ -267,14 +267,10 @@ impl AnimeBuilder {
     async fn build(self) -> Result<Anime> {
         let info = utils::extract_info(&self.url)?;
         let episodes = self.episodes(&info.raw).await?;
-        let _last: Option<u32> = None;
-
-        #[cfg(feature = "anilist")]
-        let _last = self.last_viewed().await?;
 
         Ok(Anime {
             episodes,
-            last_viewed: _last,
+            last_viewed: self.last_viewed().await?,
             path: self.path,
         })
     }
@@ -328,13 +324,15 @@ impl AnimeBuilder {
 
     #[cfg(feature = "anilist")]
     async fn last_viewed(&self) -> Result<Option<u32>> {
-        Ok(match self._id {
-            Some(id) => match AniList::new() {
-                Some(a) => a.id(id).last_viewed().await?,
-                None => None,
-            },
-            None => None,
+        Ok(match AniList::builder().anime_id(self.id).build() {
+            Ok(a) => a.last_viewed().await?,
+            _ => None,
         })
+    }
+
+    #[cfg(not(feature = "anilist"))]
+    async fn last_viewed(&self) -> Result<Option<u32>> {
+        Ok(None)
     }
 }
 
@@ -358,7 +356,7 @@ impl Anime {
                 let mut name = format!("{} ep. {}", info.name, info.num);
 
                 if let Some(last) = self.last_viewed {
-                    if info.num <= last as u32 {
+                    if info.num <= last {
                         name = format!("{} ✔️", name);
                     }
                 }

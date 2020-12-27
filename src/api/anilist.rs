@@ -34,11 +34,8 @@ impl Config {
         Self::default()
     }
 
-    #[allow(dead_code)]
-    fn path(self, path: &str) -> Self {
-        Self {
-            path: PathBuf::from(path),
-        }
+    fn clean(&self) -> Result<()> {
+        std::fs::remove_file(&self.path).context("Unable to remove config file")
     }
 
     fn load(&self) -> Option<String> {
@@ -69,15 +66,22 @@ impl Config {
         buf.write_all(token.as_bytes())
             .context("Unable to write config file")
     }
-
-    fn clean(&self) -> Result<()> {
-        std::fs::remove_file(&self.path).context("Unable to remove config file")
-    }
 }
 
 pub struct AniListBuilder {
+    anime_id: Option<u32>,
     client_id: Option<String>,
     token: Option<String>,
+}
+
+impl Default for AniListBuilder {
+    fn default() -> Self {
+        Self {
+            anime_id: None,
+            client_id: std::env::var("ANIMEDL_ID").ok(),
+            token: None,
+        }
+    }
 }
 
 impl<'a> AniListBuilder {
@@ -86,8 +90,12 @@ impl<'a> AniListBuilder {
     const OAUTH_URL: &'a str = "https://anilist.co/api/v2/oauth/authorize?\
         response_type=token&client_id=";
 
+    pub fn anime_id(self, anime_id: Option<u32>) -> Self {
+        Self { anime_id, ..self }
+    }
+
     pub fn build(self) -> Result<AniList> {
-        Ok(match self.client_id {
+        match self.client_id {
             None => bail!("No `ANIMEDL_ID` env varibale"),
             Some(client_id) => {
                 let oauth_url = format!("{}{}", Self::OAUTH_URL, client_id);
@@ -112,55 +120,23 @@ impl<'a> AniListBuilder {
                 headers.insert(header::ACCEPT, HeaderValue::from_static(Self::ACCEPT));
                 headers.insert(header::CONTENT_TYPE, HeaderValue::from_static(Self::ACCEPT));
 
-                let client = Client::builder().default_headers(headers).build()?;
-
-                AniList {
-                    client,
-                    anime_id: None,
-                }
+                Ok(AniList {
+                    anime_id: self.anime_id.map(|id| id as i64),
+                    client: Client::builder().default_headers(headers).build()?,
+                })
             }
-        })
-    }
-
-    #[allow(dead_code)]
-    pub fn token(self, token: &str) -> Self {
-        Self {
-            token: Some(token.to_string()),
-            ..self
-        }
-    }
-
-    #[allow(dead_code)]
-    pub fn client_id(self, client_id: &str) -> Self {
-        Self {
-            client_id: Some(client_id.to_string()),
-            ..self
-        }
-    }
-}
-
-impl Default for AniListBuilder {
-    fn default() -> Self {
-        Self {
-            client_id: std::env::var("ANIMEDL_ID").ok(),
-            token: None,
         }
     }
 }
 
 pub struct AniList {
     client: Client,
-    anime_id: Option<u32>,
+    anime_id: Option<i64>,
 }
 
 impl<'a> AniList {
     const REQUEST_URL: &'a str = "https://graphql.anilist.co";
 
-    pub fn new() -> Option<Self> {
-        AniListBuilder::default().build().ok()
-    }
-
-    #[allow(dead_code)]
     pub fn builder() -> AniListBuilder {
         AniListBuilder::default()
     }
@@ -169,17 +145,8 @@ impl<'a> AniList {
         Config::default().clean()
     }
 
-    pub fn id(self, id: u32) -> Self {
-        Self {
-            anime_id: Some(id),
-            ..self
-        }
-    }
-
     pub async fn last_viewed(&self) -> Result<Option<u32>> {
-        let q = ProgressQuery::build_query(progress_query::Variables {
-            id: self.anime_id.map(|id| id as i64),
-        });
+        let q = ProgressQuery::build_query(progress_query::Variables { id: self.anime_id });
         let res = self.client.post(Self::REQUEST_URL).json(&q).send().await?;
         let response_body: Response<progress_query::ResponseData> = res.json().await?;
 
@@ -211,7 +178,9 @@ mod tests {
     #[test]
     fn test_config() {
         let string = "asdfasdfasdf";
-        let c = Config::new().path(TEST_PATH);
+        let c = Config {
+            path: PathBuf::from(TEST_PATH),
+        };
 
         assert!(c.save(string).is_ok());
 
@@ -225,7 +194,9 @@ mod tests {
     #[test]
     #[should_panic(expected = "Unable to remove config file")]
     fn test_config_clean() {
-        let c = Config::new().path(TEST_PATH);
+        let c = Config {
+            path: PathBuf::from(TEST_PATH),
+        };
 
         c.clean().unwrap()
     }
