@@ -35,7 +35,7 @@ features = ["json"]
 [dependencies.tokio]
 default-features = false
 version = "1.0"
-features = ["macros", "fs"]
+features = ["io-util", "fs", "macros", "rt-multi-thread"]
 
 [dependencies]
 anyhow = "1.0"
@@ -46,6 +46,7 @@ rand = "0.8"
 regex = "1.4"
 scraper = "0.12"
 structopt = "0.3"
+tokio-stream = "0.1.0"
 
 # Optional deps...
 

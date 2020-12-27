@@ -9,7 +9,8 @@ use anyhow::{bail, Context, Result};
 use futures::stream::StreamExt;
 use reqwest::header::{CONTENT_LENGTH, RANGE};
 use reqwest::{Client, Url};
-use tokio::{fs, io::AsyncWriteExt, stream, task};
+use tokio::{fs, io::AsyncWriteExt, task};
+use tokio_stream::{self as stream};
 
 use std::path::PathBuf;
 use std::process::Command;
