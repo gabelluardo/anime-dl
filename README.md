@@ -43,7 +43,7 @@ Anyway, the helper is this:
 
 ``` 
 USAGE:
-    anime-dl [FLAGS] [OPTIONS] <entries>...
+    anime-dl [FLAGS] [OPTIONS] <entries>... --range <range>
 
 FLAGS:
     -a, --auto           Find automatically output folder name
@@ -60,7 +60,7 @@ FLAGS:
 OPTIONS:
     -d, --dir <dir>...            Root paths where store files [default: .]
     -m, --max-concurrent <max>    Maximum number of simultaneous downloads allowed [default: 24]
-    -r, --range <range>           Range of episodes to download
+    -r, --range <range>           Episodes to download (es. `1-4` or `1,2,3,4`) [default: 1]
     -S, --search <site>           Search anime in remote archive [possible values: AW, AS]
 
 ARGS:

@@ -14,7 +14,7 @@ where
         Self(start..end)
     }
 
-    pub fn range(&self) -> OpsRange<T> {
+    pub fn expand(&self) -> OpsRange<T> {
         self.start..self.end
     }
 
@@ -36,6 +36,12 @@ where
 impl Default for Range<u32> {
     fn default() -> Self {
         Self(1..1)
+    }
+}
+
+impl Default for &Range<u32> {
+    fn default() -> Self {
+        &Range(1..1)
     }
 }
 
@@ -87,7 +93,7 @@ mod tests {
         assert_eq!(range2.start, 0);
         assert_eq!(range2.end, 1);
 
-        assert!(range1.range().eq(range2.range()));
+        assert!(range1.expand().eq(range2.expand()));
 
         let range3 = Range::default();
         assert_eq!((range3.start, range3.end), (1, 1));

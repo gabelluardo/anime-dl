@@ -50,7 +50,7 @@ pub struct Args {
     )]
     pub dim_buff: usize,
 
-    /// Range of episodes to download
+    /// Episodes to download (es. `1-4` or `1,2,3,4`) [default: 1]
     #[structopt(
         short = "r",
         long = "range",
@@ -60,7 +60,7 @@ pub struct Args {
         required_unless("interactive"),
         required_unless("auto-episode")
     )]
-    pub opt_range: Option<Range<u32>>,
+    pub range: Option<Range<u32>>,
 
     /// Search anime in remote archive
     #[structopt(
@@ -106,9 +106,6 @@ pub struct Args {
 
     #[structopt(skip)]
     pub urls: Urls,
-
-    #[structopt(skip)]
-    pub range: Range<u32>,
 }
 
 impl Args {
@@ -119,13 +116,8 @@ impl Args {
             0 => 1,
             _ => args.dim_buff,
         };
-        let range = match &args.opt_range {
-            Some(range) => range.to_owned(),
-            None => Range::default(),
-        };
 
         Self {
-            range,
             dim_buff,
             entries: vec![],
             urls: Urls(args.entries),

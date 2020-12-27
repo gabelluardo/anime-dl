@@ -32,5 +32,5 @@ pub fn encode(key: &[u8], iv: &[u8], data: &[u8]) -> Result<String> {
 }
 
 pub fn rand_range(low: usize, high: usize) -> usize {
-    thread_rng().gen_range(low, high)
+    thread_rng().gen_range(low..high)
 }

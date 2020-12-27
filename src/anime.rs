@@ -111,7 +111,7 @@ impl Manager {
             let anime = Anime::builder()
                 .item(item)
                 .path(&self.args.dir.first().unwrap())
-                .range(&self.args.range)
+                .range(self.args.range.as_ref().unwrap_or_default())
                 .auto(true)
                 .build()
                 .await?;
@@ -145,7 +145,7 @@ impl Manager {
             let anime = Anime::builder()
                 .item(item)
                 .path(&path)
-                .range(&args.range)
+                .range(args.range.as_ref().unwrap_or_default())
                 .auto(args.auto_episode || args.interactive)
                 .build()
                 .await?;

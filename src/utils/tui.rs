@@ -49,9 +49,9 @@ pub fn get_choice(choices: Vec<Choice>) -> Result<Vec<String>> {
                     .map(|c| c[0].to_string())
                     .for_each(|s| {
                         multi.extend(
-                            Range::<usize>::parse_and_fill(&s, &choices.len() + 1)
+                            Range::<usize>::parse_and_fill(&s, choices.len())
                                 .unwrap()
-                                .range(),
+                                .expand(),
                         )
                     })
             }
