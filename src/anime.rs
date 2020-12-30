@@ -84,14 +84,13 @@ impl Manager {
         let mut pool = vec![];
 
         for (pos, item) in self.items.iter().enumerate() {
-            let url = item.url.clone();
             let opts = (
                 utils::get_path(&self.args, &item.url, pos)?,
                 self.args.force,
                 bars.add_bar(),
             );
 
-            pool.push(async move { print_err!(Self::download(&url, opts).await) })
+            pool.push(async move { print_err!(Self::download(&item.url, opts).await) })
         }
 
         task::spawn_blocking(move || bars.join().unwrap());
@@ -142,7 +141,7 @@ impl Manager {
         for (pos, item) in self.items.iter().enumerate() {
             let path = utils::get_path(&args, &item.url, pos)?;
 
-            let anime = Anime::builder()
+            let mut anime = Anime::builder()
                 .item(item)
                 .path(&path)
                 .range(args.range.as_ref().unwrap_or_default())
@@ -150,13 +149,11 @@ impl Manager {
                 .build()
                 .await?;
 
-            let episodes = if args.interactive {
-                tui::get_choice(anime.choices())?
-            } else {
-                anime.episodes
-            };
+            if args.interactive {
+                anime.episodes = tui::get_choice(anime.choices())?
+            }
 
-            pool.extend(episodes.into_iter().map(|u| {
+            pool.extend(anime.episodes.into_iter().map(|u| {
                 let opts = (path.clone(), args.force, bars.add_bar());
 
                 async move { print_err!(Self::download(&u, opts).await) }
@@ -231,10 +228,10 @@ impl Manager {
 #[derive(Default, Debug)]
 struct AnimeBuilder {
     auto: bool,
-    range: Range<u32>,
-    path: PathBuf,
-    url: String,
     id: Option<u32>,
+    path: PathBuf,
+    range: Range<u32>,
+    url: String,
 }
 
 impl AnimeBuilder {
@@ -264,7 +261,7 @@ impl AnimeBuilder {
         }
     }
 
-    async fn build(self) -> Result<Anime> {
+    async fn build(mut self) -> Result<Anime> {
         let info = utils::extract_info(&self.url)?;
         let episodes = self.episodes(&info.raw).await?;
 
@@ -275,24 +272,27 @@ impl AnimeBuilder {
         })
     }
 
-    async fn episodes(&self, url: &str) -> Result<Vec<String>> {
-        let num_episodes = if !self.auto {
-            self.range.end
-        } else {
+    async fn episodes(&mut self, url: &str) -> Result<Vec<String>> {
+        if self.auto {
+            // Last episode search is an O(log2 n) algorithm:
+            // first loop finds a possible least upper bound [O(log2 n)]
+            // second loop finds the real upper bound with a binary search [O(log2 n)]
+
             let client = Client::new();
             let mut err;
             let mut last;
             let mut counter = 5;
 
-            // Last episode search is an O(log2 n) algorithm:
-            // first loop finds a possible least upper bound [O(log2 n)]
-            // second loop finds the real upper bound with a binary search [O(log2 n)]
             loop {
-                let url = gen_url!(url, counter);
-
                 err = counter;
                 last = counter / 2;
-                match client.head(&url).send().await?.error_for_status() {
+
+                match client
+                    .head(&gen_url!(url, counter))
+                    .send()
+                    .await?
+                    .error_for_status()
+                {
                     Ok(_) => counter *= 2,
                     Err(_) => break,
                 }
@@ -300,24 +300,41 @@ impl AnimeBuilder {
 
             while err != last + 1 {
                 counter = (err + last) / 2;
-                let url = gen_url!(url, counter);
 
-                match client.head(&url).send().await?.error_for_status() {
+                match client
+                    .head(&gen_url!(url, counter))
+                    .send()
+                    .await?
+                    .error_for_status()
+                {
                     Ok(_) => last = counter,
                     Err(_) => err = counter,
                 }
             }
-            last
-        };
 
-        let episodes = (self.range.start..num_episodes + 1)
-            .into_iter()
-            .map(|i| gen_url!(url, i))
-            .collect::<Vec<_>>();
+            // Check if episode 0 is avaible
+            let first = match client
+                .head(&gen_url!(url, 0))
+                .send()
+                .await?
+                .error_for_status()
+            {
+                Ok(_) => 0,
+                Err(_) => 1,
+            };
 
-        if episodes.is_empty() {
+            self.range = Range::new(first, last)
+        }
+
+        if self.range.is_empty() {
             bail!("Unable to download")
         }
+
+        let episodes = self
+            .range
+            .expand()
+            .map(|i| gen_url!(url, i))
+            .collect::<Vec<_>>();
 
         Ok(episodes)
     }

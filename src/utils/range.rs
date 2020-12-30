@@ -1,6 +1,6 @@
 use super::*;
 
-use std::ops::{Deref, Range as OpsRange};
+use std::ops::{Deref, RangeInclusive as OpsRange};
 use std::str::FromStr;
 
 #[derive(Debug, Clone)]
@@ -11,11 +11,11 @@ where
     T: Copy + Clone + FromStr + Ord,
 {
     pub fn new(start: T, end: T) -> Self {
-        Self(start..end)
+        Self(start..=end)
     }
 
     pub fn expand(&self) -> OpsRange<T> {
-        self.start..self.end
+        *self.start()..=*self.end()
     }
 
     pub fn parse(s: &str) -> Result<Self, <Self as FromStr>::Err> {
@@ -24,8 +24,8 @@ where
 
     pub fn parse_and_fill(s: &str, end: T) -> Result<Self, <Self as FromStr>::Err> {
         Self::parse(s).map(|r| {
-            if r.end.gt(&end) || r.end.eq(&r.start) {
-                Self::new(r.start, end)
+            if r.end().gt(&end) || r.end().eq(&r.start()) {
+                Self::new(*r.start(), end)
             } else {
                 r
             }
@@ -35,13 +35,13 @@ where
 
 impl Default for Range<u32> {
     fn default() -> Self {
-        Self(1..1)
+        Self(1..=1)
     }
 }
 
 impl Default for &Range<u32> {
     fn default() -> Self {
-        &Range(1..1)
+        &Range(1..=1)
     }
 }
 
@@ -74,7 +74,7 @@ where
             _ => bail!("Unable to parse range"),
         };
 
-        Ok(Self(start_str..end_str))
+        Ok(Self(start_str..=end_str))
     }
 }
 
@@ -85,27 +85,27 @@ mod tests {
     #[test]
     fn test_range() {
         let range1 = Range::new(0, 1);
-        let (start, end) = (range1.start, range1.end);
+        let (start, end) = (*range1.start(), *range1.end());
         assert_eq!(start, 0);
         assert_eq!(end, 1);
 
         let range2 = Range::<i32>::from_str("(0..1)").unwrap();
-        assert_eq!(range2.start, 0);
-        assert_eq!(range2.end, 1);
+        assert_eq!(*range2.start(), 0);
+        assert_eq!(*range2.end(), 1);
 
         assert!(range1.expand().eq(range2.expand()));
 
         let range3 = Range::default();
-        assert_eq!((range3.start, range3.end), (1, 1));
+        assert_eq!((*range3.start(), *range3.end()), (1, 1));
 
         let range4 = Range::<i32>::from_str("1-5").unwrap();
-        assert_eq!((range4.start, range4.end), (1, 5));
+        assert_eq!((*range4.start(), *range4.end()), (1, 5));
 
         let range5 = Range::<i32>::from_str("1-").unwrap();
-        assert_eq!((range5.start, range5.end), (1, 1));
+        assert_eq!((*range5.start(), *range5.end()), (1, 1));
 
         let range6 = Range::<i32>::parse_and_fill("1-", 6).unwrap();
-        assert_eq!((range6.start, range6.end), (1, 6));
+        assert_eq!((*range6.start(), *range6.end()), (1, 6));
     }
 
     #[test]
