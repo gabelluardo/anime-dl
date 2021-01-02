@@ -46,7 +46,7 @@ USAGE:
     anime-dl [FLAGS] [OPTIONS] <entries>... --range <range>
 
 FLAGS:
-    -a, --auto           Find automatically output folder name
+    -D, --default-dir    Save files in a folder with a default name
     -c, --continue       Find automatically last episode (override `-r <range>` option)
         --clean          Delete app cache
     -f, --force          Override existent files

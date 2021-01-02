@@ -2,7 +2,6 @@ use crate::utils::Range;
 
 use structopt::{clap::arg_enum, StructOpt};
 
-use std::ops::Deref;
 use std::path::PathBuf;
 
 arg_enum! {
@@ -10,23 +9,6 @@ arg_enum! {
     pub enum Site {
         AW,
         AS,
-    }
-}
-
-#[derive(Debug, Default)]
-pub struct Urls(Vec<String>);
-
-impl Deref for Urls {
-    type Target = Vec<String>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl Urls {
-    pub fn to_query(&self) -> String {
-        self.0.join("+")
     }
 }
 
@@ -72,8 +54,8 @@ pub struct Args {
     )]
     pub search: Option<Option<Site>>,
 
-    /// Find automatically output folder name
-    #[structopt(short, long = "auto")]
+    /// Save files in a folder with a default name
+    #[structopt(short = "D", long = "default-dir")]
     pub auto_dir: bool,
 
     /// Find automatically last episode (override `-r <range>` option)
@@ -103,9 +85,6 @@ pub struct Args {
     /// Delete app cache
     #[structopt(long)]
     pub clean: bool,
-
-    #[structopt(skip)]
-    pub urls: Urls,
 }
 
 impl Args {
@@ -117,11 +96,6 @@ impl Args {
             _ => args.dim_buff,
         };
 
-        Self {
-            dim_buff,
-            entries: vec![],
-            urls: Urls(args.entries),
-            ..args
-        }
+        Self { dim_buff, ..args }
     }
 }

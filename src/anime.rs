@@ -52,13 +52,13 @@ impl Manager {
             Some(site) => {
                 Scraper::new()
                     .proxy(!args.no_proxy)
-                    .query(&args.urls.to_query())
+                    .query(&args.entries.join("+"))
                     .site(site)
                     .run()
                     .await?
             }
             None => args
-                .urls
+                .entries
                 .iter()
                 .map(|s| ScraperItems::item(s.to_owned(), None))
                 .collect::<_>(),
