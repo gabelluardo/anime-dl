@@ -58,7 +58,7 @@ pub struct Args {
     #[structopt(short = "D", long = "default-dir")]
     pub auto_dir: bool,
 
-    /// Find automatically last episode (override `-r <range>` option)
+    /// Find automatically last episode
     #[structopt(short = "c", long = "continue")]
     pub auto_episode: bool,
 

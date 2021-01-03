@@ -312,15 +312,18 @@ impl AnimeBuilder {
                 }
             }
 
-            // Check if episode 0 is avaible
-            let first = match client
-                .head(&gen_url!(url, 0))
-                .send()
-                .await?
-                .error_for_status()
-            {
-                Ok(_) => 0,
-                Err(_) => 1,
+            let first = match self.range.start() {
+                // Check if episode 0 is avaible
+                1 => match client
+                    .head(&gen_url!(url, 0))
+                    .send()
+                    .await?
+                    .error_for_status()
+                {
+                    Ok(_) => 0,
+                    Err(_) => 1,
+                },
+                _ => *self.range.start(),
             };
 
             self.range = Range::new(first, last)

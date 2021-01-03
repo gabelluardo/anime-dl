@@ -65,16 +65,14 @@ where
             .split(&[',', '-', '.'][..])
             .collect::<Vec<_>>();
 
-        let (start_str, end_str) = match (range_str.first(), range_str.last()) {
+        match (range_str.first(), range_str.last()) {
             (Some(f), Some(l)) => match (f.parse::<T>(), l.parse::<T>()) {
-                (Ok(s), Ok(e)) => (s, e),
-                (Ok(s), Err(_)) => (s, s),
+                (Ok(s), Ok(e)) => Ok(Self(s..=e)),
+                (Ok(s), Err(_)) => Ok(Self(s..=s)),
                 _ => bail!("Unable to parse range"),
             },
             _ => bail!("Unable to parse range"),
-        };
-
-        Ok(Self(start_str..=end_str))
+        }
     }
 }
 
