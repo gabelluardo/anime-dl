@@ -1,3 +1,6 @@
+#[macro_use]
+mod macros;
+
 pub mod bars;
 pub mod range;
 pub mod tui;

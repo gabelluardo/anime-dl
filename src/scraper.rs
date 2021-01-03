@@ -1,10 +1,11 @@
+pub use anyhow::{bail, Context, Result};
+
 use crate::cli::Site;
 use crate::utils::tui;
 
 #[cfg(feature = "aes")]
 use crate::utils::crypt;
 
-use anyhow::{bail, Context, Result};
 use rand::seq::IteratorRandom;
 use reqwest::{header, header::HeaderValue, Client, Url};
 use scraper::{Html, Selector};
@@ -195,24 +196,21 @@ struct ScraperClient(Client);
 
 #[rustfmt::skip]
 impl<'a> ScraperClient {
-    const ACCEPT: &'a str ="text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8";
+    const ACCEPT: &'a str = "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8";
     const COOKIES: &'a str = "__cfduid=df375aea9c761e29fe312136a2b0af16b1599087133;_csrf=ITVgw-fJSainaeRefw2IFwWG";
     const USER_AGENT: &'a str = "Mozilla/5.0 (Windows; U; Windows NT 5.1; en-GB; rv:1.8.1.6) Gecko/20070725 Firefox/2.0.0.6";
 
     async fn new(site_props: CookieInfo<'_>, enable_proxy: bool) -> Result<Self> {
-        let headers = Self::set_headers(site_props).await?;
-        let client = Client::builder()
+        let mut client = Client::builder()
             .referer(true)
             .user_agent(Self::USER_AGENT)
-            .default_headers(headers);
+            .default_headers(Self::set_headers(site_props).await?);
 
-        let client = if enable_proxy {
-            client.proxy(Self::set_proxy().await?)
-        } else {
-            client
-        };
+        if enable_proxy {
+            client = client.proxy(Self::set_proxy().await?);
+        }
 
-        Ok(Self(client.build().unwrap()))
+        Ok(Self(client.build()?))
     }
 
     async fn set_proxy() -> Result<reqwest::Proxy> {
@@ -227,8 +225,8 @@ impl<'a> ScraperClient {
 
         let proxy = response
             .split_ascii_whitespace()
-            .choose( &mut rand::thread_rng())
-            .map(|s| format!("http://{}",s));
+            .choose(&mut rand::thread_rng())
+            .map(|s| format!("http://{}", s));
 
         reqwest::Proxy::http(&proxy.unwrap()).context("Unable to parse proxyscrape")
     }
@@ -291,8 +289,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_animeworld() {
-        let anime = Scraper::animeworld("bunny girl", false).await.unwrap();
         let file = "SeishunButaYarouWaBunnyGirlSenpaiNoYumeWoMinai_Ep_01_SUB_ITA.mp4";
+        let anime = Scraper::animeworld("bunny girl", false).await.unwrap();
         let info = Url::parse(&anime.first().unwrap().url)
             .unwrap()
             .path_segments()
@@ -305,14 +303,13 @@ mod tests {
 
     #[tokio::test]
     async fn test_scraper() {
-        let s = Scraper::new();
-        let anime = s
+        let file = "SeishunButaYarouWaBunnyGirlSenpaiNoYumeWoMinai_Ep_01_SUB_ITA.mp4";
+        let anime = Scraper::new()
             .site(Some(Site::AW))
             .query("bunny girl")
             .run()
             .await
             .unwrap();
-        let file = "SeishunButaYarouWaBunnyGirlSenpaiNoYumeWoMinai_Ep_01_SUB_ITA.mp4";
         let info = Url::parse(&anime.last().unwrap().url)
             .unwrap()
             .path_segments()
