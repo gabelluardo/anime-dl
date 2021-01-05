@@ -23,6 +23,14 @@ impl AnimeBuilder {
         Self { auto, ..self }
     }
 
+    pub fn item(self, item: &ScraperItemDetails) -> Self {
+        Self {
+            url: item.url.to_owned(),
+            id: item.id,
+            ..self
+        }
+    }
+
     pub fn range(self, range: &Range<u32>) -> Self {
         Self {
             range: range.to_owned(),
@@ -37,17 +45,12 @@ impl AnimeBuilder {
         }
     }
 
-    pub fn item(self, item: &ScraperItemDetails) -> Self {
-        Self {
-            url: item.url.to_owned(),
-            id: item.id,
-            ..self
-        }
-    }
-
     pub async fn build(mut self) -> Result<Anime> {
         let info = utils::extract_info(&self.url)?;
-        let episodes = self.episodes(&info.raw).await?;
+        let episodes = match info.num {
+            Some(_) => self.episodes(&info.raw).await?,
+            _ => vec![info.raw],
+        };
 
         Ok(Anime {
             episodes,
@@ -157,15 +160,19 @@ impl Anime {
             .iter()
             .map(|u| {
                 let info = utils::extract_info(u).unwrap();
-                let mut name = format!("{} ep. {}", info.name, info.num);
+                let msg = match info.num {
+                    Some(num) => {
+                        let mut name = format!("{} ep. {}", info.name, num);
 
-                if let Some(last) = self.last_viewed {
-                    if info.num <= last {
-                        name = format!("{} ✔️", name);
+                        if info.num <= self.last_viewed {
+                            name = format!("{} ✔️", name)
+                        }
+                        name
                     }
-                }
+                    _ => utils::extract_name(u).unwrap(),
+                };
 
-                tui::Choice::from(u.to_string(), name)
+                tui::Choice::from(u.to_string(), msg)
             })
             .collect::<Vec<_>>()
     }

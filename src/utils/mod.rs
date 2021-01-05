@@ -21,15 +21,19 @@ pub const PLACEHOLDER: &str = "_{}";
 pub struct RegInfo {
     pub name: String,
     pub raw: String,
-    pub num: u32,
+    pub num: Option<u32>,
 }
 
 pub fn extract_info(string: &str) -> Result<RegInfo> {
     let name = extract_name(string)?;
 
-    let reg_num = find_first_match(string, r"_\d{2,}")?;
-    let raw = string.replace(reg_num.as_str(), PLACEHOLDER);
-    let num = reg_num.replace("_", "").parse()?;
+    let (raw, num) = match find_first_match(string, r"_\d{2,}") {
+        Ok(reg_num) => (
+            string.replace(reg_num.as_str(), PLACEHOLDER),
+            reg_num.replace("_", "").parse().ok(),
+        ),
+        _ => (string.to_string(), None),
+    };
 
     Ok(RegInfo { name, raw, num })
 }
@@ -97,7 +101,7 @@ mod tests {
         let res: RegInfo = extract_info(url).unwrap();
 
         assert_eq!(res.name, "Anime Name");
-        assert_eq!(res.num, 15);
+        assert_eq!(res.num, Some(15));
         assert_eq!(res.raw, url_raw);
     }
 

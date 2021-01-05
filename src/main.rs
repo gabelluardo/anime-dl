@@ -95,7 +95,11 @@ impl Manager {
         }
     }
 
+    // NOTE: Deprecated since 1.2.0
+    #[allow(unreachable_code)]
     async fn single(&self) -> Result<()> {
+        bail!("`-O` is deprecated since 1.2.0 release");
+
         let bars = Bars::new();
         let mut pool = vec![];
 
@@ -119,20 +123,15 @@ impl Manager {
     }
 
     async fn stream(&self) -> Result<()> {
-        let urls = if self.args.single {
-            self.items.iter().map(|a| a.url.clone()).collect::<Vec<_>>()
-        } else {
-            let item = self.items.first().unwrap();
-            let anime = Anime::builder()
-                .item(item)
-                .path(&self.args.dir.first().unwrap())
-                .range(self.args.range.as_ref().unwrap_or_default())
-                .auto(true)
-                .build()
-                .await?;
+        let item = self.items.first().context("No link found")?;
+        let anime = Anime::builder()
+            .item(item)
+            .range(self.args.range.as_ref().unwrap_or_default())
+            .auto(true)
+            .build()
+            .await?;
 
-            tui::get_choice(anime.choices())?
-        };
+        let urls = tui::get_choice(anime.choices())?;
 
         // NOTE: Workaround for streaming in Windows
         let cmd = match cfg!(windows) {
@@ -214,7 +213,10 @@ impl Manager {
         }
 
         let msg = match utils::extract_info(&filename) {
-            Ok(info) => format!("Ep. {:02} {}", info.num, info.name),
+            Ok(info) => match info.num {
+                Some(num) => format!("Ep. {:02} {}", num, info.name),
+                _ => info.name,
+            },
             Err(_) => utils::to_title_case(&filename),
         };
 
