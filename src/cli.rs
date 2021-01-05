@@ -66,11 +66,11 @@ pub struct Args {
     #[structopt(short, long)]
     pub force: bool,
 
-    /// Download file without in-app control (equivalent to `curl -O <url>` or `wget <url>`) [Deprecated since 1.2.0]
+    /// Download file without in-app control [Deprecated since 1.2.0]
     #[structopt(short = "O", long = "one-file")]
     pub single: bool,
 
-    /// Stream episode in a media player (add -O for single file)
+    /// Stream episode in a media player
     #[structopt(short, long)]
     pub stream: bool,
 
