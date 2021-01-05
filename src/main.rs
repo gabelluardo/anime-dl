@@ -13,7 +13,8 @@ use utils::*;
 use futures::stream::StreamExt;
 use reqwest::header::{CONTENT_LENGTH, RANGE};
 use reqwest::{Client, Url};
-use tokio::{io::AsyncWriteExt, stream, task};
+use tokio::{io::AsyncWriteExt, task};
+use tokio_stream::{self as stream};
 
 use std::path::PathBuf;
 use std::process::Command;

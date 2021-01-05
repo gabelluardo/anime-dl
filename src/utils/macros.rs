@@ -22,7 +22,7 @@ macro_rules! gen_url {
 #[cfg(feature = "aes")]
 macro_rules! delay_for {
     ($time:expr) => {
-        tokio::time::delay_for(std::time::Duration::from_millis($time as u64)).await;
+        tokio::time::sleep(std::time::Duration::from_millis($time as u64)).await
     };
 }
 
