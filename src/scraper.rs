@@ -13,13 +13,13 @@ use scraper::{Html, Selector};
 use std::iter::FromIterator;
 use std::ops::{Deref, DerefMut};
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct ScraperItemDetails {
     pub url: String,
     pub id: Option<u32>,
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Debug, Default)]
 pub struct ScraperItems(Vec<ScraperItemDetails>);
 
 impl ScraperItems {
@@ -75,10 +75,7 @@ impl<'a> Scraper<'a> {
     }
 
     pub fn site(self, site: Option<Site>) -> Self {
-        Self {
-            site: site.to_owned(),
-            ..self
-        }
+        Self { site, ..self }
     }
 
     pub async fn run(&self) -> Result<ScraperItems> {
@@ -123,8 +120,8 @@ impl<'a> Scraper<'a> {
         let choices = tui::get_choice(results)?;
 
         let mut anime = ScraperItems::new();
-        for choice in choices {
-            let choice = format!("https://www.animeworld.tv{}", choice);
+        for c in choices {
+            let choice = format!("https://www.animeworld.tv{}", c);
 
             let fragment = Self::parse(&choice, &client).await?;
             let url = {
@@ -158,6 +155,10 @@ impl<'a> Scraper<'a> {
             };
 
             anime.push(ScraperItems::item(url, id));
+        }
+
+        if anime.is_empty() {
+            bail!("No anime found")
         }
 
         Ok(anime)
@@ -200,13 +201,13 @@ impl<'a> ScraperClient {
     const COOKIES: &'a str = "__cfduid=df375aea9c761e29fe312136a2b0af16b1599087133;_csrf=ITVgw-fJSainaeRefw2IFwWG";
     const USER_AGENT: &'a str = "Mozilla/5.0 (Windows; U; Windows NT 5.1; en-GB; rv:1.8.1.6) Gecko/20070725 Firefox/2.0.0.6";
 
-    async fn new(site_props: CookieInfo<'_>, enable_proxy: bool) -> Result<Self> {
+    async fn new(site_props: CookieInfo<'_>, proxy: bool) -> Result<Self> {
         let mut client = Client::builder()
             .referer(true)
             .user_agent(Self::USER_AGENT)
             .default_headers(Self::set_headers(site_props).await?);
 
-        if enable_proxy {
+        if proxy {
             client = client.proxy(Self::set_proxy().await?);
         }
 

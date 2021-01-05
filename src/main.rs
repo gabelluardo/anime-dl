@@ -96,34 +96,12 @@ impl Manager {
     }
 
     // NOTE: Deprecated since 1.2.0
-    #[allow(unreachable_code)]
     async fn single(&self) -> Result<()> {
-        bail!("`-O` is deprecated since 1.2.0 release");
-
-        let bars = Bars::new();
-        let mut pool = vec![];
-
-        for (pos, item) in self.items.iter().enumerate() {
-            let opts = (
-                utils::get_path(&self.args, &item.url, pos)?,
-                self.args.force,
-                bars.add_bar(),
-            );
-
-            pool.push(async move { print_err!(Self::download(&item.url, opts).await) })
-        }
-
-        task::spawn_blocking(move || bars.join().unwrap());
-        stream::iter(pool)
-            .buffer_unordered(self.args.dim_buff)
-            .collect::<Vec<_>>()
-            .await;
-
-        Ok(())
+        bail!("`-O` is deprecated since 1.2.0 release")
     }
 
     async fn stream(&self) -> Result<()> {
-        let item = self.items.first().context("No link found")?;
+        let item = self.items.first().unwrap();
         let anime = Anime::builder()
             .item(item)
             .range(self.args.range.as_ref().unwrap_or_default())
@@ -154,7 +132,7 @@ impl Manager {
         let mut pool = vec![];
 
         for (pos, item) in self.items.iter().enumerate() {
-            let path = utils::get_path(&args, &item.url, pos)?;
+            let path = utils::get_path(args, &item.url, pos)?;
 
             let mut anime = Anime::builder()
                 .item(item)
