@@ -36,7 +36,7 @@ dependencies = [
 
 [[package]]
 name = "anime-dl"
-version = "1.1.2-alpha.1"
+version = "1.1.2-alpha.2"
 dependencies = [
  "aes-soft",
  "anyhow",
