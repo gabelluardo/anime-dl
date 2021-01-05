@@ -26,7 +26,7 @@ cargo install --git https://github.com/gabelluardo/anime-dl
 I usually use this:
 
 ``` sh
-anime-dl -ac <entries>
+anime-dl -cD <entries>
 ```
 
 to store every anime in a properly named directory.  
@@ -46,15 +46,15 @@ USAGE:
     anime-dl [FLAGS] [OPTIONS] <entries>... --range <range>
 
 FLAGS:
-    -a, --auto           Find automatically output folder name
-    -c, --continue       Find automatically last episode (override `-r <range>` option)
+    -D, --default-dir    Save files in a folder with a default name
+    -c, --continue       Find automatically last episode
         --clean          Delete app cache
     -f, --force          Override existent files
     -h, --help           Prints help information
     -i, --interactive    Interactive mode
     -p, --no-proxy       Disable automatic proxy (useful for slow connections)
-    -O, --one-file       Download file without in-app control (equivalent to `curl -O <url>` or `wget <url>`)
-    -s, --stream         Stream episode in a media player (add -O for single file)
+    -O, --one-file       Download file without in-app control [Deprecated since 1.2.0]
+    -s, --stream         Stream episode in a media player
     -V, --version        Prints version information
 
 OPTIONS:
