@@ -192,11 +192,11 @@ impl Manager {
         }
 
         let msg = match utils::extract_info(&filename) {
-            Ok(info) => match info.num {
-                Some(num) => format!("Ep. {:02} {}", num, info.name),
-                _ => info.name,
-            },
             Err(_) => utils::to_title_case(&filename),
+            Ok(info) => info
+                .num
+                .map(|num| format!("Ep. {:02} {}", num, info.name))
+                .unwrap_or(info.name),
         };
 
         pb.set_position(file.size);
