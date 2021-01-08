@@ -4,7 +4,9 @@ pub use crate::scraper::*;
 
 use crate::utils::{self, *};
 
+use reqwest::header::REFERER;
 use reqwest::Client;
+
 use tokio::fs;
 
 use std::path::PathBuf;
@@ -15,6 +17,7 @@ pub struct AnimeBuilder {
     id: Option<u32>,
     path: PathBuf,
     range: Range<u32>,
+    referer: String,
     url: String,
 }
 
@@ -43,6 +46,11 @@ impl AnimeBuilder {
             path: path.to_owned(),
             ..self
         }
+    }
+
+    pub fn referer(mut self, referer: &str) -> Self {
+        self.referer = referer.to_string();
+        self
     }
 
     pub async fn build(mut self) -> Result<Anime> {
@@ -76,6 +84,7 @@ impl AnimeBuilder {
 
                 match client
                     .head(&gen_url!(url, counter))
+                    .header(REFERER, &self.referer)
                     .send()
                     .await?
                     .error_for_status()
@@ -87,9 +96,11 @@ impl AnimeBuilder {
 
             while err != last + 1 {
                 counter = (err + last) / 2;
+                dbg!(&counter);
 
                 match client
                     .head(&gen_url!(url, counter))
+                    .header(REFERER, &self.referer)
                     .send()
                     .await?
                     .error_for_status()
@@ -103,6 +114,7 @@ impl AnimeBuilder {
                 // Check if episode 0 is avaible
                 1 => match client
                     .head(&gen_url!(url, 0))
+                    .header(REFERER, &self.referer)
                     .send()
                     .await?
                     .error_for_status()
