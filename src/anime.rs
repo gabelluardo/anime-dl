@@ -71,7 +71,7 @@ impl AnimeBuilder {
             let client = Client::new();
             let mut err;
             let mut last;
-            let mut counter = 5;
+            let mut counter = 2;
 
             loop {
                 err = counter;
@@ -91,7 +91,6 @@ impl AnimeBuilder {
 
             while err != last + 1 {
                 counter = (err + last) / 2;
-                dbg!(&counter);
 
                 match client
                     .head(&gen_url!(url, counter))
