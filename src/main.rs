@@ -131,13 +131,13 @@ impl Manager {
 
     async fn multi(&self) -> Result<()> {
         let args = &self.args;
+        let referer = &self.items.referer;
 
         let bars = Bars::new();
         let mut pool = vec![];
 
         for (pos, item) in self.items.iter().enumerate() {
             let path = utils::get_path(args, &item.url, pos)?;
-            let referer = self.items.referer.clone();
 
             let mut anime = Anime::builder()
                 .item(item)
@@ -153,7 +153,7 @@ impl Manager {
             }
 
             pool.extend(anime.episodes.into_iter().map(|u| {
-                let opts = (path.clone(), referer.clone(), args.force, bars.add_bar());
+                let opts = (path.clone(), referer.as_str(), args.force, bars.add_bar());
 
                 async move { print_err!(Self::worker(&u, opts).await) }
             }))
@@ -168,8 +168,8 @@ impl Manager {
         Ok(())
     }
 
-    async fn worker(url: &str, opts: (PathBuf, String, bool, bars::ProgressBar)) -> Result<()> {
-        let (root, referer, overwrite, pb) = &opts;
+    async fn worker(url: &str, opts: (PathBuf, &str, bool, bars::ProgressBar)) -> Result<()> {
+        let (root, referer, overwrite, pb) = opts;
         let client = Client::new();
 
         let filename = Url::parse(url)?
@@ -191,7 +191,7 @@ impl Manager {
             .and_then(|ct_len| ct_len.parse().ok())
             .unwrap_or_default();
 
-        let props = (root, filename.as_str(), overwrite);
+        let props = (&root, filename.as_str(), &overwrite);
         let file = FileDest::new(props).await?;
         if file.size >= source_size {
             bail!("{} already exists", &filename);

@@ -69,20 +69,23 @@ impl<'a> Scraper<'a> {
         Self::default()
     }
 
-    pub fn proxy(self, proxy: bool) -> Self {
-        Self { proxy, ..self }
+    pub fn proxy(mut self, proxy: bool) -> Self {
+        self.proxy = proxy;
+        self
     }
 
-    pub fn query(self, query: &'a str) -> Self {
-        Self { query, ..self }
+    pub fn query(mut self, query: &'a str) -> Self {
+        self.query = query;
+        self
     }
 
-    pub fn site(self, site: Option<Site>) -> Self {
-        Self { site, ..self }
+    pub fn site(mut self, site: Option<Site>) -> Self {
+        self.site = site;
+        self
     }
 
     pub async fn run(&self) -> Result<ScraperItems> {
-        // Concat strings if is passed with "" in shell
+        // Concat strings if passed with "" in shell
         let query = self.query.replace(" ", "+");
 
         match self.site {
@@ -106,7 +109,7 @@ impl<'a> Scraper<'a> {
                     .select(&a)
                     .into_iter()
                     .map(|a| {
-                        tui::Choice::from(
+                        tui::Choice::new(
                             a.value().attr("href").expect("No link found").to_string(),
                             a.first_child()
                                 .and_then(|a| a.value().as_text())

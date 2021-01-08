@@ -22,30 +22,25 @@ pub struct AnimeBuilder {
 }
 
 impl AnimeBuilder {
-    pub fn auto(self, auto: bool) -> Self {
-        Self { auto, ..self }
+    pub fn auto(mut self, auto: bool) -> Self {
+        self.auto = auto;
+        self
     }
 
-    pub fn item(self, item: &ScraperItemDetails) -> Self {
-        Self {
-            url: item.url.to_owned(),
-            id: item.id,
-            ..self
-        }
+    pub fn item(mut self, item: &ScraperItemDetails) -> Self {
+        self.id = item.id;
+        self.url = item.url.to_owned();
+        self
     }
 
-    pub fn range(self, range: &Range<u32>) -> Self {
-        Self {
-            range: range.to_owned(),
-            ..self
-        }
+    pub fn range(mut self, range: &Range<u32>) -> Self {
+        self.range = range.to_owned();
+        self
     }
 
-    pub fn path(self, path: &PathBuf) -> Self {
-        Self {
-            path: path.to_owned(),
-            ..self
-        }
+    pub fn path(mut self, path: &PathBuf) -> Self {
+        self.path = path.to_owned();
+        self
     }
 
     pub fn referer(mut self, referer: &str) -> Self {
@@ -184,7 +179,7 @@ impl Anime {
                     _ => utils::extract_name(u).unwrap(),
                 };
 
-                tui::Choice::from(u.to_string(), msg)
+                tui::Choice::new(u.to_string(), msg)
             })
             .collect::<Vec<_>>()
     }

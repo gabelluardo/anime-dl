@@ -9,7 +9,7 @@ pub struct Choice {
 }
 
 impl Choice {
-    pub fn from(link: String, name: String) -> Self {
+    pub fn new(link: String, name: String) -> Self {
         Self { link, name }
     }
 }
