@@ -201,10 +201,10 @@ type CookieInfo<'a> = (&'a str, &'a str);
 
 struct ScraperClient(Client);
 
-#[rustfmt::skip]
 impl<'a> ScraperClient {
-    const ACCEPT: &'a str = "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8";
-    const COOKIES: &'a str = "__cfduid=df375aea9c761e29fe312136a2b0af16b1599087133;_csrf=ITVgw-fJSainaeRefw2IFwWG";
+    #[rustfmt::skip]
+    const ACCEPT: &'a str = "text/html,application/xhtml+xml,application/xml; q=0.9,image/webp,*/*; q=0.8";
+    const COOKIES: &'a str = "__cfduid=d03255bed084571c421edd313dbfd5fe31610142561; _csrf=PLwPaldqI-hCpuZzS8wfLnkP; expandedPlayer=false; theme=dark";
     const USER_AGENT: &'a str = "Mozilla/5.0 (Windows; U; Windows NT 5.1; en-GB; rv:1.8.1.6) Gecko/20070725 Firefox/2.0.0.6";
 
     async fn new(site_props: CookieInfo<'_>, proxy: bool) -> Result<Self> {

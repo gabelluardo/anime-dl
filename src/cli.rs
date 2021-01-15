@@ -37,7 +37,6 @@ pub struct Args {
         short = "r",
         long = "range",
         name = "range",
-        required_unless("single"),
         required_unless("stream"),
         required_unless("interactive"),
         required_unless("auto-episode")
