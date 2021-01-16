@@ -9,15 +9,15 @@ pub struct Choice {
 }
 
 impl Choice {
-    pub fn from(link: String, name: String) -> Self {
+    pub fn new(link: String, name: String) -> Self {
         Self { link, name }
     }
 }
 
 pub fn get_choice(choices: Vec<Choice>) -> Result<Vec<String>> {
-    Ok(match choices.len() {
+    match choices.len() {
         0 => bail!("No match found"),
-        1 => vec![choices[0].link.to_string()],
+        1 => Ok(vec![choices[0].link.to_string()]),
         _ => {
             println!("{$cyan+bold}{} results found{/$}\n", choices.len());
             for (i, c) in choices.iter().enumerate() {
@@ -59,16 +59,22 @@ pub fn get_choice(choices: Vec<Choice>) -> Result<Vec<String>> {
             multi.sort_unstable();
             multi.dedup();
 
-            match multi.len() {
+            let urls = match multi.len() {
                 0 => choices.into_iter().map(|c| c.link).collect::<Vec<_>>(),
                 _ => multi
                     .into_iter()
                     .filter_map(|i| choices.get(i - 1))
                     .map(|c| c.link.to_string())
                     .collect::<Vec<_>>(),
+            };
+
+            if urls.is_empty() {
+                bail!("No episode found")
             }
+
+            Ok(urls)
         }
-    })
+    }
 }
 
 #[cfg(feature = "anilist")]

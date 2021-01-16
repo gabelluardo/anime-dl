@@ -4,7 +4,9 @@ pub use crate::scraper::*;
 
 use crate::utils::{self, *};
 
+use reqwest::header::REFERER;
 use reqwest::Client;
+
 use tokio::fs;
 
 use std::path::PathBuf;
@@ -15,34 +17,35 @@ pub struct AnimeBuilder {
     id: Option<u32>,
     path: PathBuf,
     range: Range<u32>,
+    referer: String,
     url: String,
 }
 
 impl AnimeBuilder {
-    pub fn auto(self, auto: bool) -> Self {
-        Self { auto, ..self }
+    pub fn auto(mut self, auto: bool) -> Self {
+        self.auto = auto;
+        self
     }
 
-    pub fn item(self, item: &ScraperItemDetails) -> Self {
-        Self {
-            url: item.url.to_owned(),
-            id: item.id,
-            ..self
-        }
+    pub fn item(mut self, item: &ScraperItemDetails) -> Self {
+        self.id = item.id;
+        self.url = item.url.to_owned();
+        self
     }
 
-    pub fn range(self, range: &Range<u32>) -> Self {
-        Self {
-            range: range.to_owned(),
-            ..self
-        }
+    pub fn range(mut self, range: &Range<u32>) -> Self {
+        self.range = range.to_owned();
+        self
     }
 
-    pub fn path(self, path: &PathBuf) -> Self {
-        Self {
-            path: path.to_owned(),
-            ..self
-        }
+    pub fn path(mut self, path: &PathBuf) -> Self {
+        self.path = path.to_owned();
+        self
+    }
+
+    pub fn referer(mut self, referer: &str) -> Self {
+        self.referer = referer.to_string();
+        self
     }
 
     pub async fn build(mut self) -> Result<Anime> {
@@ -68,7 +71,7 @@ impl AnimeBuilder {
             let client = Client::new();
             let mut err;
             let mut last;
-            let mut counter = 5;
+            let mut counter = 2;
 
             loop {
                 err = counter;
@@ -76,6 +79,7 @@ impl AnimeBuilder {
 
                 match client
                     .head(&gen_url!(url, counter))
+                    .header(REFERER, &self.referer)
                     .send()
                     .await?
                     .error_for_status()
@@ -90,6 +94,7 @@ impl AnimeBuilder {
 
                 match client
                     .head(&gen_url!(url, counter))
+                    .header(REFERER, &self.referer)
                     .send()
                     .await?
                     .error_for_status()
@@ -103,6 +108,7 @@ impl AnimeBuilder {
                 // Check if episode 0 is avaible
                 1 => match client
                     .head(&gen_url!(url, 0))
+                    .header(REFERER, &self.referer)
                     .send()
                     .await?
                     .error_for_status()
@@ -172,7 +178,7 @@ impl Anime {
                     _ => utils::extract_name(u).unwrap(),
                 };
 
-                tui::Choice::from(u.to_string(), msg)
+                tui::Choice::new(u.to_string(), msg)
             })
             .collect::<Vec<_>>()
     }

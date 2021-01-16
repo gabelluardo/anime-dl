@@ -37,7 +37,6 @@ pub struct Args {
         short = "r",
         long = "range",
         name = "range",
-        required_unless("single"),
         required_unless("stream"),
         required_unless("interactive"),
         required_unless("auto-episode")
@@ -89,13 +88,13 @@ pub struct Args {
 
 impl Args {
     pub fn parse() -> Self {
-        let args = Self::from_args();
+        let mut args = Self::from_args();
 
-        let dim_buff = match args.dim_buff {
+        args.dim_buff = match args.dim_buff {
             0 => 1,
             _ => args.dim_buff,
         };
 
-        Self { dim_buff, ..args }
+        args
     }
 }

@@ -90,8 +90,9 @@ impl<'a> AniListBuilder {
     const OAUTH_URL: &'a str = "https://anilist.co/api/v2/oauth/authorize?\
         response_type=token&client_id=";
 
-    pub fn anime_id(self, anime_id: Option<u32>) -> Self {
-        Self { anime_id, ..self }
+    pub fn anime_id(mut self, anime_id: Option<u32>) -> Self {
+        self.anime_id = anime_id;
+        self
     }
 
     pub fn build(self) -> Result<AniList> {

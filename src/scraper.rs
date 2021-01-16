@@ -15,12 +15,15 @@ use std::ops::{Deref, DerefMut};
 
 #[derive(Debug)]
 pub struct ScraperItemDetails {
-    pub url: String,
     pub id: Option<u32>,
+    pub url: String,
 }
 
 #[derive(Debug, Default)]
-pub struct ScraperItems(Vec<ScraperItemDetails>);
+pub struct ScraperItems {
+    pub items: Vec<ScraperItemDetails>,
+    pub referer: String,
+}
 
 impl ScraperItems {
     pub fn new() -> Self {
@@ -28,7 +31,7 @@ impl ScraperItems {
     }
 
     pub fn item(url: String, id: Option<u32>) -> ScraperItemDetails {
-        ScraperItemDetails { url, id }
+        ScraperItemDetails { id, url }
     }
 }
 
@@ -36,13 +39,13 @@ impl Deref for ScraperItems {
     type Target = Vec<ScraperItemDetails>;
 
     fn deref(&self) -> &Self::Target {
-        &self.0
+        &self.items
     }
 }
 
 impl DerefMut for ScraperItems {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
+        &mut self.items
     }
 }
 
@@ -66,20 +69,23 @@ impl<'a> Scraper<'a> {
         Self::default()
     }
 
-    pub fn proxy(self, proxy: bool) -> Self {
-        Self { proxy, ..self }
+    pub fn proxy(mut self, proxy: bool) -> Self {
+        self.proxy = proxy;
+        self
     }
 
-    pub fn query(self, query: &'a str) -> Self {
-        Self { query, ..self }
+    pub fn query(mut self, query: &'a str) -> Self {
+        self.query = query;
+        self
     }
 
-    pub fn site(self, site: Option<Site>) -> Self {
-        Self { site, ..self }
+    pub fn site(mut self, site: Option<Site>) -> Self {
+        self.site = site;
+        self
     }
 
     pub async fn run(&self) -> Result<ScraperItems> {
-        // Concat strings if is passed with "" in shell
+        // Concat strings if passed with "" in shell
         let query = self.query.replace(" ", "+");
 
         match self.site {
@@ -90,9 +96,7 @@ impl<'a> Scraper<'a> {
 
     async fn animeworld(query: &str, proxy: bool) -> Result<ScraperItems> {
         let client = ScraperClient::new(("AWCookietest", "https://animeworld.tv"), proxy).await?;
-
-        let source = "https://www.animeworld.tv/search?keyword=";
-        let search_url = format!("{}{}", source, query);
+        let search_url = format!("https://www.animeworld.tv/search?keyword={}", query);
 
         let fragment = Self::parse(&search_url, &client).await?;
         let results = {
@@ -105,7 +109,7 @@ impl<'a> Scraper<'a> {
                     .select(&a)
                     .into_iter()
                     .map(|a| {
-                        tui::Choice::from(
+                        tui::Choice::new(
                             a.value().attr("href").expect("No link found").to_string(),
                             a.first_child()
                                 .and_then(|a| a.value().as_text())
@@ -161,6 +165,8 @@ impl<'a> Scraper<'a> {
             bail!("No anime found")
         }
 
+        anime.referer = "https://www.animeworld.tv/".to_string();
+
         Ok(anime)
     }
 
@@ -195,15 +201,14 @@ type CookieInfo<'a> = (&'a str, &'a str);
 
 struct ScraperClient(Client);
 
-#[rustfmt::skip]
 impl<'a> ScraperClient {
-    const ACCEPT: &'a str = "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8";
-    const COOKIES: &'a str = "__cfduid=df375aea9c761e29fe312136a2b0af16b1599087133;_csrf=ITVgw-fJSainaeRefw2IFwWG";
+    #[rustfmt::skip]
+    const ACCEPT: &'a str = "text/html,application/xhtml+xml,application/xml; q=0.9,image/webp,*/*; q=0.8";
+    const COOKIES: &'a str = "__cfduid=d03255bed084571c421edd313dbfd5fe31610142561; _csrf=PLwPaldqI-hCpuZzS8wfLnkP; expandedPlayer=false; theme=dark";
     const USER_AGENT: &'a str = "Mozilla/5.0 (Windows; U; Windows NT 5.1; en-GB; rv:1.8.1.6) Gecko/20070725 Firefox/2.0.0.6";
 
     async fn new(site_props: CookieInfo<'_>, proxy: bool) -> Result<Self> {
         let mut client = Client::builder()
-            .referer(true)
             .user_agent(Self::USER_AGENT)
             .default_headers(Self::set_headers(site_props).await?);
 

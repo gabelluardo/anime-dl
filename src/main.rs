@@ -11,7 +11,7 @@ use cli::*;
 use utils::*;
 
 use futures::stream::StreamExt;
-use reqwest::header::{CONTENT_LENGTH, RANGE};
+use reqwest::header::{CONTENT_LENGTH, RANGE, REFERER};
 use reqwest::{Client, Url};
 use tokio::{io::AsyncWriteExt, task};
 use tokio_stream::{self as stream};
@@ -32,9 +32,9 @@ async fn run() -> Result<()> {
 }
 
 enum Action {
-    MultiDownload,
-    SingleDownload,
+    Download,
     Streaming,
+    SingleDownload,
 }
 
 impl Action {
@@ -44,7 +44,7 @@ impl Action {
         } else if args.single {
             Self::SingleDownload
         } else {
-            Self::MultiDownload
+            Self::Download
         }
     }
 }
@@ -90,8 +90,8 @@ impl Manager {
 
     async fn run(self) -> Result<()> {
         match self.action {
+            Action::Download => self.multi().await,
             Action::Streaming => self.stream().await,
-            Action::MultiDownload => self.multi().await,
             Action::SingleDownload => self.single().await,
         }
     }
@@ -102,9 +102,11 @@ impl Manager {
     }
 
     async fn stream(&self) -> Result<()> {
+        let referer = format!("--http-referrer={}", self.items.referer);
         let item = self.items.first().unwrap();
         let anime = Anime::builder()
             .item(item)
+            .referer(&self.items.referer)
             .range(self.args.range.as_ref().unwrap_or_default())
             .auto(true)
             .build()
@@ -119,6 +121,7 @@ impl Manager {
         };
 
         Command::new(cmd)
+            .arg(referer)
             .args(urls)
             .output()
             .context("vlc is needed for streaming")?;
@@ -128,6 +131,7 @@ impl Manager {
 
     async fn multi(&self) -> Result<()> {
         let args = &self.args;
+        let referer = &self.items.referer;
 
         let bars = Bars::new();
         let mut pool = vec![];
@@ -138,6 +142,7 @@ impl Manager {
             let mut anime = Anime::builder()
                 .item(item)
                 .path(&path)
+                .referer(&self.items.referer)
                 .range(args.range.as_ref().unwrap_or_default())
                 .auto(args.auto_episode || args.interactive)
                 .build()
@@ -148,9 +153,9 @@ impl Manager {
             }
 
             pool.extend(anime.episodes.into_iter().map(|u| {
-                let opts = (path.clone(), args.force, bars.add_bar());
+                let opts = (path.clone(), referer.as_str(), args.force, bars.add_bar());
 
-                async move { print_err!(Self::download(&u, opts).await) }
+                async move { print_err!(Self::worker(&u, opts).await) }
             }))
         }
 
@@ -163,8 +168,8 @@ impl Manager {
         Ok(())
     }
 
-    async fn download(url: &str, opts: (PathBuf, bool, bars::ProgressBar)) -> Result<()> {
-        let (root, overwrite, pb) = &opts;
+    async fn worker(url: &str, opts: (PathBuf, &str, bool, bars::ProgressBar)) -> Result<()> {
+        let (root, referer, overwrite, pb) = opts;
         let client = Client::new();
 
         let filename = Url::parse(url)?
@@ -175,6 +180,7 @@ impl Manager {
 
         let source_size = client
             .head(url)
+            .header(REFERER, referer)
             .send()
             .await?
             .error_for_status()
@@ -185,7 +191,7 @@ impl Manager {
             .and_then(|ct_len| ct_len.parse().ok())
             .unwrap_or_default();
 
-        let props = (root, filename.as_str(), overwrite);
+        let props = (&root, filename.as_str(), &overwrite);
         let file = FileDest::new(props).await?;
         if file.size >= source_size {
             bail!("{} already exists", &filename);
@@ -206,6 +212,7 @@ impl Manager {
         let mut source = client
             .get(url)
             .header(RANGE, format!("bytes={}-", file.size))
+            .header(REFERER, referer)
             .send()
             .await?
             .error_for_status()
