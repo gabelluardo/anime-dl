@@ -1,7 +1,7 @@
 # Anime-dl
 
 [![Crates.io](https://img.shields.io/crates/v/anime-dl?color=orange)](https://crates.io/crates/anime-dl)
-[![dependency status](https://deps.rs/crate/anime-dl/1.1.1/status.svg)](https://deps.rs/crate/anime-dl/1.1.1)
+[![dependency status](https://deps.rs/crate/anime-dl/1.2.0/status.svg)](https://deps.rs/crate/anime-dl/1.2.0)
 ![Crates.io](https://img.shields.io/crates/l/anime-dl)
 
 
