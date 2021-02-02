@@ -35,7 +35,7 @@ features = ["json"]
 [dependencies.tokio]
 default-features = false
 version = "1"
-features = ["io-util", "fs", "macros", "rt-multi-thread"]
+features = ["full"]
 
 [dependencies]
 anyhow = "1.0"

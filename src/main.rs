@@ -13,11 +13,11 @@ use utils::*;
 use futures::stream::StreamExt;
 use reqwest::header::{CONTENT_LENGTH, RANGE, REFERER};
 use reqwest::{Client, Url};
-use tokio::{io::AsyncWriteExt, task};
+use tokio::{io::AsyncWriteExt, process::Command, task};
 use tokio_stream::{self as stream};
 
 use std::path::PathBuf;
-use std::process::Command;
+use std::process::Stdio;
 
 #[tokio::main]
 async fn main() {
@@ -123,7 +123,9 @@ impl Manager {
         Command::new(cmd)
             .arg(referer)
             .args(urls)
-            .output()
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
             .context("vlc is needed for streaming")?;
 
         Ok(())
