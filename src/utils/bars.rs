@@ -23,7 +23,7 @@ impl Deref for Bars {
 }
 
 fn instance_style() -> ProgressStyle {
-    ProgressStyle::default_bar().template("{spinner:.green} [{elapsed}] [{bar:20.cyan/blue}] {bytes_per_sec} {bytes}/{total_bytes} ({eta}) {wide_msg}").progress_chars("#>-")
+    ProgressStyle::default_bar().template("{spinner:.green} [{elapsed:.magenta}] [{bar:20.cyan/blue}] {bytes_per_sec} {bytes:.cyan}/{total_bytes:.blue} ({eta:.magenta}) {wide_msg:.green}").progress_chars("#>-")
 }
 
 fn instance_multi_bars() -> MultiProgress {
