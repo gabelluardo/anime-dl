@@ -37,7 +37,7 @@ Or for stream after scraped an archive:
 anime-dl -sS <archive> -- <entries>
 ```
 
-[![asciicast](https://asciinema.org/a/380142.svg)](https://asciinema.org/a/380142)
+[![asciicast](https://asciinema.org/a/392118.svg)](https://asciinema.org/a/392118)
 
 Anyway, the helper is this: 
 
