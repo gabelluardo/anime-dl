@@ -34,15 +34,12 @@ async fn run() -> Result<()> {
 enum Action {
     Download,
     Streaming,
-    SingleDownload,
 }
 
 impl Action {
     fn parse(args: &Args) -> Self {
         if args.stream {
             Self::Streaming
-        } else if args.single {
-            Self::SingleDownload
         } else {
             Self::Download
         }
@@ -92,23 +89,18 @@ impl Manager {
         match self.action {
             Action::Download => self.multi().await,
             Action::Streaming => self.stream().await,
-            Action::SingleDownload => self.single().await,
         }
-    }
-
-    // NOTE: Deprecated since 1.2.0
-    async fn single(&self) -> Result<()> {
-        bail!("`-O` is deprecated since 1.2.0 release")
     }
 
     async fn stream(&self) -> Result<()> {
         let referer = format!("--http-referrer={}", self.items.referer);
         let item = self.items.first().unwrap();
         let anime = Anime::builder()
-            .item(item)
-            .referer(&self.items.referer)
-            .range(self.args.range.as_ref().unwrap_or_default())
             .auto(true)
+            .client_id(self.args.animedl_id)
+            .item(item)
+            .range(self.args.range.as_ref().unwrap_or_default())
+            .referer(&self.items.referer)
             .build()
             .await?;
 
@@ -142,11 +134,12 @@ impl Manager {
             let path = utils::get_path(args, &item.url, pos)?;
 
             let mut anime = Anime::builder()
-                .item(item)
-                .path(&path)
-                .referer(&self.items.referer)
-                .range(args.range.as_ref().unwrap_or_default())
                 .auto(args.auto_episode || args.interactive)
+                .client_id(self.args.animedl_id)
+                .item(item)
+                .range(args.range.as_ref().unwrap_or_default())
+                .referer(&self.items.referer)
+                .path(&path)
                 .build()
                 .await?;
 

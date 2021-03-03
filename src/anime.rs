@@ -14,6 +14,7 @@ use std::path::PathBuf;
 #[derive(Default, Debug)]
 pub struct AnimeBuilder {
     auto: bool,
+    client_id: Option<u32>,
     id: Option<u32>,
     path: PathBuf,
     range: Range<u32>,
@@ -24,6 +25,11 @@ pub struct AnimeBuilder {
 impl AnimeBuilder {
     pub fn auto(mut self, auto: bool) -> Self {
         self.auto = auto;
+        self
+    }
+
+    pub fn client_id(mut self, client_id: Option<u32>) -> Self {
+        self.client_id = client_id;
         self
     }
 
@@ -137,10 +143,15 @@ impl AnimeBuilder {
 
     #[cfg(feature = "anilist")]
     async fn last_viewed(&self) -> Result<Option<u32>> {
-        Ok(match AniList::builder().anime_id(self.id).build() {
-            Ok(a) => a.last_viewed().await?,
-            _ => None,
-        })
+        let anilist = AniList::builder()
+            .anime_id(self.id)
+            .client_id(self.client_id)
+            .build();
+
+        match anilist {
+            Ok(a) => a.last_viewed().await,
+            _ => Ok(None),
+        }
     }
 
     #[cfg(not(feature = "anilist"))]

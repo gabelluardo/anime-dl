@@ -53,15 +53,15 @@ FLAGS:
     -h, --help           Prints help information
     -i, --interactive    Interactive mode
     -p, --no-proxy       Disable automatic proxy (useful for slow connections)
-    -O, --one-file       Download file without in-app control [Deprecated since 1.2.0]
     -s, --stream         Stream episode in a media player
     -V, --version        Prints version information
 
 OPTIONS:
-    -d, --dir <dir>...            Root paths where store files [default: .]
-    -m, --max-concurrent <max>    Maximum number of simultaneous downloads allowed [default: 24]
-    -r, --range <range>           Episodes to download (es. `1-4` or `1,2,3,4`) [default: 1]
-    -S, --search <site>           Search anime in remote archive [possible values: AW, AS]
+    -a, --animedl-id <animedl-id>    Override app id environment variable [env: ANIMEDL_ID]
+    -d, --dir <dir>...               Root paths where store files [default: .]
+    -m, --max-concurrent <max>       Maximum number of simultaneous downloads allowed [default: 24]
+    -r, --range <range>              Episodes to download (es. `1-4` or `1,2,3,4`) [default: 1]
+    -S, --search <site>              Search anime in remote archive [possible values: AW, AS]
 
 ARGS:
     <entries>...    Source urls or scraper's queries

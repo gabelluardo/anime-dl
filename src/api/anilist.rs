@@ -1,7 +1,7 @@
 use crate::utils::tui;
 
 use anyhow::{bail, Context, Result};
-use graphql_client::*;
+use graphql_client::{GraphQLQuery, Response};
 use reqwest::{header, header::HeaderValue, Client};
 
 use std::io::prelude::*;
@@ -68,20 +68,11 @@ impl Config {
     }
 }
 
+#[derive(Default)]
 pub struct AniListBuilder {
     anime_id: Option<u32>,
-    client_id: Option<String>,
+    client_id: Option<u32>,
     token: Option<String>,
-}
-
-impl Default for AniListBuilder {
-    fn default() -> Self {
-        Self {
-            anime_id: None,
-            client_id: std::env::var("ANIMEDL_ID").ok(),
-            token: None,
-        }
-    }
 }
 
 impl<'a> AniListBuilder {
@@ -95,9 +86,13 @@ impl<'a> AniListBuilder {
         self
     }
 
+    pub fn client_id(mut self, client_id: Option<u32>) -> Self {
+        self.client_id = client_id;
+        self
+    }
+
     pub fn build(self) -> Result<AniList> {
         match self.client_id {
-            None => bail!("No `ANIMEDL_ID` env varibale"),
             Some(client_id) => {
                 let oauth_url = format!("{}{}", Self::OAUTH_URL, client_id);
                 let config = Config::new();
@@ -126,6 +121,7 @@ impl<'a> AniListBuilder {
                     client: Client::builder().default_headers(headers).build()?,
                 })
             }
+            _ => bail!("No `ANIMEDL_ID` env varibale"),
         }
     }
 }

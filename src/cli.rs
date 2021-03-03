@@ -37,9 +37,10 @@ pub struct Args {
         short = "r",
         long = "range",
         name = "range",
-        required_unless("stream"),
+        required_unless("auto-episode"),
+        required_unless("clean"),
         required_unless("interactive"),
-        required_unless("auto-episode")
+        required_unless("stream")
     )]
     pub range: Option<Range<u32>>,
 
@@ -65,9 +66,9 @@ pub struct Args {
     #[structopt(short, long)]
     pub force: bool,
 
-    /// Download file without in-app control [Deprecated since 1.2.0]
-    #[structopt(short = "O", long = "one-file")]
-    pub single: bool,
+    /// Override app id environment variable
+    #[structopt(short, long, env, hide_env_values = true)]
+    pub animedl_id: Option<u32>,
 
     /// Stream episode in a media player
     #[structopt(short, long)]
@@ -90,10 +91,9 @@ impl Args {
     pub fn parse() -> Self {
         let mut args = Self::from_args();
 
-        args.dim_buff = match args.dim_buff {
-            0 => 1,
-            _ => args.dim_buff,
-        };
+        if args.dim_buff == 0 {
+            args.dim_buff = 1
+        }
 
         args
     }
