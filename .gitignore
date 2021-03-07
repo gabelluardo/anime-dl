@@ -1,6 +1,4 @@
-/target
-/prova
-script*
-.env
+target
+prova
 .anime-dl.cache
 .idea

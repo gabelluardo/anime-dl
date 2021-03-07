@@ -111,7 +111,7 @@ impl AnimeBuilder {
             }
 
             let first = match self.range.start() {
-                // Check if episode 0 is avaible
+                // Check if episode 0 is available
                 1 => match client
                     .head(&gen_url!(url, 0))
                     .header(REFERER, &self.referer)
@@ -202,7 +202,7 @@ pub struct FileDest {
     pub overwrite: bool,
 }
 
-type FileProps<'a> = (&'a PathBuf, &'a str, &'a bool);
+type FileProps<'a> = (&'a PathBuf, &'a str, bool);
 
 impl FileDest {
     pub async fn new(props: FileProps<'_>) -> Result<Self> {
