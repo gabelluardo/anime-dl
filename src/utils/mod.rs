@@ -5,9 +5,6 @@ pub mod bars;
 pub mod range;
 pub mod tui;
 
-#[cfg(feature = "aes")]
-pub mod crypt;
-
 use anyhow::{bail, Result};
 use regex::Regex;
 

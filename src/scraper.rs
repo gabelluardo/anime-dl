@@ -3,9 +3,6 @@ pub use anyhow::{bail, Context, Result};
 use crate::cli::Site;
 use crate::utils::tui;
 
-#[cfg(feature = "aes")]
-use crate::utils::crypt;
-
 use rand::seq::IteratorRandom;
 use reqwest::{header, header::HeaderValue, Client, Url};
 use scraper::{Html, Selector};
@@ -170,21 +167,6 @@ impl<'a> Scraper<'a> {
         Ok(anime)
     }
 
-    #[cfg(feature = "aes")]
-    async fn parse(url: &str, client: &Client) -> Result<Html> {
-        delay_for!(crypt::rand_range(100, 300));
-
-        let response = client
-            .get(url)
-            .send()
-            .await?
-            .error_for_status()
-            .context(format!("Unable to get anime page"))?;
-
-        Ok(Html::parse_fragment(&response.text().await?))
-    }
-
-    #[cfg(not(feature = "aes"))]
     async fn parse(url: &str, client: &Client) -> Result<Html> {
         let response = client
             .get(url)
@@ -248,22 +230,6 @@ impl<'a> ScraperClient {
         Ok(headers)
     }
 
-    #[cfg(feature = "aes")]
-    async fn set_cookies((cookie_name, url): CookieInfo<'_>) -> Result<String> {
-        let response = reqwest::get(url).await?.text().await?;
-
-        Ok(match crypt::extract_hex(&response, r"\(.(\d|\w)+.\)") {
-            Ok(v) => {
-                let (a, b, c) = (&v[0], &v[1], &v[2]);
-                let output = crypt::encode(a, b, c)?;
-
-                format!("{}={};", cookie_name, output)
-            }
-            Err(_) => String::from(Self::COOKIES),
-        })
-    }
-
-    #[cfg(not(feature = "aes"))]
     async fn set_cookies(_: CookieInfo<'a>) -> Result<String> {
         Ok(String::from(Self::COOKIES))
     }
