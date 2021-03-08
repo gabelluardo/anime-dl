@@ -21,74 +21,54 @@ use std::process::Stdio;
 
 #[tokio::main]
 async fn main() {
-    match run().await {
-        Ok(_) => (),
-        Err(e) => bunt::eprintln!("{$red}[ERR] {}{/$}", e),
-    }
+    let args = Args::parse();
+    let m = Manager::new(args);
+
+    print_err!(m.run().await)
 }
 
-async fn run() -> Result<()> {
-    Manager::new(Args::parse()).await?.run().await
-}
-
-enum Action {
-    Download,
-    Streaming,
-}
-
-impl Action {
-    fn parse(args: &Args) -> Self {
-        if args.stream {
-            Self::Streaming
-        } else {
-            Self::Download
-        }
-    }
-}
-
+#[derive(Default)]
 struct Manager {
-    action: Action,
     args: Args,
     items: ScraperItems,
 }
 
 impl Manager {
-    async fn new(args: Args) -> Result<Self> {
-        let action = Action::parse(&args);
+    fn new(args: Args) -> Self {
+        Self {
+            args,
+            ..Self::default()
+        }
+    }
 
+    async fn run(mut self) -> Result<()> {
         #[cfg(feature = "anilist")]
-        if args.clean {
+        if self.args.clean {
             AniList::clean_cache()?
         }
 
         // Scrape from archive and find correct url
-        let items = match args.search {
+        self.items = match self.args.search {
             Some(site) => {
                 Scraper::new()
-                    .proxy(!args.no_proxy)
-                    .query(&args.entries.join("+"))
+                    .proxy(!self.args.no_proxy)
+                    .query(&self.args.entries.join("+"))
                     .site(site)
                     .run()
                     .await?
             }
-            None => args
+            None => self
+                .args
                 .entries
                 .iter()
                 .map(|s| ScraperItems::item(s.to_owned(), None))
                 .collect::<_>(),
         };
 
-        Ok(Self {
-            action,
-            args,
-            items,
-        })
-    }
-
-    async fn run(self) -> Result<()> {
-        match self.action {
-            Action::Download => self.multi().await,
-            Action::Streaming => self.stream().await,
+        if self.args.stream {
+            self.stream().await
+        } else {
+            self.download().await
         }
     }
 
@@ -123,7 +103,7 @@ impl Manager {
         Ok(())
     }
 
-    async fn multi(&self) -> Result<()> {
+    async fn download(&self) -> Result<()> {
         let args = &self.args;
         let referer = &self.items.referer;
 
