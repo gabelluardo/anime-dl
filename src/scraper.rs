@@ -121,7 +121,7 @@ impl<'a> Scraper<'a> {
             }
         };
 
-        let choices = tui::get_choice(results)?;
+        let choices = tui::get_choice(results).await?;
 
         let mut anime = ScraperItems::new();
         for c in choices {

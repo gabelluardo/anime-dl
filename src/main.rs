@@ -44,7 +44,7 @@ impl Manager {
     async fn run(mut self) -> Result<()> {
         #[cfg(feature = "anilist")]
         if self.args.clean {
-            AniList::clean_cache()?
+            AniList::clean_cache().await?
         }
 
         // Scrape from archive and find correct url
@@ -84,7 +84,7 @@ impl Manager {
             .build()
             .await?;
 
-        let urls = tui::get_choice(anime.choices())?;
+        let urls = tui::get_choice(anime.choices()).await?;
 
         // NOTE: Workaround for streaming in Windows
         let cmd = match cfg!(windows) {
@@ -124,7 +124,7 @@ impl Manager {
                 .await?;
 
             if args.interactive {
-                anime.episodes = tui::get_choice(anime.choices())?
+                anime.episodes = tui::get_choice(anime.choices()).await?
             }
 
             pool.extend(anime.episodes.into_iter().map(|u| {

@@ -146,7 +146,8 @@ impl AnimeBuilder {
         let anilist = AniList::builder()
             .anime_id(self.id)
             .client_id(self.client_id)
-            .build();
+            .build()
+            .await;
 
         match anilist {
             Ok(a) => a.last_viewed().await,

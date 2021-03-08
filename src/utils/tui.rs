@@ -1,7 +1,9 @@
 use super::*;
 
 use bunt::{print, println};
-use std::io::prelude::*;
+use tokio::io::{self, AsyncBufReadExt, BufReader};
+
+use std::io::Write;
 
 pub struct Choice {
     link: String,
@@ -14,7 +16,7 @@ impl Choice {
     }
 }
 
-pub fn get_choice(choices: Vec<Choice>) -> Result<Vec<String>> {
+pub async fn get_choice(choices: Vec<Choice>) -> Result<Vec<String>> {
     match choices.len() {
         0 => bail!("No match found"),
         1 => Ok(vec![choices[0].link.to_string()]),
@@ -30,10 +32,12 @@ pub fn get_choice(choices: Vec<Choice>) -> Result<Vec<String>> {
                 {$bold}What to watch (eg: 1 2 3 or 1-3) [default=All]{/$}\n\
                 {$red}==> {/$}",
             );
+            // TODO: Fix console bug on async flush
             std::io::stdout().flush()?;
 
+            let mut reader = BufReader::new(io::stdin());
             let mut line = String::new();
-            std::io::stdin().read_line(&mut line)?;
+            reader.read_line(&mut line).await?;
 
             let re = Regex::new(r"[^\d]").unwrap();
             let mut multi = re
@@ -78,7 +82,7 @@ pub fn get_choice(choices: Vec<Choice>) -> Result<Vec<String>> {
 }
 
 #[cfg(feature = "anilist")]
-pub fn get_token(url: &str) -> Result<String> {
+pub async fn get_token(url: &str) -> Result<String> {
     print!(
         "{$cyan+bold}Anilist Oauth{/$}\n\n\
         {$green}Autenticate to: {/$}\n\
@@ -90,8 +94,9 @@ pub fn get_token(url: &str) -> Result<String> {
     );
     std::io::stdout().flush()?;
 
+    let mut reader = BufReader::new(io::stdin());
     let mut line = String::new();
-    std::io::stdin().read_line(&mut line)?;
+    reader.read_line(&mut line).await?;
 
     Ok(line.trim().to_string())
 }

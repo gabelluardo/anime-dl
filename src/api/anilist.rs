@@ -3,8 +3,8 @@ use crate::utils::tui;
 use anyhow::{bail, Context, Result};
 use graphql_client::{GraphQLQuery, Response};
 use reqwest::{header, header::HeaderValue, Client};
+use tokio::{fs, io::AsyncReadExt, io::AsyncWriteExt};
 
-use std::io::prelude::*;
 use std::path::PathBuf;
 
 struct Config {
@@ -34,36 +34,41 @@ impl Config {
         Self::default()
     }
 
-    fn clean(&self) -> Result<()> {
-        std::fs::remove_file(&self.path).context("Unable to remove config file")
+    async fn clean(&self) -> Result<()> {
+        fs::remove_file(&self.path)
+            .await
+            .context("Unable to remove config file")
     }
 
-    fn load(&self) -> Option<String> {
-        std::fs::OpenOptions::new()
-            .read(true)
-            .open(&self.path)
-            .ok()
-            .map(|mut f| {
+    async fn load(&self) -> Option<String> {
+        let file = fs::OpenOptions::new().read(true).open(&self.path).await;
+
+        match file {
+            Ok(mut f) => {
                 let mut contents = String::new();
-                f.read_to_string(&mut contents).ok();
-                contents
-            })
+                f.read_to_string(&mut contents).await.ok();
+                Some(contents)
+            }
+            _ => None,
+        }
     }
 
-    fn save(&self, token: &str) -> Result<()> {
+    async fn save(&self, token: &str) -> Result<()> {
         let mut dirs = self.path.clone();
         dirs.pop();
 
         if !self.path.exists() {
-            std::fs::create_dir_all(&dirs)?;
+            fs::create_dir_all(&dirs).await?;
         }
-        let mut buf = std::fs::OpenOptions::new()
+        let mut buf = fs::OpenOptions::new()
             .write(true)
             .create(true)
             .truncate(true)
-            .open(&self.path)?;
+            .open(&self.path)
+            .await?;
 
         buf.write_all(token.as_bytes())
+            .await
             .context("Unable to write config file")
     }
 }
@@ -91,7 +96,7 @@ impl<'a> AniListBuilder {
         self
     }
 
-    pub fn build(self) -> Result<AniList> {
+    pub async fn build(self) -> Result<AniList> {
         match self.client_id {
             Some(client_id) => {
                 let oauth_url = format!("{}{}", Self::OAUTH_URL, client_id);
@@ -99,11 +104,11 @@ impl<'a> AniListBuilder {
 
                 let token = match self.token {
                     Some(t) => t,
-                    None => match config.load() {
+                    None => match config.load().await {
                         Some(t) => t,
                         None => {
-                            let token = tui::get_token(&oauth_url)?;
-                            config.save(&token)?;
+                            let token = tui::get_token(&oauth_url).await?;
+                            config.save(&token).await?;
                             token
                         }
                     },
@@ -138,8 +143,8 @@ impl<'a> AniList {
         AniListBuilder::default()
     }
 
-    pub fn clean_cache() -> Result<()> {
-        Config::default().clean()
+    pub async fn clean_cache() -> Result<()> {
+        Config::default().clean().await
     }
 
     pub async fn last_viewed(&self) -> Result<Option<u32>> {
@@ -172,29 +177,29 @@ mod tests {
 
     const TEST_PATH: &str = "test.cache";
 
-    #[test]
-    fn test_config() {
+    #[tokio::test]
+    async fn test_config() {
         let string = "asdfasdfasdf";
         let c = Config {
             path: PathBuf::from(TEST_PATH),
         };
 
-        assert!(c.save(string).is_ok());
+        assert!(c.save(string).await.is_ok());
 
-        let loaded_string = c.load();
+        let loaded_string = c.load().await;
         assert!(loaded_string.is_some());
         assert_eq!(string, loaded_string.unwrap());
 
-        assert!(c.clean().is_ok());
+        assert!(c.clean().await.is_ok());
     }
 
-    #[test]
+    #[tokio::test]
     #[should_panic(expected = "Unable to remove config file")]
-    fn test_config_clean() {
+    async fn test_config_clean() {
         let c = Config {
             path: PathBuf::from(TEST_PATH),
         };
 
-        c.clean().unwrap()
+        c.clean().await.unwrap()
     }
 }
