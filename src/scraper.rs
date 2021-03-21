@@ -11,44 +11,44 @@ use std::iter::FromIterator;
 use std::ops::{Deref, DerefMut};
 
 #[derive(Debug)]
-pub struct ScraperItemDetails {
+pub struct ScraperItem {
     pub id: Option<u32>,
     pub url: String,
 }
 
 #[derive(Debug, Default)]
-pub struct ScraperItems {
-    pub items: Vec<ScraperItemDetails>,
+pub struct ScraperResult {
+    pub items: Vec<ScraperItem>,
     pub referer: String,
 }
 
-impl ScraperItems {
+impl ScraperResult {
     pub fn new() -> Self {
         Self::default()
     }
 
-    pub fn item(url: String, id: Option<u32>) -> ScraperItemDetails {
-        ScraperItemDetails { id, url }
+    pub fn item(url: String, id: Option<u32>) -> ScraperItem {
+        ScraperItem { id, url }
     }
 }
 
-impl Deref for ScraperItems {
-    type Target = Vec<ScraperItemDetails>;
+impl Deref for ScraperResult {
+    type Target = Vec<ScraperItem>;
 
     fn deref(&self) -> &Self::Target {
         &self.items
     }
 }
 
-impl DerefMut for ScraperItems {
+impl DerefMut for ScraperResult {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.items
     }
 }
 
-impl FromIterator<ScraperItemDetails> for ScraperItems {
-    fn from_iter<I: IntoIterator<Item = ScraperItemDetails>>(iter: I) -> Self {
-        let mut c = ScraperItems::new();
+impl FromIterator<ScraperItem> for ScraperResult {
+    fn from_iter<I: IntoIterator<Item = ScraperItem>>(iter: I) -> Self {
+        let mut c = ScraperResult::new();
         c.extend(iter);
         c
     }
@@ -81,17 +81,31 @@ impl<'a> Scraper<'a> {
         self
     }
 
-    pub async fn run(&self) -> Result<ScraperItems> {
-        // Concat strings if passed with "" in shell
-        let query = self.query.replace(" ", "+");
+    pub async fn run(&self) -> Result<ScraperResult> {
+        let query = self
+            .query
+            .split(",")
+            .map(|s| s.trim().replace(" ", "+"))
+            .collect::<Vec<_>>();
 
-        match self.site {
-            Some(Site::AW) | None => Self::animeworld(&query, self.proxy).await,
-            Some(Site::AS) => bail!("Scraper `AS` parameter is deprecated"),
+        let mut res = ScraperResult::new();
+        for q in &query {
+            let r = match self.site {
+                Some(Site::AW) | None => Self::animeworld(q, self.proxy).await?,
+                Some(Site::AS) => bail!("Scraper `AS` parameter is deprecated"),
+            };
+
+            if res.is_empty() {
+                res = r
+            } else {
+                res.extend(r.items)
+            }
         }
+
+        Ok(res)
     }
 
-    async fn animeworld(query: &str, proxy: bool) -> Result<ScraperItems> {
+    async fn animeworld(query: &str, proxy: bool) -> Result<ScraperResult> {
         let client = ScraperClient::new(("AWCookietest", "https://animeworld.tv"), proxy).await?;
         let search_url = format!("https://www.animeworld.tv/search?keyword={}", query);
 
@@ -101,7 +115,6 @@ impl<'a> Scraper<'a> {
             let a = Selector::parse("a.name").unwrap();
 
             match fragment.select(&div).next() {
-                None => bail!("Request blocked, retry"),
                 Some(e) => e
                     .select(&a)
                     .into_iter()
@@ -115,12 +128,13 @@ impl<'a> Scraper<'a> {
                         )
                     })
                     .collect::<Vec<_>>(),
+                None => bail!("Request blocked, retry"),
             }
         };
 
         let choices = tui::get_choice(results).await?;
 
-        let mut anime = ScraperItems::new();
+        let mut anime = ScraperResult::new();
         for c in choices {
             let choice = format!("https://www.animeworld.tv{}", c);
 
@@ -155,7 +169,7 @@ impl<'a> Scraper<'a> {
                 None => bail!("No link found"),
             };
 
-            anime.push(ScraperItems::item(url, id));
+            anime.push(ScraperResult::item(url, id));
         }
 
         if anime.is_empty() {
@@ -282,7 +296,8 @@ mod tests {
             .run()
             .await
             .unwrap();
-        let info = Url::parse(&anime.last().unwrap().url)
+
+        let info = Url::parse(&anime.first().unwrap().url)
             .unwrap()
             .path_segments()
             .and_then(|segments| segments.last())
@@ -290,5 +305,35 @@ mod tests {
             .to_owned();
 
         assert_eq!(file, info)
+    }
+
+    #[tokio::test]
+    async fn test_scraper_multi() {
+        let files = vec![
+            "SeishunButaYarouWaBunnyGirlSenpaiNoYumeWoMinai_Ep_01_SUB_ITA.mp4",
+            "TsurezureChildren_Ep_01_SUB_ITA.mp4",
+            "Promare_Movie_ITA.mp4",
+        ];
+
+        let anime = Scraper::new()
+            .site(Some(Site::AW))
+            .query("bunny girl, tsuredure children, promare")
+            .run()
+            .await
+            .unwrap();
+
+        let anime = anime
+            .iter()
+            .map(|a| {
+                Url::parse(&a.url)
+                    .unwrap()
+                    .path_segments()
+                    .and_then(|segments| segments.last())
+                    .unwrap()
+                    .to_owned()
+            })
+            .collect::<Vec<String>>();
+
+        assert_eq!(anime, files)
     }
 }

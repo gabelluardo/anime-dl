@@ -33,7 +33,7 @@ impl AnimeBuilder {
         self
     }
 
-    pub fn item(mut self, item: &ScraperItemDetails) -> Self {
+    pub fn item(mut self, item: &ScraperItem) -> Self {
         self.id = item.id;
         self.url = item.url.to_owned();
         self

@@ -30,7 +30,7 @@ async fn main() {
 #[derive(Default)]
 struct Manager {
     args: Args,
-    items: ScraperItems,
+    items: ScraperResult,
 }
 
 impl Manager {
@@ -52,7 +52,7 @@ impl Manager {
             Some(site) => {
                 Scraper::new()
                     .proxy(!self.args.no_proxy)
-                    .query(&self.args.entries.join("+"))
+                    .query(&self.args.entries.join(" "))
                     .site(site)
                     .run()
                     .await?
@@ -61,7 +61,7 @@ impl Manager {
                 .args
                 .entries
                 .iter()
-                .map(|s| ScraperItems::item(s.to_owned(), None))
+                .map(|s| ScraperResult::item(s.to_owned(), None))
                 .collect::<_>(),
         };
 
@@ -74,31 +74,33 @@ impl Manager {
 
     async fn stream(&self) -> Result<()> {
         let referer = format!("--http-referrer={}", self.items.referer);
-        let item = self.items.first().unwrap();
-        let anime = Anime::builder()
-            .auto(true)
-            .client_id(self.args.animedl_id)
-            .item(item)
-            .range(self.args.range.as_ref().unwrap_or_default())
-            .referer(&self.items.referer)
-            .build()
-            .await?;
 
-        let urls = tui::get_choice(anime.choices()).await?;
+        for item in self.items.iter() {
+            let anime = Anime::builder()
+                .auto(true)
+                .client_id(self.args.animedl_id)
+                .item(item)
+                .range(self.args.range.as_ref().unwrap_or_default())
+                .referer(&self.items.referer)
+                .build()
+                .await?;
 
-        // NOTE: Workaround for streaming in Windows
-        let cmd = match cfg!(windows) {
-            true => r"C:\Program Files\VideoLAN\VLC\vlc",
-            false => "vlc",
-        };
+            let urls = tui::get_choice(anime.choices()).await?;
 
-        Command::new(cmd)
-            .arg(referer)
-            .args(urls)
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .spawn()
-            .context("vlc is needed for streaming")?;
+            // NOTE: Workaround for streaming in Windows
+            let cmd = match cfg!(windows) {
+                true => r"C:\Program Files\VideoLAN\VLC\vlc",
+                false => "vlc",
+            };
+
+            Command::new(cmd)
+                .arg(&referer)
+                .args(urls)
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .spawn()
+                .context("vlc is needed for streaming")?;
+        }
 
         Ok(())
     }
