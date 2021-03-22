@@ -7,9 +7,7 @@ use tokio::{fs, io::AsyncReadExt, io::AsyncWriteExt};
 
 use std::path::PathBuf;
 
-struct Config {
-    path: PathBuf,
-}
+struct Config(PathBuf);
 
 impl Default for Config {
     #[cfg(not(windows))]
@@ -17,7 +15,7 @@ impl Default for Config {
         let mut path = PathBuf::from(std::env::var("HOME").unwrap());
         path.push(".config/anime-dl/.anime-dl.cache");
 
-        Self { path }
+        Self(path)
     }
 
     #[cfg(windows)]
@@ -25,7 +23,7 @@ impl Default for Config {
         let mut path = PathBuf::from(std::env::var("HOMEPATH").unwrap());
         path.push(r"AppData\Roaming\anime-dl\.anime-dl.cache");
 
-        Self { path }
+        Self(path)
     }
 }
 
@@ -35,13 +33,13 @@ impl Config {
     }
 
     async fn clean(&self) -> Result<()> {
-        fs::remove_file(&self.path)
+        fs::remove_file(&self.0)
             .await
             .context("Unable to remove config file")
     }
 
     async fn load(&self) -> Option<String> {
-        let file = fs::OpenOptions::new().read(true).open(&self.path).await;
+        let file = fs::OpenOptions::new().read(true).open(&self.0).await;
 
         match file {
             Ok(mut f) => {
@@ -54,17 +52,15 @@ impl Config {
     }
 
     async fn save(&self, token: &str) -> Result<()> {
-        let mut dirs = self.path.clone();
-        dirs.pop();
-
-        if !self.path.exists() {
-            fs::create_dir_all(&dirs).await?;
+        if !self.0.exists() {
+            fs::create_dir_all(&self.0.parent().unwrap()).await?;
         }
+
         let mut buf = fs::OpenOptions::new()
             .write(true)
             .create(true)
             .truncate(true)
-            .open(&self.path)
+            .open(&self.0)
             .await?;
 
         buf.write_all(token.as_bytes())
@@ -175,30 +171,32 @@ pub struct ProgressQuery;
 mod tests {
     use super::*;
 
-    const TEST_PATH: &str = "test.cache";
+    const PATH_STR: &str = "/tmp/test.cache";
+    const PATH_STR_PANIC: &str = "/tmp/test2.cache";
 
     #[tokio::test]
-    async fn test_config() {
+    async fn test_write_config() {
         let string = "asdfasdfasdf";
-        let c = Config {
-            path: PathBuf::from(TEST_PATH),
-        };
+        let path = PathBuf::from(PATH_STR);
+        let c = Config(path.clone());
 
-        assert!(c.save(string).await.is_ok());
+        let res = c.save(string).await;
+        assert!(res.is_ok());
+        assert!(path.is_file());
 
-        let loaded_string = c.load().await;
-        assert!(loaded_string.is_some());
-        assert_eq!(string, loaded_string.unwrap());
+        let res = c.load().await;
+        assert!(res.is_some());
+        assert_eq!(string, res.unwrap());
 
-        assert!(c.clean().await.is_ok());
+        let res = c.clean().await;
+        assert!(res.is_ok())
     }
 
     #[tokio::test]
     #[should_panic(expected = "Unable to remove config file")]
-    async fn test_config_clean() {
-        let c = Config {
-            path: PathBuf::from(TEST_PATH),
-        };
+    async fn test_clean_config_panic() {
+        let path = PathBuf::from(PATH_STR_PANIC);
+        let c = Config(path);
 
         c.clean().await.unwrap()
     }
