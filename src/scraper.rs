@@ -17,22 +17,18 @@ pub struct ScraperItem {
 }
 
 #[derive(Debug, Default)]
-pub struct ScraperResult {
+pub struct ScraperCollector {
     pub items: Vec<ScraperItem>,
     pub referer: String,
 }
 
-impl ScraperResult {
+impl ScraperCollector {
     pub fn new() -> Self {
         Self::default()
     }
-
-    pub fn item(url: String, id: Option<u32>) -> ScraperItem {
-        ScraperItem { id, url }
-    }
 }
 
-impl Deref for ScraperResult {
+impl Deref for ScraperCollector {
     type Target = Vec<ScraperItem>;
 
     fn deref(&self) -> &Self::Target {
@@ -40,15 +36,15 @@ impl Deref for ScraperResult {
     }
 }
 
-impl DerefMut for ScraperResult {
+impl DerefMut for ScraperCollector {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.items
     }
 }
 
-impl FromIterator<ScraperItem> for ScraperResult {
+impl FromIterator<ScraperItem> for ScraperCollector {
     fn from_iter<I: IntoIterator<Item = ScraperItem>>(iter: I) -> Self {
-        let mut c = ScraperResult::new();
+        let mut c = ScraperCollector::new();
         c.extend(iter);
         c
     }
@@ -81,35 +77,41 @@ impl<'a> Scraper<'a> {
         self
     }
 
-    pub async fn run(&self) -> Result<ScraperResult> {
+    pub fn collector() -> ScraperCollector {
+        ScraperCollector::new()
+    }
+
+    pub fn item(url: String, id: Option<u32>) -> ScraperItem {
+        ScraperItem { id, url }
+    }
+
+    pub async fn run(&self) -> Result<ScraperCollector> {
         let query = self
             .query
             .split(",")
             .map(|s| s.trim().replace(" ", "+"))
             .collect::<Vec<_>>();
 
-        let mut res = ScraperResult::new();
+        let mut res = Self::collector();
         for q in &query {
-            let r = match self.site {
-                Some(Site::AW) | None => Self::animeworld(q, self.proxy).await?,
+            match self.site {
+                Some(Site::AW) | None => Self::animeworld(q, self.proxy, &mut res).await?,
                 Some(Site::AS) => bail!("Scraper `AS` parameter is deprecated"),
-            };
-
-            if res.is_empty() {
-                res = r
-            } else {
-                res.extend(r.items)
             }
+        }
+
+        if res.is_empty() {
+            bail!("No anime found")
         }
 
         Ok(res)
     }
 
-    async fn animeworld(query: &str, proxy: bool) -> Result<ScraperResult> {
+    async fn animeworld(query: &str, proxy: bool, buf: &mut ScraperCollector) -> Result<()> {
         let client = ScraperClient::new(("AWCookietest", "https://animeworld.tv"), proxy).await?;
         let search_url = format!("https://www.animeworld.tv/search?keyword={}", query);
 
-        let fragment = Self::parse(&search_url, &client).await?;
+        let mut fragment = Self::parse(&search_url, &client).await?;
         let results = {
             let div = Selector::parse("div.film-list").unwrap();
             let a = Selector::parse("a.name").unwrap();
@@ -134,11 +136,10 @@ impl<'a> Scraper<'a> {
 
         let choices = tui::get_choice(results).await?;
 
-        let mut anime = ScraperResult::new();
         for c in choices {
             let choice = format!("https://www.animeworld.tv{}", c);
 
-            let fragment = Self::parse(&choice, &client).await?;
+            fragment = Self::parse(&choice, &client).await?;
             let url = {
                 let a = Selector::parse(r#"a[id="alternativeDownloadLink"]"#).unwrap();
 
@@ -169,16 +170,14 @@ impl<'a> Scraper<'a> {
                 None => bail!("No link found"),
             };
 
-            anime.push(ScraperResult::item(url, id));
+            buf.push(Self::item(url, id));
         }
 
-        if anime.is_empty() {
-            bail!("No anime found")
+        if buf.referer.is_empty() {
+            buf.referer = "https://www.animeworld.tv/".to_string();
         }
 
-        anime.referer = "https://www.animeworld.tv/".to_string();
-
-        Ok(anime)
+        Ok(())
     }
 
     async fn parse(url: &str, client: &Client) -> Result<Html> {
@@ -262,6 +261,15 @@ mod tests {
     use super::*;
     use reqwest::Url;
 
+    fn get_url(raw_url: &str) -> String {
+        Url::parse(raw_url)
+            .unwrap()
+            .path_segments()
+            .and_then(|segments| segments.last())
+            .unwrap()
+            .to_owned()
+    }
+
     #[tokio::test]
     async fn test_client() {
         let proxy_client =
@@ -276,13 +284,13 @@ mod tests {
     #[tokio::test]
     async fn test_animeworld() {
         let file = "SeishunButaYarouWaBunnyGirlSenpaiNoYumeWoMinai_Ep_01_SUB_ITA.mp4";
-        let anime = Scraper::animeworld("bunny girl", false).await.unwrap();
-        let info = Url::parse(&anime.first().unwrap().url)
-            .unwrap()
-            .path_segments()
-            .and_then(|segments| segments.last())
-            .unwrap()
-            .to_owned();
+        let mut anime = ScraperCollector::new();
+
+        Scraper::animeworld("bunny girl", false, &mut anime)
+            .await
+            .unwrap();
+
+        let info = get_url(&anime.first().unwrap().url);
 
         assert_eq!(file, info)
     }
@@ -297,12 +305,7 @@ mod tests {
             .await
             .unwrap();
 
-        let info = Url::parse(&anime.first().unwrap().url)
-            .unwrap()
-            .path_segments()
-            .and_then(|segments| segments.last())
-            .unwrap()
-            .to_owned();
+        let info = get_url(&anime.first().unwrap().url);
 
         assert_eq!(file, info)
     }

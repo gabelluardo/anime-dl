@@ -30,7 +30,7 @@ async fn main() {
 #[derive(Default)]
 struct Manager {
     args: Args,
-    items: ScraperResult,
+    items: ScraperCollector,
 }
 
 impl Manager {
@@ -61,7 +61,7 @@ impl Manager {
                 .args
                 .entries
                 .iter()
-                .map(|s| ScraperResult::item(s.to_owned(), None))
+                .map(|s| Scraper::item(s.to_owned(), None))
                 .collect::<_>(),
         };
 
