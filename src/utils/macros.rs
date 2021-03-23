@@ -19,13 +19,6 @@ macro_rules! gen_url {
     };
 }
 
-#[cfg(feature = "aes")]
-macro_rules! delay_for {
-    ($time:expr) => {
-        tokio::time::sleep(std::time::Duration::from_millis($time as u64)).await
-    };
-}
-
 #[cfg(test)]
 mod tests {
     #[test]
