@@ -201,23 +201,21 @@ impl<'a> ScraperClient {
     const USER_AGENT: &'a str = "Mozilla/5.0 (Windows; U; Windows NT 5.1; en-GB; rv:1.8.1.6) Gecko/20070725 Firefox/2.0.0.6";
 
     async fn new(proxy: bool) -> Result<Self> {
-        let mut client = Client::builder()
+        let mut builder = Client::builder()
             .user_agent(Self::USER_AGENT)
-            .default_headers(Self::set_headers().await?);
+            .default_headers(Self::set_headers());
 
         if proxy {
-            client = client.proxy(Self::set_proxy().await?);
+            builder = builder.proxy(Self::set_proxy().await?);
         }
 
-        Ok(Self(client.build()?))
+        let client = builder.build()?;
+
+        Ok(Self(client))
     }
 
     async fn set_proxy() -> Result<reqwest::Proxy> {
-        let response = reqwest::get(
-            "https://api.proxyscrape.com/\
-                    ?request=getproxies&proxytype=http\
-                    &timeout=2000&country=all&ssl=all&anonymity=elite",
-        )
+        let response = reqwest::get("https://api.proxyscrape.com/?request=getproxies&proxytype=http&timeout=2000&country=all&ssl=all&anonymity=elite")
         .await?
         .text()
         .await?;
@@ -230,14 +228,14 @@ impl<'a> ScraperClient {
         reqwest::Proxy::http(&proxy.unwrap()).context("Unable to parse proxyscrape")
     }
 
-    async fn set_headers() -> Result<header::HeaderMap> {
+    fn set_headers() -> header::HeaderMap {
         let mut headers = header::HeaderMap::new();
 
         headers.insert(header::COOKIE, HeaderValue::from_static(Self::COOKIES));
         headers.insert(header::ACCEPT, HeaderValue::from_static(Self::ACCEPT));
         headers.insert(header::ACCEPT_LANGUAGE, HeaderValue::from_static("it"));
 
-        Ok(headers)
+        headers
     }
 }
 
