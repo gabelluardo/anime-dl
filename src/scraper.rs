@@ -108,7 +108,7 @@ impl<'a> Scraper<'a> {
     }
 
     async fn animeworld(query: &str, proxy: bool, buf: &mut ScraperCollector) -> Result<()> {
-        let client = ScraperClient::new(("AWCookietest", "https://animeworld.tv"), proxy).await?;
+        let client = ScraperClient::new(proxy).await?;
         let search_url = format!("https://www.animeworld.tv/search?keyword={}", query);
 
         let mut fragment = Self::parse(&search_url, &client).await?;
@@ -192,8 +192,6 @@ impl<'a> Scraper<'a> {
     }
 }
 
-type CookieInfo<'a> = (&'a str, &'a str);
-
 struct ScraperClient(Client);
 
 impl<'a> ScraperClient {
@@ -202,10 +200,10 @@ impl<'a> ScraperClient {
     const COOKIES: &'a str = "__cfduid=d03255bed084571c421edd313dbfd5fe31610142561; _csrf=PLwPaldqI-hCpuZzS8wfLnkP; expandedPlayer=false; theme=dark";
     const USER_AGENT: &'a str = "Mozilla/5.0 (Windows; U; Windows NT 5.1; en-GB; rv:1.8.1.6) Gecko/20070725 Firefox/2.0.0.6";
 
-    async fn new(site_props: CookieInfo<'_>, proxy: bool) -> Result<Self> {
+    async fn new(proxy: bool) -> Result<Self> {
         let mut client = Client::builder()
             .user_agent(Self::USER_AGENT)
-            .default_headers(Self::set_headers(site_props).await?);
+            .default_headers(Self::set_headers().await?);
 
         if proxy {
             client = client.proxy(Self::set_proxy().await?);
@@ -232,19 +230,14 @@ impl<'a> ScraperClient {
         reqwest::Proxy::http(&proxy.unwrap()).context("Unable to parse proxyscrape")
     }
 
-    async fn set_headers(site_props: CookieInfo<'_>) -> Result<header::HeaderMap> {
+    async fn set_headers() -> Result<header::HeaderMap> {
         let mut headers = header::HeaderMap::new();
-        let cookies = Self::set_cookies(site_props).await?;
 
-        headers.insert(header::COOKIE, HeaderValue::from_str(&cookies)?);
+        headers.insert(header::COOKIE, HeaderValue::from_static(Self::COOKIES));
         headers.insert(header::ACCEPT, HeaderValue::from_static(Self::ACCEPT));
         headers.insert(header::ACCEPT_LANGUAGE, HeaderValue::from_static("it"));
 
         Ok(headers)
-    }
-
-    async fn set_cookies(_: CookieInfo<'a>) -> Result<String> {
-        Ok(String::from(Self::COOKIES))
     }
 }
 
@@ -272,10 +265,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_client() {
-        let proxy_client =
-            ScraperClient::new(("AWCookietest", "https://animeworld.tv"), false).await;
-        let no_proxy_client =
-            ScraperClient::new(("ASCookie", "https://animesaturn.com"), true).await;
+        let proxy_client = ScraperClient::new(false).await;
+        let no_proxy_client = ScraperClient::new(true).await;
 
         proxy_client.unwrap();
         no_proxy_client.unwrap();
