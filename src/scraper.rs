@@ -81,8 +81,11 @@ impl<'a> Scraper<'a> {
         ScraperCollector::new()
     }
 
-    pub fn item(url: String, id: Option<u32>) -> ScraperItem {
-        ScraperItem { id, url }
+    pub fn item(url: &str, id: Option<u32>) -> ScraperItem {
+        ScraperItem {
+            id,
+            url: url.to_owned(),
+        }
     }
 
     pub async fn run(&self) -> Result<ScraperCollector> {
@@ -111,12 +114,12 @@ impl<'a> Scraper<'a> {
         let client = ScraperClient::new(proxy).await?;
         let search_url = format!("https://www.animeworld.tv/search?keyword={}", query);
 
-        let mut fragment = Self::parse(&search_url, &client).await?;
+        let mut page = Self::parse(&search_url, &client).await?;
         let results = {
             let div = Selector::parse("div.film-list").unwrap();
             let a = Selector::parse("a.name").unwrap();
 
-            match fragment.select(&div).next() {
+            match page.select(&div).next() {
                 Some(e) => e
                     .select(&a)
                     .into_iter()
@@ -139,38 +142,28 @@ impl<'a> Scraper<'a> {
         for c in choices {
             let choice = format!("https://www.animeworld.tv{}", c);
 
-            fragment = Self::parse(&choice, &client).await?;
+            page = Self::parse(&choice, &client).await?;
             let url = {
                 let a = Selector::parse(r#"a[id="alternativeDownloadLink"]"#).unwrap();
 
-                fragment
-                    .select(&a)
-                    .last()
-                    .and_then(|a| a.value().attr("href"))
+                page.select(&a).last().and_then(|a| a.value().attr("href"))
             };
 
             let id = {
                 let a = Selector::parse(r#"a[id="anilist-button"]"#).unwrap();
 
-                fragment
-                    .select(&a)
+                page.select(&a)
                     .last()
                     .and_then(|a| a.value().attr("href"))
-                    .map(|u| {
-                        Url::parse(&u)
+                    .and_then(|u| {
+                        Url::parse(u)
                             .unwrap()
                             .path_segments()
-                            .and_then(|segments| segments.last().unwrap().parse::<u32>().ok())
-                            .unwrap()
+                            .and_then(|s| s.last().unwrap().parse::<u32>().ok())
                     })
             };
 
-            let url = match url {
-                Some(u) => u.to_string(),
-                None => bail!("No link found"),
-            };
-
-            buf.push(Self::item(url, id));
+            buf.push(Self::item(url.context("No url found")?, id));
         }
 
         if buf.referer.is_empty() {
@@ -188,7 +181,7 @@ impl<'a> Scraper<'a> {
             .error_for_status()
             .context("Unable to get anime page")?;
 
-        Ok(Html::parse_fragment(&response.text().await?))
+        Ok(Html::parse_document(&response.text().await?))
     }
 }
 
@@ -324,7 +317,7 @@ mod tests {
                     .unwrap()
                     .to_owned()
             })
-            .collect::<Vec<String>>();
+            .collect::<Vec<_>>();
 
         assert_eq!(anime, files)
     }

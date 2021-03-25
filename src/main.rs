@@ -42,7 +42,7 @@ async fn run(args: Args) -> Result<()> {
         None => args
             .entries
             .iter()
-            .map(|s| Scraper::item(s.to_owned(), None))
+            .map(|s| Scraper::item(s, None))
             .collect::<_>(),
     };
 
