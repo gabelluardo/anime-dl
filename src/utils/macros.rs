@@ -2,6 +2,17 @@ macro_rules! print_err {
     ($x:expr) => {
         match $x {
             Ok(item) => item,
+            Err(err) => {
+                bunt::eprintln!("{$red}[ERR] {}{/$}", err);
+                continue;
+            }
+        }
+    };
+}
+macro_rules! return_err {
+    ($x:expr) => {
+        match $x {
+            Ok(item) => item,
             Err(err) => return bunt::eprintln!("{$red}[ERR] {}{/$}", err),
         }
     };

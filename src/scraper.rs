@@ -3,28 +3,35 @@ pub use anyhow::{bail, Context, Result};
 use crate::cli::Site;
 use crate::utils::tui;
 
+use futures::future::join_all;
 use rand::seq::IteratorRandom;
 use reqwest::{header, header::HeaderValue, Client, Url};
 use scraper::{Html, Selector};
+use tokio::sync::Mutex;
 
 use std::iter::FromIterator;
 use std::ops::{Deref, DerefMut};
+use std::sync::Arc;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ScraperItem {
     pub id: Option<u32>,
     pub url: String,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct ScraperCollector {
     pub items: Vec<ScraperItem>,
     pub referer: String,
 }
 
 impl ScraperCollector {
-    pub fn new() -> Self {
+    fn new() -> Self {
         Self::default()
+    }
+
+    fn mutex() -> Arc<Mutex<Self>> {
+        Arc::new(Mutex::new(Self::default()))
     }
 }
 
@@ -51,33 +58,37 @@ impl FromIterator<ScraperItem> for ScraperCollector {
 }
 
 #[derive(Default)]
-pub struct Scraper<'a> {
+pub struct Scraper {
     proxy: bool,
-    query: &'a str,
+    query: String,
     site: Option<Site>,
 }
 
-impl<'a> Scraper<'a> {
-    pub fn new() -> Self {
-        Self::default()
+impl Scraper {
+    pub fn new(proxy: bool, query: &str, site: Option<Site>) -> Self {
+        Self {
+            proxy,
+            site,
+            query: query.to_string(),
+        }
     }
 
-    pub fn proxy(mut self, proxy: bool) -> Self {
+    pub fn _proxy(mut self, proxy: bool) -> Self {
         self.proxy = proxy;
         self
     }
 
-    pub fn query(mut self, query: &'a str) -> Self {
-        self.query = query;
+    pub fn _query(mut self, query: &str) -> Self {
+        self.query = query.to_string();
         self
     }
 
-    pub fn site(mut self, site: Option<Site>) -> Self {
+    pub fn _site(mut self, site: Option<Site>) -> Self {
         self.site = site;
         self
     }
 
-    pub fn collector() -> ScraperCollector {
+    pub fn _collector() -> ScraperCollector {
         ScraperCollector::new()
     }
 
@@ -88,20 +99,29 @@ impl<'a> Scraper<'a> {
         }
     }
 
-    pub async fn run(&self) -> Result<ScraperCollector> {
+    pub async fn run(self) -> Result<ScraperCollector> {
         let query = self
             .query
             .split(",")
             .map(|s| s.trim().replace(" ", "+"))
             .collect::<Vec<_>>();
 
-        let mut res = Self::collector();
-        for q in &query {
-            match self.site {
-                Some(Site::AW) | None => Self::animeworld(q, self.proxy, &mut res).await?,
-                Some(Site::AS) => bail!("Scraper `AS` parameter is deprecated"),
-            }
-        }
+        let func = match self.site {
+            Some(Site::AW) | None => Self::animeworld,
+            Some(Site::AS) => bail!("Scraper `AS` parameter is deprecated"),
+        };
+
+        let res = ScraperCollector::mutex();
+
+        let tasks = query
+            .iter()
+            .map(|q| func(q, self.proxy, res.clone()))
+            .map(|f| async move { return_err!(f.await) })
+            .collect::<Vec<_>>();
+
+        join_all(tasks).await;
+
+        let res = res.lock().await.clone();
 
         if res.is_empty() {
             bail!("No anime found")
@@ -110,7 +130,7 @@ impl<'a> Scraper<'a> {
         Ok(res)
     }
 
-    async fn animeworld(query: &str, proxy: bool, buf: &mut ScraperCollector) -> Result<()> {
+    async fn animeworld(query: &str, proxy: bool, buf: Arc<Mutex<ScraperCollector>>) -> Result<()> {
         let client = ScraperClient::new(proxy).await?;
         let search_url = format!("https://www.animeworld.tv/search?keyword={}", query);
 
@@ -138,6 +158,7 @@ impl<'a> Scraper<'a> {
         };
 
         let choices = tui::get_choice(results).await?;
+        let mut buf = buf.lock().await;
 
         for c in choices {
             let choice = format!("https://www.animeworld.tv{}", c);
@@ -209,9 +230,9 @@ impl<'a> ScraperClient {
 
     async fn set_proxy() -> Result<reqwest::Proxy> {
         let response = reqwest::get("https://api.proxyscrape.com/?request=getproxies&proxytype=http&timeout=2000&country=all&ssl=all&anonymity=elite")
-        .await?
-        .text()
-        .await?;
+            .await?
+            .text()
+            .await?;
 
         let proxy = response
             .split_ascii_whitespace()
@@ -266,11 +287,12 @@ mod tests {
     #[tokio::test]
     async fn test_animeworld() {
         let file = "SeishunButaYarouWaBunnyGirlSenpaiNoYumeWoMinai_Ep_01_SUB_ITA.mp4";
-        let mut anime = ScraperCollector::new();
+        let anime = ScraperCollector::mutex();
 
-        Scraper::animeworld("bunny girl", false, &mut anime)
+        Scraper::animeworld("bunny girl", false, anime.clone())
             .await
             .unwrap();
+        let anime = anime.lock().await.clone();
 
         let info = get_url(&anime.first().unwrap().url);
 
@@ -280,9 +302,9 @@ mod tests {
     #[tokio::test]
     async fn test_scraper() {
         let file = "SeishunButaYarouWaBunnyGirlSenpaiNoYumeWoMinai_Ep_01_SUB_ITA.mp4";
-        let anime = Scraper::new()
-            .site(Some(Site::AW))
-            .query("bunny girl")
+        let anime = Scraper::default()
+            ._site(Some(Site::AW))
+            ._query("bunny girl")
             .run()
             .await
             .unwrap();
@@ -294,20 +316,20 @@ mod tests {
 
     #[tokio::test]
     async fn test_scraper_multi() {
-        let files = vec![
+        let mut files = vec![
             "SeishunButaYarouWaBunnyGirlSenpaiNoYumeWoMinai_Ep_01_SUB_ITA.mp4",
             "TsurezureChildren_Ep_01_SUB_ITA.mp4",
             "Promare_Movie_ITA.mp4",
         ];
 
-        let anime = Scraper::new()
-            .site(Some(Site::AW))
-            .query("bunny girl, tsuredure children, promare")
+        let anime = Scraper::default()
+            ._site(Some(Site::AW))
+            ._query("bunny girl, tsuredure children, promare")
             .run()
             .await
             .unwrap();
 
-        let anime = anime
+        let mut anime = anime
             .iter()
             .map(|a| {
                 Url::parse(&a.url)
@@ -319,6 +341,6 @@ mod tests {
             })
             .collect::<Vec<_>>();
 
-        assert_eq!(anime, files)
+        assert_eq!(anime.sort(), files.sort())
     }
 }

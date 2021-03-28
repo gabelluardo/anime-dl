@@ -21,7 +21,7 @@ use std::process::Stdio;
 
 #[tokio::main]
 async fn main() {
-    print_err!(run(Args::parse()).await);
+    return_err!(run(Args::parse()).await);
 }
 
 async fn run(args: Args) -> Result<()> {
@@ -32,12 +32,10 @@ async fn run(args: Args) -> Result<()> {
 
     let items = match args.search {
         Some(site) => {
-            Scraper::new()
-                .proxy(!args.no_proxy)
-                .query(&args.entries.join(" "))
-                .site(site)
-                .run()
-                .await?
+            let proxy = !args.no_proxy;
+            let query = &args.entries.join(" ");
+
+            Scraper::new(proxy, query, site).run().await?
         }
         None => args
             .entries
@@ -47,7 +45,7 @@ async fn run(args: Args) -> Result<()> {
     };
 
     if args.stream {
-        stream(args, items).await
+        streaming(args, items).await
     } else {
         download(args, items).await
     }
@@ -73,13 +71,13 @@ async fn download(args: Args, items: ScraperCollector) -> Result<()> {
             .await?;
 
         if args.interactive {
-            anime.episodes = tui::get_choice(anime.choices()).await?
+            anime.episodes = print_err!(tui::get_choice(anime.choices()).await)
         }
 
         pool.extend(anime.episodes.into_iter().map(|u| {
             let opts = (path.clone(), referer.as_str(), args.force, bars.add_bar());
 
-            async move { print_err!(download_worker(&u, opts).await) }
+            async move { return_err!(download_worker(&u, opts).await) }
         }))
     }
 
@@ -152,7 +150,7 @@ async fn download_worker(url: &str, opts: (PathBuf, &str, bool, bars::ProgressBa
     Ok(())
 }
 
-async fn stream(args: Args, items: ScraperCollector) -> Result<()> {
+async fn streaming(args: Args, items: ScraperCollector) -> Result<()> {
     let referer = format!("--http-referrer={}", items.referer);
 
     for item in items.iter() {
