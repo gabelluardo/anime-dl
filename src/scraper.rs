@@ -111,17 +111,16 @@ impl Scraper {
             Some(Site::AS) => bail!("Scraper `AS` parameter is deprecated"),
         };
 
-        let res = ScraperCollector::mutex();
-
+        let sc = ScraperCollector::mutex();
         let tasks = query
             .iter()
-            .map(|q| func(q, self.proxy, res.clone()))
+            .map(|q| func(q, self.proxy, sc.clone()))
             .map(|f| async move { return_err!(f.await) })
             .collect::<Vec<_>>();
 
         join_all(tasks).await;
 
-        let res = res.lock().await.clone();
+        let res = sc.lock().await.clone();
 
         if res.is_empty() {
             bail!("No anime found")
@@ -134,7 +133,7 @@ impl Scraper {
         let client = ScraperClient::new(proxy).await?;
         let search_url = format!("https://www.animeworld.tv/search?keyword={}", query);
 
-        let mut page = Self::parse(&search_url, &client).await?;
+        let page = Self::parse(search_url, &client).await?;
         let results = {
             let div = Selector::parse("div.film-list").unwrap();
             let a = Selector::parse("a.name").unwrap();
@@ -158,34 +157,42 @@ impl Scraper {
         };
 
         let choices = tui::get_choice(results).await?;
+
+        let pages = choices
+            .iter()
+            .map(|c| Self::parse(format!("https://www.animeworld.tv{}", c), &client))
+            .collect::<Vec<_>>();
+
+        let res = join_all(pages)
+            .await
+            .into_iter()
+            .filter_map(|p| p.ok())
+            .map(|page| {
+                let url = {
+                    let a = Selector::parse(r#"a[id="alternativeDownloadLink"]"#).unwrap();
+
+                    page.select(&a).last().and_then(|a| a.value().attr("href"))
+                };
+                let id = {
+                    let a = Selector::parse(r#"a[id="anilist-button"]"#).unwrap();
+
+                    page.select(&a)
+                        .last()
+                        .and_then(|a| a.value().attr("href"))
+                        .and_then(|u| {
+                            Url::parse(u)
+                                .unwrap()
+                                .path_segments()
+                                .and_then(|s| s.last().unwrap().parse::<u32>().ok())
+                        })
+                };
+
+                Self::item(url.context("No url found").unwrap(), id)
+            })
+            .collect::<Vec<_>>();
+
         let mut buf = buf.lock().await;
-
-        for c in choices {
-            let choice = format!("https://www.animeworld.tv{}", c);
-
-            page = Self::parse(&choice, &client).await?;
-            let url = {
-                let a = Selector::parse(r#"a[id="alternativeDownloadLink"]"#).unwrap();
-
-                page.select(&a).last().and_then(|a| a.value().attr("href"))
-            };
-
-            let id = {
-                let a = Selector::parse(r#"a[id="anilist-button"]"#).unwrap();
-
-                page.select(&a)
-                    .last()
-                    .and_then(|a| a.value().attr("href"))
-                    .and_then(|u| {
-                        Url::parse(u)
-                            .unwrap()
-                            .path_segments()
-                            .and_then(|s| s.last().unwrap().parse::<u32>().ok())
-                    })
-            };
-
-            buf.push(Self::item(url.context("No url found")?, id));
-        }
+        buf.extend(res);
 
         if buf.referer.is_empty() {
             buf.referer = "https://www.animeworld.tv/".to_string();
@@ -194,9 +201,9 @@ impl Scraper {
         Ok(())
     }
 
-    async fn parse(url: &str, client: &Client) -> Result<Html> {
+    async fn parse(url: String, client: &Client) -> Result<Html> {
         let response = client
-            .get(url)
+            .get(&url)
             .send()
             .await?
             .error_for_status()

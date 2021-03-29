@@ -85,7 +85,7 @@ pub async fn get_choice(choices: Vec<Choice>) -> Result<Vec<String>> {
 pub async fn get_token(url: &str) -> Result<String> {
     print!(
         "{$cyan+bold}Anilist Oauth{/$}\n\n\
-        {$green}Autenticate to: {/$}\n\
+        {$green}Authenticate to: {/$}\n\
         {[magenta+bold]}\n\n\
         {$red}==> {/$}\
         {$bold}Paste token here: {/$}\n\
