@@ -203,14 +203,17 @@ pub struct FileDest {
     pub overwrite: bool,
 }
 
-type FileProps<'a> = (&'a PathBuf, &'a str, bool);
+type FileProps<'a> = (&'a Path, &'a str, bool);
 
 impl FileDest {
     pub async fn new(props: FileProps<'_>) -> Result<Self> {
         let (root, filename, overwrite) = props;
 
+        let root = root.to_owned();
+        let overwrite = overwrite.to_owned();
+
         if !root.exists() {
-            fs::create_dir_all(root).await?;
+            fs::create_dir_all(&root).await?;
         }
 
         let mut file = root.clone();
@@ -221,9 +224,6 @@ impl FileDest {
             false => 0,
         };
 
-        let root = root.to_owned();
-        let overwrite = overwrite.to_owned();
-
         Ok(Self {
             root,
             file,
@@ -233,14 +233,13 @@ impl FileDest {
     }
 
     pub async fn open(&self) -> Result<fs::File> {
-        let file = fs::OpenOptions::new()
+        fs::OpenOptions::new()
             .append(!self.overwrite)
             .truncate(self.overwrite)
             .write(self.overwrite)
             .create(true)
             .open(&self.file)
-            .await?;
-
-        Ok(file)
+            .await
+            .context("Unable to open file")
     }
 }

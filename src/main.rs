@@ -166,7 +166,7 @@ impl Manager {
             .and_then(|ct_len| ct_len.parse().ok())
             .unwrap_or_default();
 
-        let props = (&root, filename.as_str(), overwrite);
+        let props = (root.as_path(), filename.as_str(), overwrite);
         let file = FileDest::new(props).await?;
         if file.size >= source_size {
             bail!("{} already exists", &filename);
