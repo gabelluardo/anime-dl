@@ -10,30 +10,83 @@ jobs:
     name: Publish for ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
-      matrix:
+      matrix:        
+        target:
+          - x86_64-unknown-linux-musl
+          - armv7-unknown-linux-musleabihf
+          - arm-unknown-linux-musleabihf
+          - x86_64-pc-windows-msvc
+          - x86_64-apple-darwin
         include:
           - os: ubuntu-latest
-            artifact_name: anime-dl
-            release_name: linux-x86_64
-          - os: macos-latest
-            artifact_name: anime-dl
-            release_name: osx-x86_64
+            target: x86_64-unknown-linux-musl
+            artifact_name: target/x86_64-unknown-linux-musl/release/anime-dl
+            release_name: x86_64-unknown-linux-musl
+            cross: true
+            strip: true
+            compress: true
+          
+          - os: ubuntu-latest
+            target: armv7-unknown-linux-musleabihf
+            artifact_name: target/armv7-unknown-linux-musleabihf/release/anime-dl
+            release_name: armv7-unknown-linux-musleabihf
+            cross: true
+            strip: false
+            compress: true
+          
+          - os: ubuntu-latest
+            target: arm-unknown-linux-musleabihf
+            artifact_name: target/arm-unknown-linux-musleabihf/release/anime-dl
+            release_name: arm-unknown-linux-musleabihf
+            cross: true
+            strip: false
+            compress: true
+            
+          - os: macos-latest          
+            target: x86_64-apple-darwin
+            artifact_name: target/x86_64-apple-darwin/release/anime-dl
+            release_name: x86_64-apple-darwin
+            cross: false
+            strip: true
+            compress: true
+            
           - os: windows-latest
-            artifact_name: anime-dl.exe
-            release_name: win-x86_64.exe
-
+            target: x86_64-pc-windows-msvc
+            artifact_name: target/x86_64-pc-windows-msvc/release/anime-dl.exe
+            release_name: x86_64-pc-windows-msvc.exe
+            cross: false
+            strip: true
+            compress: true
+            
     steps:
-    - uses: hecrj/setup-rust-action@v1
-      with:
-        rust-version: stable
-    - uses: actions/checkout@v1
-    - name: Build
-      run: cargo build --release --locked
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Setup Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          target: ${{ matrix.target }}
       
-    - name: Release
-      uses: svenstaro/upload-release-action@v2
-      with:
-        repo_token: ${{ secrets.GITHUB_TOKEN }}
-        file: target/release/${{ matrix.artifact_name }}
-        tag: ${{ github.ref }}
-        asset_name: anime-dl-$tag-${{ matrix.release_name }}
+      - name: Build
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --release --locked --target=${{ matrix.target }}
+          use-cross: ${{ matrix.cross }}
+      
+      - name: Compress binaries
+        uses: svenstaro/upx-action@v2
+        with:
+          file: ${{ matrix.artifact_name }}
+          args: --lzma
+          strip: ${{ matrix.strip }}
+        if: ${{ matrix.compress }}
+      
+      - name: Release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: ${{ matrix.artifact_name }}
+          tag: ${{ github.ref }}
+          asset_name: anime-dl-$tag-${{ matrix.release_name }}
