@@ -233,20 +233,13 @@ impl FileDest {
     }
 
     pub async fn open(&self) -> Result<fs::File> {
-        let file = if !self.overwrite {
-            fs::OpenOptions::new()
-                .append(true)
-                .create(true)
-                .open(&self.file)
-                .await?
-        } else {
-            fs::OpenOptions::new()
-                .write(true)
-                .create(true)
-                .truncate(true)
-                .open(&self.file)
-                .await?
-        };
+        let file = fs::OpenOptions::new()
+            .append(!self.overwrite)
+            .truncate(self.overwrite)
+            .write(self.overwrite)
+            .create(true)
+            .open(&self.file)
+            .await?;
 
         Ok(file)
     }
