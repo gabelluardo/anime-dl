@@ -8,6 +8,7 @@ use std::str::FromStr;
 
 arg_enum! {
     #[derive(Debug, Copy, Clone)]
+    #[allow(clippy::upper_case_acronyms)]
     pub enum Site {
         AW,
         AS,

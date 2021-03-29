@@ -9,7 +9,7 @@ use reqwest::Client;
 
 use tokio::fs;
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 #[derive(Default, Debug)]
 pub struct AnimeBuilder {
@@ -44,7 +44,7 @@ impl AnimeBuilder {
         self
     }
 
-    pub fn path(mut self, path: &PathBuf) -> Self {
+    pub fn path(mut self, path: &Path) -> Self {
         self.path = path.to_owned();
         self
     }
