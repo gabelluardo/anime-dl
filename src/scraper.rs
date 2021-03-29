@@ -122,10 +122,6 @@ impl Scraper {
 
         let res = sc.lock().await.clone();
 
-        if res.is_empty() {
-            bail!("No anime found")
-        }
-
         Ok(res)
     }
 
@@ -138,23 +134,25 @@ impl Scraper {
             let div = Selector::parse("div.film-list").unwrap();
             let a = Selector::parse("a.name").unwrap();
 
-            match page.select(&div).next() {
-                Some(e) => e
-                    .select(&a)
-                    .into_iter()
-                    .map(|a| {
-                        tui::Choice::new(
-                            a.value().attr("href").expect("No link found").to_string(),
-                            a.first_child()
-                                .and_then(|a| a.value().as_text())
-                                .expect("No name found")
-                                .to_string(),
-                        )
-                    })
-                    .collect::<Vec<_>>(),
-                None => bail!("Request blocked, retry"),
-            }
+            let elem = page.select(&div).next().context("Request blocked, retry")?;
+            elem.select(&a)
+                .into_iter()
+                .map(|a| {
+                    let link = a.value().attr("href").expect("No link found").to_string();
+                    let name = a
+                        .first_child()
+                        .and_then(|a| a.value().as_text())
+                        .expect("No name found")
+                        .to_string();
+
+                    tui::Choice::new(link, name)
+                })
+                .collect::<Vec<_>>()
         };
+
+        if results.is_empty() {
+            bail!("No anime found")
+        }
 
         let choices = tui::get_choice(results).await?;
 
@@ -168,28 +166,30 @@ impl Scraper {
             .into_iter()
             .filter_map(|p| p.ok())
             .map(|page| {
-                let url = {
-                    let a = Selector::parse(r#"a[id="alternativeDownloadLink"]"#).unwrap();
+                let a = Selector::parse(r#"a[id="alternativeDownloadLink"]"#).unwrap();
+                let btn = Selector::parse(r#"a[id="anilist-button"]"#).unwrap();
 
-                    page.select(&a).last().and_then(|a| a.value().attr("href"))
-                };
-                let id = {
-                    let a = Selector::parse(r#"a[id="anilist-button"]"#).unwrap();
+                let url = page.select(&a).last().and_then(|a| a.value().attr("href"));
+                let id = page
+                    .select(&btn)
+                    .last()
+                    .and_then(|a| a.value().attr("href"))
+                    .and_then(|u| {
+                        Url::parse(u)
+                            .unwrap()
+                            .path_segments()
+                            .and_then(|s| s.last())
+                            .and_then(|s| s.parse::<u32>().ok())
+                    });
 
-                    page.select(&a)
-                        .last()
-                        .and_then(|a| a.value().attr("href"))
-                        .and_then(|u| {
-                            Url::parse(u)
-                                .unwrap()
-                                .path_segments()
-                                .and_then(|s| s.last().unwrap().parse::<u32>().ok())
-                        })
-                };
-
-                Self::item(url.context("No url found").unwrap(), id)
+                Self::item(url.unwrap_or_default(), id)
             })
+            .filter(|i| i.url != "")
             .collect::<Vec<_>>();
+
+        if res.is_empty() {
+            bail!("No url found")
+        }
 
         let mut buf = buf.lock().await;
         buf.extend(res);
@@ -343,8 +343,8 @@ mod tests {
                     .unwrap()
                     .path_segments()
                     .and_then(|segments| segments.last())
-                    .unwrap()
-                    .to_owned()
+                    .map(|s| s.to_string())
+                    .unwrap_or_default()
             })
             .collect::<Vec<_>>();
 
