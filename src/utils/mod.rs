@@ -1,17 +1,17 @@
+use std::path::PathBuf;
+
+use anyhow::{bail, Result};
+use regex::Regex;
+
+pub use bars::Bars;
+pub use range::Range;
+
 #[macro_use]
 mod macros;
 
 pub mod bars;
 pub mod range;
 pub mod tui;
-
-use anyhow::{bail, Result};
-use regex::Regex;
-
-use std::path::PathBuf;
-
-pub use bars::Bars;
-pub use range::Range;
 
 pub const PLACEHOLDER: &str = "_{}";
 

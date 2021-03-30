@@ -1,6 +1,6 @@
-pub use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
-
 use std::ops::Deref;
+
+pub use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 
 pub struct Bars(MultiProgress);
 

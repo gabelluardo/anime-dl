@@ -1,3 +1,16 @@
+use std::path::PathBuf;
+use std::process::Stdio;
+
+use futures::stream::StreamExt;
+use reqwest::header::{CONTENT_LENGTH, RANGE, REFERER};
+use reqwest::{Client, Url};
+use tokio::{io::AsyncWriteExt, process::Command, task};
+use tokio_stream as stream;
+
+use anime::*;
+use cli::*;
+use utils::*;
+
 #[macro_use]
 mod utils;
 
@@ -5,19 +18,6 @@ mod anime;
 mod api;
 mod cli;
 mod scraper;
-
-use anime::*;
-use cli::*;
-use utils::*;
-
-use futures::stream::StreamExt;
-use reqwest::header::{CONTENT_LENGTH, RANGE, REFERER};
-use reqwest::{Client, Url};
-use tokio::{io::AsyncWriteExt, process::Command, task};
-use tokio_stream::{self as stream};
-
-use std::path::PathBuf;
-use std::process::Stdio;
 
 #[tokio::main]
 async fn main() {

@@ -1,9 +1,9 @@
-use super::*;
+use std::io::Write;
 
 use bunt::{print, println};
 use tokio::io::{self, AsyncBufReadExt, BufReader};
 
-use std::io::Write;
+use super::*;
 
 pub struct Choice {
     link: String,
