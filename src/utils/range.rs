@@ -1,7 +1,7 @@
-use super::*;
-
 use std::ops::{Deref, RangeInclusive as OpsRange};
 use std::str::FromStr;
+
+use super::*;
 
 #[derive(Debug, Clone)]
 pub struct Range<T>(OpsRange<T>);

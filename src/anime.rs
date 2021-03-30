@@ -1,15 +1,13 @@
-#[cfg(feature = "anilist")]
-pub use crate::api::AniList;
-pub use crate::scraper::*;
-
-use crate::utils::{self, *};
+use std::path::{Path, PathBuf};
 
 use reqwest::header::REFERER;
 use reqwest::Client;
-
 use tokio::fs;
 
-use std::path::{Path, PathBuf};
+#[cfg(feature = "anilist")]
+pub use crate::api::AniList;
+pub use crate::scraper::*;
+use crate::utils::{self, *};
 
 #[derive(Default, Debug)]
 pub struct AnimeBuilder {

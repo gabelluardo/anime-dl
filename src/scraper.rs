@@ -1,17 +1,16 @@
+use std::iter::FromIterator;
+use std::ops::{Deref, DerefMut};
+use std::sync::Arc;
+
 pub use anyhow::{bail, Context, Result};
-
-use crate::cli::Site;
-use crate::utils::tui;
-
 use futures::future::join_all;
 use rand::seq::IteratorRandom;
 use reqwest::{header, header::HeaderValue, Client, Url};
 use scraper::{Html, Selector};
 use tokio::sync::Mutex;
 
-use std::iter::FromIterator;
-use std::ops::{Deref, DerefMut};
-use std::sync::Arc;
+use crate::cli::Site;
+use crate::utils::tui;
 
 #[derive(Debug, Clone)]
 pub struct ScraperItem {
@@ -270,8 +269,9 @@ impl Deref for ScraperClient {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use reqwest::Url;
+
+    use super::*;
 
     fn get_url(raw_url: &str) -> String {
         Url::parse(raw_url)

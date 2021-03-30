@@ -1,10 +1,10 @@
-use crate::utils::Range;
-
-use structopt::{clap::arg_enum, StructOpt};
-
 use std::num::ParseIntError;
 use std::path::PathBuf;
 use std::str::FromStr;
+
+use structopt::{clap::arg_enum, StructOpt};
+
+use crate::utils::Range;
 
 arg_enum! {
     #[derive(Debug, Copy, Clone)]
@@ -37,11 +37,11 @@ pub struct Args {
 
     /// Maximum number of simultaneous downloads allowed
     #[structopt(
-        default_value = "24",
-        short = "m",
-        long = "max-concurrent",
-        name = "max",
-        parse(try_from_str = parse_dim_buff)
+    default_value = "24",
+    short = "m",
+    long = "max-concurrent",
+    name = "max",
+    parse(try_from_str = parse_dim_buff)
     )]
     pub dim_buff: usize,
 
@@ -59,11 +59,11 @@ pub struct Args {
 
     /// Search anime in remote archive
     #[structopt(
-        long,
-        short = "S",
-        name = "site",
-        case_insensitive = true,
-        possible_values = &Site::variants(),
+    long,
+    short = "S",
+    name = "site",
+    case_insensitive = true,
+    possible_values = & Site::variants(),
     )]
     pub search: Option<Option<Site>>,
 
