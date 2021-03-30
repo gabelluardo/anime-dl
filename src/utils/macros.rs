@@ -2,6 +2,17 @@ macro_rules! print_err {
     ($x:expr) => {
         match $x {
             Ok(item) => item,
+            Err(err) => {
+                bunt::eprintln!("{$red}[ERR] {}{/$}", err);
+                continue;
+            }
+        }
+    };
+}
+macro_rules! return_err {
+    ($x:expr) => {
+        match $x {
+            Ok(item) => item,
             Err(err) => return bunt::eprintln!("{$red}[ERR] {}{/$}", err),
         }
     };
@@ -16,13 +27,6 @@ macro_rules! zfill {
 macro_rules! gen_url {
     ($str:expr, $num:expr) => {
         $str.replace(crate::utils::PLACEHOLDER, &zfill!($num))
-    };
-}
-
-#[cfg(feature = "aes")]
-macro_rules! delay_for {
-    ($time:expr) => {
-        tokio::time::sleep(std::time::Duration::from_millis($time as u64)).await
     };
 }
 
