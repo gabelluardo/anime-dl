@@ -1,6 +1,9 @@
 use std::io::Write;
 
-use bunt::{print, println};
+use bunt::{
+    termcolor::{ColorChoice, StandardStream},
+    write, writeln,
+};
 use tokio::io::{self, AsyncBufReadExt, BufReader};
 
 use super::*;
@@ -21,19 +24,22 @@ pub async fn get_choice(choices: Vec<Choice>) -> Result<Vec<String>> {
         0 => bail!("No match found"),
         1 => Ok(vec![choices[0].link.to_string()]),
         _ => {
-            println!("{$cyan+bold}{} results found{/$}\n", choices.len());
+            let stream = StandardStream::stdout(ColorChoice::Auto);
+            let mut stdout = stream.lock();
+
+            writeln!(stdout, "{$cyan+bold}{} results found{/$}\n", choices.len())?;
             for (i, c) in choices.iter().enumerate() {
-                println!("[{[magenta]}] {[green]}", i + 1, c.name);
+                writeln!(stdout, "[{[magenta]}] {[green]}", i + 1, c.name)?;
             }
 
-            print!(
+            write!(
+                stdout,
                 "\n\
                 {$red}==> {/$}\
                 {$bold}What to watch (eg: 1 2 3 or 1-3) [default=All]{/$}\n\
                 {$red}==> {/$}",
-            );
-            // TODO: Fix console bug on async flush
-            std::io::stdout().flush()?;
+            )?;
+            stdout.flush()?;
 
             let mut reader = BufReader::new(io::stdin());
             let mut line = String::new();
@@ -83,7 +89,11 @@ pub async fn get_choice(choices: Vec<Choice>) -> Result<Vec<String>> {
 
 #[cfg(feature = "anilist")]
 pub async fn get_token(url: &str) -> Result<String> {
-    print!(
+    let stream = StandardStream::stdout(ColorChoice::Always);
+    let mut stdout = stream.lock();
+
+    write!(
+        stdout,
         "{$cyan+bold}Anilist Oauth{/$}\n\n\
         {$green}Authenticate to: {/$}\n\
         {[magenta+bold]}\n\n\
@@ -91,12 +101,14 @@ pub async fn get_token(url: &str) -> Result<String> {
         {$bold}Paste token here: {/$}\n\
         {$red}==> {/$}",
         url
-    );
-    std::io::stdout().flush()?;
+    )?;
+    stdout.flush()?;
 
     let mut reader = BufReader::new(io::stdin());
     let mut line = String::new();
     reader.read_line(&mut line).await?;
 
-    Ok(line.trim().to_string())
+    let line = line.trim().to_string();
+
+    Ok(line)
 }

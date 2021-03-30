@@ -21,7 +21,7 @@ mod scraper;
 
 #[tokio::main]
 async fn main() {
-    return_err!(run(Args::parse()).await);
+    return_err!(run(Args::parse()).await)
 }
 
 async fn run(args: Args) -> Result<()> {
@@ -74,11 +74,13 @@ async fn download(args: Args, items: ScraperCollector) -> Result<()> {
             anime.episodes = print_err!(tui::get_choice(anime.choices()).await)
         }
 
-        pool.extend(anime.episodes.into_iter().map(|u| {
+        let tasks = anime.episodes.into_iter().map(|u| {
             let opts = (path.clone(), referer.as_str(), args.force, bars.add_bar());
 
             async move { return_err!(download_worker(&u, opts).await) }
-        }))
+        });
+
+        pool.extend(tasks)
     }
 
     task::spawn_blocking(move || bars.join().unwrap());
@@ -163,7 +165,7 @@ async fn streaming(args: Args, items: ScraperCollector) -> Result<()> {
             .build()
             .await?;
 
-        let urls = tui::get_choice(anime.choices()).await?;
+        let urls = print_err!(tui::get_choice(anime.choices()).await);
 
         // NOTE: Workaround for streaming in Windows
         let cmd = match cfg!(windows) {
