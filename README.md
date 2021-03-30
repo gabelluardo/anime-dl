@@ -73,7 +73,7 @@ For parsing urls from a file (es. `urls` ):
 anime-dl [FLAGS] [OPTIONS] $(cat urls)
 ```
 
-**⚠️ Streaming requires `vlc` ⚠️**
+**⚠️ Streaming requires [vlc](https://www.videolan.org/vlc/) ⚠️**
 
 ``` sh
 anime-dl -sc <entries>
@@ -85,10 +85,6 @@ For [Anilist](https://anilist.co) integration create an enviroment variable
 `ANIMEDL_ID` with the ID of your [developer api client](https://anilist.co/settings/developer), 
 or use the default of the app: `4047`
 
-### Known issue
-
-1. Scraper only allows one search at a time.
-2. Stream with [vlc](https://www.videolan.org/vlc/) may not work in Windows
 
 ### Contribution 
 
@@ -96,4 +92,4 @@ Feel free to add scrapers for your favorite archive, or make any other kind of c
 
 ### License
 
-GPLv3
+[GPLv3](LICENSE)
