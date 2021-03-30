@@ -102,7 +102,7 @@ impl Scraper {
     pub async fn run(self) -> Result<ScraperCollector> {
         let query = self
             .query
-            .split(",")
+            .split(',')
             .map(|s| s.trim().replace(" ", "+"))
             .collect::<Vec<_>>();
 
@@ -184,7 +184,7 @@ impl Scraper {
 
                 Self::item(url.unwrap_or_default(), id)
             })
-            .filter(|i| i.url != "")
+            .filter(|i| !i.url.is_empty())
             .collect::<Vec<_>>();
 
         if res.is_empty() {

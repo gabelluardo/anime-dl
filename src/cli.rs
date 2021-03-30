@@ -2,14 +2,26 @@ use crate::utils::Range;
 
 use structopt::{clap::arg_enum, StructOpt};
 
+use std::num::ParseIntError;
 use std::path::PathBuf;
+use std::str::FromStr;
 
 arg_enum! {
     #[derive(Debug, Copy, Clone)]
+    #[allow(clippy::upper_case_acronyms)]
     pub enum Site {
         AW,
         AS,
     }
+}
+
+fn parse_dim_buff(src: &str) -> Result<usize, ParseIntError> {
+    let mut num = usize::from_str(src)?;
+    if num == 0 {
+        num = 1
+    }
+
+    Ok(num)
 }
 
 #[derive(Debug, Default, StructOpt)]
@@ -28,7 +40,8 @@ pub struct Args {
         default_value = "24",
         short = "m",
         long = "max-concurrent",
-        name = "max"
+        name = "max",
+        parse(try_from_str = parse_dim_buff)
     )]
     pub dim_buff: usize,
 
@@ -89,12 +102,6 @@ pub struct Args {
 
 impl Args {
     pub fn parse() -> Self {
-        let mut args = Self::from_args();
-
-        if args.dim_buff == 0 {
-            args.dim_buff = 1
-        }
-
-        args
+        Self::from_args()
     }
 }

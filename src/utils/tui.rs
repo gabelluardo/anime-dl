@@ -48,7 +48,7 @@ pub async fn get_choice(choices: Vec<Choice>) -> Result<Vec<String>> {
                 .collect::<Vec<_>>();
 
             if line.contains(&[',', '-', '.'][..]) {
-                let re = Regex::new(r"(?:\d+[-|,|\.]+\d*)").unwrap();
+                let re = Regex::new(r"(?:\d+[,\-.]+\d*)").unwrap();
                 re.captures_iter(&line)
                     .map(|c| c[0].to_string())
                     .for_each(|s| {

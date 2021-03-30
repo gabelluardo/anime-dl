@@ -9,7 +9,7 @@ use reqwest::Client;
 
 use tokio::fs;
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 #[derive(Default, Debug)]
 pub struct AnimeBuilder {
@@ -44,7 +44,7 @@ impl AnimeBuilder {
         self
     }
 
-    pub fn path(mut self, path: &PathBuf) -> Self {
+    pub fn path(mut self, path: &Path) -> Self {
         self.path = path.to_owned();
         self
     }
@@ -203,14 +203,17 @@ pub struct FileDest {
     pub overwrite: bool,
 }
 
-type FileProps<'a> = (&'a PathBuf, &'a str, bool);
+type FileProps<'a> = (&'a Path, &'a str, bool);
 
 impl FileDest {
     pub async fn new(props: FileProps<'_>) -> Result<Self> {
         let (root, filename, overwrite) = props;
 
+        let root = root.to_owned();
+        let overwrite = overwrite.to_owned();
+
         if !root.exists() {
-            fs::create_dir_all(root).await?;
+            fs::create_dir_all(&root).await?;
         }
 
         let mut file = root.clone();
@@ -221,9 +224,6 @@ impl FileDest {
             false => 0,
         };
 
-        let root = root.to_owned();
-        let overwrite = overwrite.to_owned();
-
         Ok(Self {
             root,
             file,
@@ -233,21 +233,13 @@ impl FileDest {
     }
 
     pub async fn open(&self) -> Result<fs::File> {
-        let file = if !self.overwrite {
-            fs::OpenOptions::new()
-                .append(true)
-                .create(true)
-                .open(&self.file)
-                .await?
-        } else {
-            fs::OpenOptions::new()
-                .write(true)
-                .create(true)
-                .truncate(true)
-                .open(&self.file)
-                .await?
-        };
-
-        Ok(file)
+        fs::OpenOptions::new()
+            .append(!self.overwrite)
+            .truncate(self.overwrite)
+            .write(self.overwrite)
+            .create(true)
+            .open(&self.file)
+            .await
+            .context("Unable to open file")
     }
 }
