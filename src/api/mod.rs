@@ -1,4 +1,5 @@
 #![cfg(feature = "anilist")]
-pub mod anilist;
 
 pub use anilist::*;
+
+pub mod anilist;

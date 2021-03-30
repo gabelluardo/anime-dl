@@ -1,11 +1,11 @@
-use crate::utils::tui;
+use std::path::PathBuf;
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result};
 use graphql_client::{GraphQLQuery, Response};
 use reqwest::{header, header::HeaderValue, Client};
 use tokio::{fs, io::AsyncReadExt, io::AsyncWriteExt};
 
-use std::path::PathBuf;
+use crate::utils::tui;
 
 struct Config(PathBuf);
 
@@ -73,15 +73,9 @@ impl Config {
 pub struct AniListBuilder {
     anime_id: Option<u32>,
     client_id: Option<u32>,
-    token: Option<String>,
 }
 
-impl<'a> AniListBuilder {
-    const AUTHORIZATION: &'a str = "Bearer ";
-    const ACCEPT: &'a str = "application/json";
-    const OAUTH_URL: &'a str = "https://anilist.co/api/v2/oauth/authorize?\
-        response_type=token&client_id=";
-
+impl AniListBuilder {
     pub fn anime_id(mut self, anime_id: Option<u32>) -> Self {
         self.anime_id = anime_id;
         self
@@ -93,37 +87,35 @@ impl<'a> AniListBuilder {
     }
 
     pub async fn build(self) -> Result<AniList> {
-        match self.client_id {
-            Some(client_id) => {
-                let oauth_url = format!("{}{}", Self::OAUTH_URL, client_id);
-                let config = Config::new();
+        let client_id = self.client_id.context("No `ANIMEDL_ID` env varibale")?;
+        let config = Config::new();
 
-                let token = match self.token {
-                    Some(t) => t,
-                    None => match config.load().await {
-                        Some(t) => t,
-                        None => {
-                            let token = tui::get_token(&oauth_url).await?;
-                            config.save(&token).await?;
-                            token
-                        }
-                    },
-                };
+        let oauth_url = format!(
+            "https://anilist.co/api/v2/oauth/authorize?response_type=token&client_id={}",
+            client_id
+        );
 
-                let mut headers = header::HeaderMap::new();
-                let auth = HeaderValue::from_str(&format!("{}{}", Self::AUTHORIZATION, token))?;
-
-                headers.insert(header::AUTHORIZATION, auth);
-                headers.insert(header::ACCEPT, HeaderValue::from_static(Self::ACCEPT));
-                headers.insert(header::CONTENT_TYPE, HeaderValue::from_static(Self::ACCEPT));
-
-                Ok(AniList {
-                    anime_id: self.anime_id.map(|id| id as i64),
-                    client: Client::builder().default_headers(headers).build()?,
-                })
+        let token = match config.load().await {
+            Some(t) => t,
+            _ => {
+                let token = tui::get_token(&oauth_url).await?;
+                config.save(&token).await?;
+                token
             }
-            _ => bail!("No `ANIMEDL_ID` env varibale"),
-        }
+        };
+
+        let mut headers = header::HeaderMap::new();
+        let auth = HeaderValue::from_str(&format!("Bearer {}", token))?;
+        let application = HeaderValue::from_static("application/json");
+
+        headers.insert(header::AUTHORIZATION, auth);
+        headers.insert(header::ACCEPT, application.clone());
+        headers.insert(header::CONTENT_TYPE, application);
+
+        let anime_id = self.anime_id.map(|id| id as i64);
+        let client = Client::builder().default_headers(headers).build()?;
+
+        Ok(AniList { anime_id, client })
     }
 }
 
@@ -132,9 +124,7 @@ pub struct AniList {
     anime_id: Option<i64>,
 }
 
-impl<'a> AniList {
-    const REQUEST_URL: &'a str = "https://graphql.anilist.co";
-
+impl AniList {
     pub fn builder() -> AniListBuilder {
         AniListBuilder::default()
     }
@@ -144,8 +134,10 @@ impl<'a> AniList {
     }
 
     pub async fn last_viewed(&self) -> Result<Option<u32>> {
+        let endpoint = "https://graphql.anilist.co";
+
         let q = ProgressQuery::build_query(progress_query::Variables { id: self.anime_id });
-        let res = self.client.post(Self::REQUEST_URL).json(&q).send().await?;
+        let res = self.client.post(endpoint).json(&q).send().await?;
         let response_body: Response<progress_query::ResponseData> = res.json().await?;
 
         let data = response_body
