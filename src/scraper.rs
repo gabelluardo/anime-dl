@@ -243,7 +243,7 @@ impl<'a> ScraperClient {
         let proxy = response
             .split_ascii_whitespace()
             .choose(&mut rand::thread_rng())
-            .map(|s| format!("http://{}", s));
+            .map(|s| format!("https://{}", s));
 
         reqwest::Proxy::http(&proxy.unwrap()).context("Unable to parse proxyscrape")
     }

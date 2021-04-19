@@ -57,12 +57,7 @@ pub fn find_first_match(url: &str, matcher: &str) -> Result<String> {
 pub fn to_title_case(s: &str) -> String {
     let mut res = s.to_string();
 
-    let re = Regex::new(r"[A-Z][a-z]+").unwrap();
-    re.captures_iter(s)
-        .map(|c| (&c[0] as &str).to_string())
-        .for_each(|c| res = res.replace(&c, &format!(" {}", c)));
-
-    let re = Regex::new(r"\d").unwrap();
+    let re = Regex::new(r"([A-Z][a-z]+|\d+)").unwrap();
     re.captures_iter(s)
         .map(|c| (&c[0] as &str).to_string())
         .for_each(|c| res = res.replace(&c, &format!(" {}", c)));
@@ -121,5 +116,8 @@ mod tests {
 
         let s = "SAO2";
         assert_eq!(to_title_case(s), "SAO 2");
+
+        let s = "SlimeTaoshite300-nen";
+        assert_eq!(to_title_case(s), "Slime Taoshite 300-nen")
     }
 }
