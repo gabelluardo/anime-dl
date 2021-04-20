@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::path::PathBuf;
 
 use anyhow::{bail, Result};
@@ -60,7 +61,9 @@ pub fn to_title_case(s: &str) -> String {
     let re = Regex::new(r"([A-Z][a-z]+|\d+)").unwrap();
     re.captures_iter(s)
         .map(|c| (&c[0] as &str).to_string())
-        .for_each(|c| res = res.replace(&c, &format!(" {}", c)));
+        .collect::<HashSet<_>>()
+        .iter()
+        .for_each(|s| res = res.replace(s, &format!(" {}", s)));
 
     res.trim().to_string()
 }
@@ -118,6 +121,12 @@ mod tests {
         assert_eq!(to_title_case(s), "SAO 2");
 
         let s = "SlimeTaoshite300-nen";
-        assert_eq!(to_title_case(s), "Slime Taoshite 300-nen")
+        assert_eq!(to_title_case(s), "Slime Taoshite 300-nen");
+
+        let s = "HigeWoSoruSoshiteJoshikouseiWoHirou";
+        assert_eq!(
+            to_title_case(s),
+            "Hige Wo Soru Soshite Joshikousei Wo Hirou"
+        )
     }
 }
