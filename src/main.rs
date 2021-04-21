@@ -71,7 +71,7 @@ async fn download(args: Args, items: ScraperCollector) -> Result<()> {
             .await?;
 
         if args.interactive {
-            anime.episodes = print_err!(tui::get_choice(anime.choices()).await)
+            anime.episodes = print_err!(tui::get_choice(anime.choices(), None).await)
         }
 
         let tasks = anime.episodes.into_iter().map(|u| {
@@ -165,7 +165,7 @@ async fn streaming(args: Args, items: ScraperCollector) -> Result<()> {
             .build()
             .await?;
 
-        let urls = print_err!(tui::get_choice(anime.choices()).await);
+        let urls = print_err!(tui::get_choice(anime.choices(), None).await);
 
         // NOTE: Workaround for streaming in Windows
         let cmd = match cfg!(windows) {
