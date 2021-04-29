@@ -1,10 +1,10 @@
 use std::path::PathBuf;
 
-use anyhow::{Context, Result};
 use graphql_client::{GraphQLQuery, Response};
 use reqwest::{header, header::HeaderValue, Client};
 use tokio::{fs, io::AsyncReadExt, io::AsyncWriteExt};
 
+use crate::errors::{Error, Result};
 use crate::utils::tui;
 
 struct Config(PathBuf);
@@ -33,9 +33,7 @@ impl Config {
     }
 
     async fn clean(&self) -> Result<()> {
-        fs::remove_file(&self.0)
-            .await
-            .context("Unable to remove config file")
+        fs::remove_file(&self.0).await.map_err(|_| Error::FsRemove)
     }
 
     async fn load(&self) -> Option<String> {
@@ -65,7 +63,7 @@ impl Config {
 
         buf.write_all(token.as_bytes())
             .await
-            .context("Unable to write config file")
+            .map_err(|_| Error::FsWrite)
     }
 }
 
@@ -87,7 +85,7 @@ impl AniListBuilder {
     }
 
     pub async fn build(self) -> Result<AniList> {
-        let client_id = self.client_id.context("No `ANIMEDL_ID` env varibale")?;
+        let client_id = self.client_id.ok_or(Error::EnvNotFound)?;
         let config = Config::new();
 
         let oauth_url = format!(
@@ -105,7 +103,8 @@ impl AniListBuilder {
         };
 
         let mut headers = header::HeaderMap::new();
-        let auth = HeaderValue::from_str(&format!("Bearer {}", token))?;
+        let auth = HeaderValue::from_str(&format!("Bearer {}", token))
+            .map_err(|e| Error::InvalidToken(e))?;
         let application = HeaderValue::from_static("application/json");
 
         headers.insert(header::AUTHORIZATION, auth);
@@ -185,7 +184,7 @@ mod tests {
     }
 
     #[tokio::test]
-    #[should_panic(expected = "Unable to remove config file")]
+    #[should_panic]
     async fn test_clean_config_panic() {
         let path = PathBuf::from(PATH_STR_PANIC);
         let c = Config(path);

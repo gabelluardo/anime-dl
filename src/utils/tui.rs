@@ -56,7 +56,7 @@ fn parse_input(line: String, choices: Vec<Choice>) -> Vec<String> {
 
 pub async fn get_choice(choices: Vec<Choice>, query: Option<String>) -> Result<Vec<String>> {
     match choices.len() {
-        0 => bail!("No match found"),
+        0 => bail!(Error::Tui),
         1 => Ok(vec![choices[0].link.to_string()]),
         _ => {
             let stream = StandardStream::stdout(ColorChoice::Auto);
@@ -86,13 +86,13 @@ pub async fn get_choice(choices: Vec<Choice>, query: Option<String>) -> Result<V
             reader.read_line(&mut line).await?;
 
             if line.contains('q') {
-                bail!("")
+                bail!(Error::Quit);
             }
 
             let urls = parse_input(line, choices);
 
             if urls.is_empty() {
-                bail!("No episode found")
+                bail!(Error::EpisodeNotFound);
             }
 
             Ok(urls)

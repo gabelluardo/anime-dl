@@ -2,7 +2,7 @@ use std::iter::FromIterator;
 use std::ops::{Deref, DerefMut};
 use std::sync::Arc;
 
-pub use anyhow::{bail, Context, Result};
+// pub use anyhow::{bail, Result};
 use futures::future::join_all;
 use rand::seq::IteratorRandom;
 use reqwest::{header, header::HeaderValue, Client, Url};
@@ -10,6 +10,7 @@ use scraper::{Html, Selector};
 use tokio::sync::Mutex;
 
 use crate::cli::Site;
+use crate::errors::{Error, Result};
 use crate::utils::tui;
 
 #[derive(Debug, Clone)]
@@ -107,14 +108,14 @@ impl Scraper {
 
         let func = match self.site {
             Some(Site::AW) | None => Self::animeworld,
-            Some(Site::AS) => bail!("Scraper `AS` parameter is deprecated"),
+            Some(Site::AS) => bail!(Error::with_msg("Scraper `AS` parameter is deprecated")),
         };
 
         let sc = ScraperCollector::mutex();
         let tasks = query
             .iter()
             .map(|q| func(q, self.proxy, sc.clone()))
-            .map(|f| async move { return_err!(f.await) })
+            .map(|f| async move { ok!(f.await) })
             .collect::<Vec<_>>();
 
         join_all(tasks).await;
@@ -133,7 +134,10 @@ impl Scraper {
             let div = Selector::parse("div.film-list").unwrap();
             let a = Selector::parse("a.name").unwrap();
 
-            let elem = page.select(&div).next().context("Request blocked, retry")?;
+            let elem = page
+                .select(&div)
+                .next()
+                .ok_or(Error::with_msg("Request blocked, retry"))?;
             elem.select(&a)
                 .into_iter()
                 .map(|a| {
@@ -150,7 +154,7 @@ impl Scraper {
         };
 
         if results.is_empty() {
-            bail!("No anime found")
+            bail!(Error::AnimeNotFound)
         }
 
         let choices = tui::get_choice(results, Some(query.replace("+", " "))).await?;
@@ -187,7 +191,7 @@ impl Scraper {
             .collect::<Vec<_>>();
 
         if res.is_empty() {
-            bail!("No url found")
+            bail!(Error::UrlNotFound)
         }
 
         let mut buf = buf.lock().await;
@@ -201,12 +205,8 @@ impl Scraper {
     }
 
     async fn parse(url: String, client: &Client) -> Result<Html> {
-        let response = client
-            .get(&url)
-            .send()
-            .await?
-            .error_for_status()
-            .context("Unable to get anime page")?;
+        let response = client.get(&url).send().await?.error_for_status()?;
+        // .context("Unable to get anime page")?;
 
         Ok(Html::parse_document(&response.text().await?))
     }
@@ -245,7 +245,7 @@ impl<'a> ScraperClient {
             .choose(&mut rand::thread_rng())
             .map(|s| format!("https://{}", s));
 
-        reqwest::Proxy::http(&proxy.unwrap()).context("Unable to parse proxyscrape")
+        reqwest::Proxy::http(&proxy.unwrap()).map_err(|_| Error::Proxy)
     }
 
     fn set_headers() -> header::HeaderMap {

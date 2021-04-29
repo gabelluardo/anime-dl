@@ -1,11 +1,13 @@
 use std::collections::HashSet;
 use std::path::PathBuf;
 
-use anyhow::{bail, Result};
+// use anyhow::{bail, Result};
 use regex::Regex;
 
 pub use bars::Bars;
 pub use range::Range;
+
+use crate::errors::{Error, Result};
 
 #[macro_use]
 mod macros;
@@ -22,13 +24,24 @@ pub struct RegInfo {
     pub num: Option<u32>,
 }
 
+fn find_first_match(url: &str, matcher: &str) -> Result<String> {
+    let re = Regex::new(matcher).unwrap();
+    let cap = match re.captures_iter(&url).last() {
+        Some(c) => c,
+        None => return Err(Error::Parsing(url.to_string())),
+    };
+    let res = &cap[0];
+
+    Ok(res.to_string())
+}
+
 pub fn extract_info(string: &str) -> Result<RegInfo> {
     let name = extract_name(string)?;
 
     let (raw, num) = match find_first_match(string, r"_\d{2,}") {
-        Ok(reg_num) => (
-            string.replace(reg_num.as_str(), PLACEHOLDER),
-            reg_num.replace("_", "").parse().ok(),
+        Ok(m) => (
+            string.replace(m.as_str(), PLACEHOLDER),
+            m.replace("_", "").parse().ok(),
         ),
         _ => (string.to_string(), None),
     };
@@ -37,22 +50,11 @@ pub fn extract_info(string: &str) -> Result<RegInfo> {
 }
 
 pub fn extract_name(string: &str) -> Result<String> {
-    let reg_name = find_first_match(string, r"\w+[^/]\w+_")?;
-    let res = reg_name.split('_').collect::<Vec<_>>();
+    let m = find_first_match(string, r"\w+[^/]\w+_")?;
+    let res = m.split('_').collect::<Vec<_>>();
     let name = to_title_case(res[0]);
 
     Ok(name)
-}
-
-pub fn find_first_match(url: &str, matcher: &str) -> Result<String> {
-    let re = Regex::new(matcher).unwrap();
-    let cap = match re.captures_iter(&url).last() {
-        Some(c) => c,
-        None => bail!("Unable to parse `{}`", url),
-    };
-    let res = &cap[0];
-
-    Ok(res.to_string())
 }
 
 pub fn to_title_case(s: &str) -> String {
@@ -91,8 +93,8 @@ mod tests {
 
     #[test]
     fn test_extract_info() {
-        let url = "http://www.domain.tld/sub/anotherSub/AnimeName/AnimeName_Ep_15_SUB_ITA.mp4";
-        let url_raw = "http://www.domain.tld/sub/anotherSub/AnimeName/AnimeName_Ep_{}_SUB_ITA.mp4";
+        let url = "https://www.domain.tld/sub/anotherSub/AnimeName/AnimeName_Ep_15_SUB_ITA.mp4";
+        let url_raw = "https://www.domain.tld/sub/anotherSub/AnimeName/AnimeName_Ep_{}_SUB_ITA.mp4";
         let res: RegInfo = extract_info(url).unwrap();
 
         assert_eq!(res.name, "Anime Name");

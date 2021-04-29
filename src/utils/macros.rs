@@ -1,23 +1,36 @@
-macro_rules! print_err {
+macro_rules! bail {
+    ($err:expr $(,)?) => {
+        return Err($err)
+    };
+}
+
+macro_rules! gen_url {
+    ($str:expr, $num:expr) => {
+        $str.replace(crate::utils::PLACEHOLDER, &zfill!($num))
+    };
+}
+
+macro_rules! eprint {
     ($x:expr) => {
         match $x {
             Ok(item) => item,
             Err(err) => {
                 if (err.to_string() != "") {
-                    bunt::eprintln!("{$red}[ERR] {}{/$}", err)
+                    bunt::eprintln!("{$red}{}{/$}", err)
                 }
                 continue;
             }
         }
     };
 }
-macro_rules! return_err {
+
+macro_rules! ok {
     ($x:expr) => {
         match $x {
             Ok(item) => item,
             Err(err) => {
                 if (err.to_string() != "") {
-                    bunt::eprintln!("{$red}[ERR] {}{/$}", err);
+                    bunt::eprintln!("{$red}{}{/$}", err);
                 }
                 return;
             }
@@ -28,12 +41,6 @@ macro_rules! return_err {
 macro_rules! zfill {
     ($num:expr) => {
         format!("_{:02}", $num)
-    };
-}
-
-macro_rules! gen_url {
-    ($str:expr, $num:expr) => {
-        $str.replace(crate::utils::PLACEHOLDER, &zfill!($num))
     };
 }
 

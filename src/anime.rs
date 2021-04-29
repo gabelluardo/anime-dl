@@ -6,7 +6,8 @@ use tokio::fs;
 
 #[cfg(feature = "anilist")]
 pub use crate::api::AniList;
-pub use crate::scraper::*;
+use crate::errors::{Error, Result};
+pub use crate::scraper::{ScraperCollector, ScraperItem};
 use crate::utils::{self, *};
 
 #[derive(Default, Debug)]
@@ -127,7 +128,7 @@ impl AnimeBuilder {
         }
 
         if self.range.is_empty() {
-            bail!("Unable to download")
+            bail!(Error::Download(String::new()))
         }
 
         let episodes = self
@@ -238,6 +239,6 @@ impl FileDest {
             .create(true)
             .open(&self.file)
             .await
-            .context("Unable to open file")
+            .map_err(|_| Error::FsOpen)
     }
 }

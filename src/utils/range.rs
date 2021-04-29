@@ -18,11 +18,11 @@ where
         *self.start()..=*self.end()
     }
 
-    pub fn parse(s: &str) -> Result<Self, <Self as FromStr>::Err> {
+    pub fn parse(s: &str) -> Result<Self> {
         Self::from_str(s)
     }
 
-    pub fn parse_and_fill(s: &str, end: T) -> Result<Self, <Self as FromStr>::Err> {
+    pub fn parse_and_fill(s: &str, end: T) -> Result<Self> {
         Self::parse(s).map(|r| {
             if r.end().gt(&end) || r.end().eq(&r.start()) {
                 Self::new(*r.start(), end)
@@ -57,9 +57,9 @@ impl<T> FromStr for Range<T>
 where
     T: Copy + Clone + FromStr + Ord,
 {
-    type Err = anyhow::Error;
+    type Err = Error;
 
-    fn from_str(s: &str) -> Result<Self, <Self as FromStr>::Err> {
+    fn from_str(s: &str) -> Result<Self> {
         let range_str = s
             .trim_matches(|p| p == '(' || p == ')')
             .split(&[',', '-', '.'][..])
@@ -69,9 +69,9 @@ where
             (Some(f), Some(l)) => match (f.parse::<T>(), l.parse::<T>()) {
                 (Ok(s), Ok(e)) => Ok(Self(s..=e)),
                 (Ok(s), Err(_)) => Ok(Self(s..=s)),
-                _ => bail!("Unable to parse range"),
+                _ => bail!(Error::InvalidRange),
             },
-            _ => bail!("Unable to parse range"),
+            _ => bail!(Error::InvalidRange),
         }
     }
 }
@@ -107,8 +107,8 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "Unable to parse range")]
+    #[should_panic]
     fn test_wrong_range() {
-        let _ = Range::<i32>::from_str("-").unwrap();
+        Range::<i32>::from_str("-").unwrap();
     }
 }

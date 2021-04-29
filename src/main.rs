@@ -7,9 +7,11 @@ use reqwest::{Client, Url};
 use tokio::{io::AsyncWriteExt, process::Command, task};
 use tokio_stream as stream;
 
-use anime::*;
-use cli::*;
-use utils::*;
+use crate::anime::{AniList, Anime, FileDest};
+use crate::cli::Args;
+use crate::errors::{Error, Result};
+use crate::scraper::{Scraper, ScraperCollector};
+use crate::utils::*;
 
 #[macro_use]
 mod utils;
@@ -17,17 +19,16 @@ mod utils;
 mod anime;
 mod api;
 mod cli;
+mod errors;
 mod scraper;
 
 #[tokio::main]
 async fn main() {
-    return_err!(run(Args::parse()).await)
-}
+    let args = Args::parse();
 
-async fn run(args: Args) -> Result<()> {
     #[cfg(feature = "anilist")]
     if args.clean {
-        AniList::clean_cache().await?
+        ok!(AniList::clean_cache().await)
     }
 
     let items = match args.search {
@@ -35,7 +36,7 @@ async fn run(args: Args) -> Result<()> {
             let proxy = !args.no_proxy;
             let query = &args.entries.join(" ");
 
-            Scraper::new(proxy, query, site).run().await?
+            ok!(Scraper::new(proxy, query, site).run().await)
         }
         None => args
             .entries
@@ -44,11 +45,13 @@ async fn run(args: Args) -> Result<()> {
             .collect::<_>(),
     };
 
-    if args.stream {
+    let res = if args.stream {
         streaming(args, items).await
     } else {
         download(args, items).await
-    }
+    };
+
+    ok!(res)
 }
 
 async fn download(args: Args, items: ScraperCollector) -> Result<()> {
@@ -71,13 +74,13 @@ async fn download(args: Args, items: ScraperCollector) -> Result<()> {
             .await?;
 
         if args.interactive {
-            anime.episodes = print_err!(tui::get_choice(anime.choices(), None).await)
+            anime.episodes = eprint!(tui::get_choice(anime.choices(), None).await)
         }
 
         let tasks = anime.episodes.into_iter().map(|u| {
             let opts = (path.clone(), referer.as_str(), args.force, bars.add_bar());
 
-            async move { return_err!(download_worker(&u, opts).await) }
+            async move { ok!(download_worker(&u, opts).await) }
         });
 
         pool.extend(tasks)
@@ -96,7 +99,8 @@ async fn download_worker(url: &str, opts: (PathBuf, &str, bool, bars::ProgressBa
     let (root, referer, overwrite, pb) = opts;
     let client = Client::new();
 
-    let filename = Url::parse(url)?
+    let filename = Url::parse(url)
+        .map_err(|_| Error::InvalidUrl)?
         .path_segments()
         .and_then(|segments| segments.last())
         .unwrap_or("tmp.bin")
@@ -108,7 +112,7 @@ async fn download_worker(url: &str, opts: (PathBuf, &str, bool, bars::ProgressBa
         .send()
         .await?
         .error_for_status()
-        .context(format!("Unable to download `{}`", filename))?
+        .map_err(|_| Error::Download(filename.clone()))?
         .headers()
         .get(CONTENT_LENGTH)
         .and_then(|ct_len| ct_len.to_str().ok())
@@ -118,7 +122,7 @@ async fn download_worker(url: &str, opts: (PathBuf, &str, bool, bars::ProgressBa
     let props = (root.as_path(), filename.as_str(), overwrite);
     let file = FileDest::new(props).await?;
     if file.size >= source_size {
-        bail!("{} already exists", &filename);
+        bail!(Error::Overwrite(filename));
     }
 
     let msg = match utils::extract_info(&filename) {
@@ -139,8 +143,7 @@ async fn download_worker(url: &str, opts: (PathBuf, &str, bool, bars::ProgressBa
         .header(REFERER, referer)
         .send()
         .await?
-        .error_for_status()
-        .context("Unable get data from source")?;
+        .error_for_status()?;
 
     let mut dest = file.open().await?;
     while let Some(chunk) = source.chunk().await? {
@@ -165,7 +168,7 @@ async fn streaming(args: Args, items: ScraperCollector) -> Result<()> {
             .build()
             .await?;
 
-        let urls = print_err!(tui::get_choice(anime.choices(), None).await);
+        let urls = eprint!(tui::get_choice(anime.choices(), None).await);
 
         // NOTE: Workaround for streaming in Windows
         let cmd = match cfg!(windows) {
@@ -179,7 +182,7 @@ async fn streaming(args: Args, items: ScraperCollector) -> Result<()> {
             .stdout(Stdio::null())
             .stderr(Stdio::null())
             .spawn()
-            .context("vlc is needed for streaming")?;
+            .map_err(|_| Error::Vlc)?;
     }
 
     Ok(())
