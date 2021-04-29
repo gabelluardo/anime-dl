@@ -1,8 +1,9 @@
-use thiserror::Error as ThisError;
+use reqwest::header::InvalidHeaderValue;
+use thiserror::Error;
 
 pub type Result<T> = std::result::Result<T, Error>;
 
-#[derive(ThisError, Debug)]
+#[derive(Debug, Error)]
 pub enum Error {
     #[error("Unable to download {0}")]
     Download(String),
@@ -19,7 +20,7 @@ pub enum Error {
     #[error("Unable to find a proxy")]
     Proxy,
 
-    #[error("")]
+    #[error("...")]
     Quit,
 
     #[error("No match found")]
@@ -50,7 +51,7 @@ pub enum Error {
     InvalidRange,
 
     #[error("Invalid token\nFrom: {0}")]
-    InvalidToken(#[from] reqwest::header::InvalidHeaderValue),
+    InvalidToken(#[from] InvalidHeaderValue),
 
     #[error("Invalid url")]
     InvalidUrl,
@@ -59,7 +60,7 @@ pub enum Error {
     #[error("No anime found")]
     AnimeNotFound,
 
-    #[error("No `ANIMEDL_ID` env varibale found")]
+    #[error("No `ANIMEDL_ID` env variable found")]
     EnvNotFound,
 
     #[error("No episode found")]

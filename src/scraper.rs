@@ -108,7 +108,6 @@ impl Scraper {
 
         let func = match self.site {
             Some(Site::AW) | None => Self::animeworld,
-            Some(Site::AS) => bail!(Error::with_msg("Scraper `AS` parameter is deprecated")),
         };
 
         let sc = ScraperCollector::mutex();
@@ -206,7 +205,6 @@ impl Scraper {
 
     async fn parse(url: String, client: &Client) -> Result<Html> {
         let response = client.get(&url).send().await?.error_for_status()?;
-        // .context("Unable to get anime page")?;
 
         Ok(Html::parse_document(&response.text().await?))
     }

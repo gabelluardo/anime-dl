@@ -11,7 +11,7 @@ use crate::anime::{AniList, Anime, FileDest};
 use crate::cli::Args;
 use crate::errors::{Error, Result};
 use crate::scraper::{Scraper, ScraperCollector};
-use crate::utils::*;
+use crate::utils::{get_path, tui, Bars, ProgressBar};
 
 #[macro_use]
 mod utils;
@@ -61,7 +61,7 @@ async fn download(args: Args, items: ScraperCollector) -> Result<()> {
     let mut pool = vec![];
 
     for (pos, item) in items.iter().enumerate() {
-        let path = utils::get_path(&args, &item.url, pos)?;
+        let path = get_path(&args, &item.url, pos)?;
 
         let mut anime = Anime::builder()
             .auto(args.auto_episode || args.interactive)
@@ -74,7 +74,7 @@ async fn download(args: Args, items: ScraperCollector) -> Result<()> {
             .await?;
 
         if args.interactive {
-            anime.episodes = eprint!(tui::get_choice(anime.choices(), None).await)
+            anime.episodes = unroll!(tui::get_choice(anime.choices(), None).await)
         }
 
         let tasks = anime.episodes.into_iter().map(|u| {
@@ -95,7 +95,7 @@ async fn download(args: Args, items: ScraperCollector) -> Result<()> {
     Ok(())
 }
 
-async fn download_worker(url: &str, opts: (PathBuf, &str, bool, bars::ProgressBar)) -> Result<()> {
+async fn download_worker(url: &str, opts: (PathBuf, &str, bool, ProgressBar)) -> Result<()> {
     let (root, referer, overwrite, pb) = opts;
     let client = Client::new();
 
@@ -168,7 +168,7 @@ async fn streaming(args: Args, items: ScraperCollector) -> Result<()> {
             .build()
             .await?;
 
-        let urls = eprint!(tui::get_choice(anime.choices(), None).await);
+        let urls = unroll!(tui::get_choice(anime.choices(), None).await);
 
         // NOTE: Workaround for streaming in Windows
         let cmd = match cfg!(windows) {

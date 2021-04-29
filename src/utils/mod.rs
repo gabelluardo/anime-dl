@@ -5,6 +5,7 @@ use std::path::PathBuf;
 use regex::Regex;
 
 pub use bars::Bars;
+pub use bars::ProgressBar;
 pub use range::Range;
 
 use crate::errors::{Error, Result};
