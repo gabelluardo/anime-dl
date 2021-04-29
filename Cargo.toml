@@ -46,6 +46,7 @@ rand = "0.8"
 regex = "1.4"
 scraper = "0.12"
 structopt = "0.3"
+thiserror = "1.0.24"
 tokio-stream = "0.1"
 
 # Optional deps...

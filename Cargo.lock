@@ -39,6 +39,7 @@ dependencies = [
  "scraper",
  "serde",
  "structopt",
+ "thiserror",
  "tokio",
  "tokio-stream",
 ]
