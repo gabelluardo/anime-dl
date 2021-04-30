@@ -1,7 +1,6 @@
 use std::collections::HashSet;
 use std::path::PathBuf;
 
-// use anyhow::{bail, Result};
 use regex::Regex;
 
 pub use bars::Bars;

@@ -1,12 +1,12 @@
 use std::ops::{Deref, RangeInclusive as OpsRange};
 use std::str::FromStr;
 
-use super::*;
+use crate::errors::Error;
 
 #[derive(Debug, Clone)]
 pub struct Range<T>(OpsRange<T>);
 
-impl<'a, T> Range<T>
+impl<T> Range<T>
 where
     T: Copy + Clone + FromStr + Ord,
 {
@@ -18,11 +18,11 @@ where
         *self.start()..=*self.end()
     }
 
-    pub fn parse(s: &str) -> Result<Self> {
+    pub fn parse(s: &str) -> Result<Self, <Self as FromStr>::Err> {
         Self::from_str(s)
     }
 
-    pub fn parse_and_fill(s: &str, end: T) -> Result<Self> {
+    pub fn parse_and_fill(s: &str, end: T) -> Result<Self, <Self as FromStr>::Err> {
         Self::parse(s).map(|r| {
             if r.end().gt(&end) || r.end().eq(&r.start()) {
                 Self::new(*r.start(), end)
@@ -59,7 +59,7 @@ where
 {
     type Err = Error;
 
-    fn from_str(s: &str) -> Result<Self> {
+    fn from_str(s: &str) -> Result<Self, <Self as FromStr>::Err> {
         let range_str = s
             .trim_matches(|p| p == '(' || p == ')')
             .split(&[',', '-', '.'][..])
