@@ -34,7 +34,7 @@ pub enum Error {
     Custom(String),
 
     #[error("{0}")]
-    IOError(#[from] std::io::Error),
+    IoError(#[from] std::io::Error),
 
     // File system errors
     #[error("Unable to open file")]

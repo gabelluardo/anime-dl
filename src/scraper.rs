@@ -136,7 +136,7 @@ impl Scraper {
             let elem = page
                 .select(&div)
                 .next()
-                .ok_or(Error::with_msg("Request blocked, retry"))?;
+                .ok_or_else(|| Error::with_msg("Request blocked, retry"))?;
             elem.select(&a)
                 .into_iter()
                 .map(|a| {

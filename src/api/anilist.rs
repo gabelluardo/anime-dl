@@ -103,8 +103,8 @@ impl AniListBuilder {
         };
 
         let mut headers = header::HeaderMap::new();
-        let auth = HeaderValue::from_str(&format!("Bearer {}", token))
-            .map_err(|e| Error::InvalidToken(e))?;
+        let auth =
+            HeaderValue::from_str(&format!("Bearer {}", token)).map_err(Error::InvalidToken)?;
         let application = HeaderValue::from_static("application/json");
 
         headers.insert(header::AUTHORIZATION, auth);
