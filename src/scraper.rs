@@ -215,7 +215,8 @@ struct ScraperClient(Client);
 impl<'a> ScraperClient {
     #[rustfmt::skip]
     const ACCEPT: &'a str = "text/html,application/xhtml+xml,application/xml; q=0.9,image/webp,*/*; q=0.8";
-    const COOKIES: &'a str = "__cfduid=d03255bed084571c421edd313dbfd5fe31610142561; _csrf=PLwPaldqI-hCpuZzS8wfLnkP; expandedPlayer=false; theme=dark";
+    const COOKIE: &'a str = "__ddg1=sti44Eo5SrS4IAwJPVFu; __cfduid=d1343ee68e09afafe0a4855d5c35e713f1619342282; AWCookietest=9dec2892abf872fefab7fc34e147b0c3; _csrf=wSnjNmhifYyOPULeghB6Dloy";
+    const PROXY: &'a str = "https://api.proxyscrape.com/?request=getproxies&proxytype=http&timeout=2000&country=all&ssl=all&anonymity=elite";
     const USER_AGENT: &'a str = "Mozilla/5.0 (Windows; U; Windows NT 5.1; en-GB; rv:1.8.1.6) Gecko/20070725 Firefox/2.0.0.6";
 
     async fn new(proxy: bool) -> Result<Self> {
@@ -233,10 +234,7 @@ impl<'a> ScraperClient {
     }
 
     async fn set_proxy() -> Result<reqwest::Proxy> {
-        let response = reqwest::get("https://api.proxyscrape.com/?request=getproxies&proxytype=http&timeout=2000&country=all&ssl=all&anonymity=elite")
-            .await?
-            .text()
-            .await?;
+        let response = reqwest::get(Self::PROXY).await?.text().await?;
 
         let proxy = response
             .split_ascii_whitespace()
@@ -249,7 +247,7 @@ impl<'a> ScraperClient {
     fn set_headers() -> header::HeaderMap {
         let mut headers = header::HeaderMap::new();
 
-        headers.insert(header::COOKIE, HeaderValue::from_static(Self::COOKIES));
+        headers.insert(header::COOKIE, HeaderValue::from_static(Self::COOKIE));
         headers.insert(header::ACCEPT, HeaderValue::from_static(Self::ACCEPT));
         headers.insert(header::ACCEPT_LANGUAGE, HeaderValue::from_static("it"));
 
