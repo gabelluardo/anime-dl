@@ -132,10 +132,11 @@ async fn download_worker(url: &str, opts: (PathBuf, &str, bool, ProgressBar)) ->
             .map(|num| format!("Ep. {:02} {}", num, info.name))
             .unwrap_or(info.name),
     };
+    let completed = format!("{} 👍", &msg);
 
     pb.set_position(file.size);
     pb.set_length(source_size);
-    pb.set_message(&msg);
+    pb.set_message(msg);
 
     let mut source = client
         .get(url)
@@ -150,7 +151,7 @@ async fn download_worker(url: &str, opts: (PathBuf, &str, bool, ProgressBar)) ->
         dest.write_all(&chunk).await?;
         pb.inc(chunk.len() as u64);
     }
-    pb.finish_with_message(&format!("{} 👍", msg));
+    pb.finish_with_message(completed);
 
     Ok(())
 }
