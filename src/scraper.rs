@@ -11,7 +11,7 @@ use tokio::sync::Mutex;
 
 use crate::cli::Site;
 use crate::errors::{Error, Result};
-use crate::utils::tui;
+use crate::utils::{self, tui};
 
 #[derive(Debug, Clone)]
 pub struct ScraperItem {
@@ -215,14 +215,16 @@ struct ScraperClient(Client);
 impl<'a> ScraperClient {
     #[rustfmt::skip]
     const ACCEPT: &'a str = "text/html,application/xhtml+xml,application/xml; q=0.9,image/webp,*/*; q=0.8";
-    const COOKIE: &'a str = "__ddg1=sti44Eo5SrS4IAwJPVFu; __cfduid=d1343ee68e09afafe0a4855d5c35e713f1619342282; AWCookietest=9dec2892abf872fefab7fc34e147b0c3; _csrf=wSnjNmhifYyOPULeghB6Dloy";
+    const COOKIE: &'a str = "__ddg1=sti44Eo5SrS4IAwJPVFu; __cfduid=d1343ee68e09afafe0a4855d5c35e713f1619342282; _csrf=wSnjNmhifYyOPULeghB6Dloy;";
     const PROXY: &'a str = "https://api.proxyscrape.com/?request=getproxies&proxytype=http&timeout=2000&country=all&ssl=all&anonymity=elite";
     const USER_AGENT: &'a str = "Mozilla/5.0 (Windows; U; Windows NT 5.1; en-GB; rv:1.8.1.6) Gecko/20070725 Firefox/2.0.0.6";
 
     async fn new(proxy: bool) -> Result<Self> {
+        let headers = Self::set_headers().await;
+
         let mut builder = Client::builder()
             .user_agent(Self::USER_AGENT)
-            .default_headers(Self::set_headers());
+            .default_headers(headers);
 
         if proxy {
             builder = builder.proxy(Self::set_proxy().await?);
@@ -231,6 +233,16 @@ impl<'a> ScraperClient {
         let client = builder.build()?;
 
         Ok(Self(client))
+    }
+
+    async fn aw_ping() -> Result<String> {
+        let text = reqwest::get("https://www.animeworld.tv/")
+            .await?
+            .text()
+            .await?;
+        let res = utils::extract_aw_cookie(&text)?;
+
+        Ok(res)
     }
 
     async fn set_proxy() -> Result<reqwest::Proxy> {
@@ -244,10 +256,14 @@ impl<'a> ScraperClient {
         reqwest::Proxy::http(&proxy.unwrap()).map_err(|_| Error::Proxy)
     }
 
-    fn set_headers() -> header::HeaderMap {
-        let mut headers = header::HeaderMap::new();
+    async fn set_headers() -> header::HeaderMap {
+        let mut aw_test = Self::aw_ping().await.unwrap_or_default();
+        aw_test.push_str(Self::COOKIE);
 
-        headers.insert(header::COOKIE, HeaderValue::from_static(Self::COOKIE));
+        let cookie = HeaderValue::from_str(&aw_test).unwrap();
+
+        let mut headers = header::HeaderMap::new();
+        headers.insert(header::COOKIE, cookie);
         headers.insert(header::ACCEPT, HeaderValue::from_static(Self::ACCEPT));
         headers.insert(header::ACCEPT_LANGUAGE, HeaderValue::from_static("it"));
 

@@ -57,6 +57,13 @@ pub fn extract_name(string: &str) -> Result<String> {
     Ok(name)
 }
 
+pub fn extract_aw_cookie(string: &str) -> Result<String> {
+    let mut m = find_first_match(string, r"AWCookietest=[A-Fa-f0-9]+")?;
+    m.push_str("; ");
+
+    Ok(m)
+}
+
 pub fn to_title_case(s: &str) -> String {
     let mut res = s.to_string();
 
@@ -100,6 +107,14 @@ mod tests {
         assert_eq!(res.name, "Anime Name");
         assert_eq!(res.num, Some(15));
         assert_eq!(res.raw, url_raw);
+    }
+
+    #[test]
+    fn test_extract_test() {
+        let s = r#"<html><script src="/cdn-cgi/apps/head/WvfaYe5SS22u5exoBw70ThuTjHg.js"></script><body><script>document.cookie="AWCookietest=295db002e27e3ac26934485002b41564 ; </script></body></html>"#;
+        let res = extract_aw_cookie(s).unwrap();
+
+        assert_eq!(res, "AWCookietest=295db002e27e3ac26934485002b41564; ")
     }
 
     #[test]
