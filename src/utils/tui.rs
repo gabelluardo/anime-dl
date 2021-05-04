@@ -1,10 +1,9 @@
-use std::io::Write;
+use std::io::{self, Write};
 
 use bunt::{
     termcolor::{ColorChoice, StandardStream},
     write, writeln,
 };
-use tokio::io::{self, AsyncBufReadExt, BufReader};
 
 use super::*;
 
@@ -81,9 +80,8 @@ pub async fn get_choice(choices: Vec<Choice>, query: Option<String>) -> Result<V
             )?;
             stdout.flush()?;
 
-            let mut reader = BufReader::new(io::stdin());
             let mut line = String::new();
-            reader.read_line(&mut line).await?;
+            io::stdin().read_line(&mut line)?;
 
             if line.contains('q') {
                 bail!(Error::Quit);
@@ -117,9 +115,8 @@ pub async fn get_token(url: &str) -> Result<String> {
     )?;
     stdout.flush()?;
 
-    let mut reader = BufReader::new(io::stdin());
     let mut line = String::new();
-    reader.read_line(&mut line).await?;
+    io::stdin().read_line(&mut line)?;
 
     let line = line.trim().to_string();
 
