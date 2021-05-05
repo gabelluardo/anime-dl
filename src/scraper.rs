@@ -90,6 +90,8 @@ impl Scraper {
             .map(|s| s.trim().replace(" ", "+"))
             .collect::<Vec<_>>();
 
+        let client = Arc::new(Client::with_proxy(self.proxy).await?);
+
         let func = match self.site {
             Some(Site::AW) | None => Self::animeworld,
         };
@@ -97,7 +99,7 @@ impl Scraper {
         let sc = ScraperCollector::mutex();
         let tasks = query
             .iter()
-            .map(|q| func(q, self.proxy, sc.clone()))
+            .map(|q| func(q, client.clone(), sc.clone()))
             .map(|f| async move { ok!(f.await) })
             .collect::<Vec<_>>();
 
@@ -108,8 +110,11 @@ impl Scraper {
         Ok(res)
     }
 
-    async fn animeworld(query: &str, proxy: bool, buf: Arc<Mutex<ScraperCollector>>) -> Result<()> {
-        let client = Client::builder().proxy(proxy).build().await?;
+    async fn animeworld(
+        query: &str,
+        client: Arc<Client>,
+        buf: Arc<Mutex<ScraperCollector>>,
+    ) -> Result<()> {
         let search_url = format!("https://www.animeworld.tv/search?keyword={}", query);
 
         let page = Self::parse(search_url, &client).await?;
@@ -198,12 +203,16 @@ impl Scraper {
 pub struct Client(RClient);
 
 impl Client {
-    fn _new() -> Self {
-        Client::default()
+    async fn _new() -> Result<Self> {
+        ClientBuilder::default().build().await
     }
 
-    fn builder() -> ClientBuilder {
+    fn _builder() -> ClientBuilder {
         ClientBuilder::default()
+    }
+
+    async fn with_proxy(p: bool) -> Result<Self> {
+        ClientBuilder::default().proxy(p).build().await
     }
 }
 
@@ -288,16 +297,20 @@ mod tests {
 
     #[tokio::test]
     async fn test_client() {
-        Client::builder().proxy(true).build().await.unwrap();
-        Client::builder().proxy(false).build().await.unwrap();
+        Client::_builder().proxy(true).build().await.unwrap();
+        Client::_builder().proxy(false).build().await.unwrap();
+
+        Client::with_proxy(true).await.unwrap();
+        Client::with_proxy(false).await.unwrap();
     }
 
     #[tokio::test]
     async fn test_animeworld() {
         let file = "SeishunButaYarouWaBunnyGirlSenpaiNoYumeWoMinai_Ep_01_SUB_ITA.mp4";
         let anime = ScraperCollector::mutex();
+        let client = Arc::new(Client::_new().await.unwrap());
 
-        Scraper::animeworld("bunny girl", false, anime.clone())
+        Scraper::animeworld("bunny girl", client, anime.clone())
             .await
             .unwrap();
         let anime = anime.lock().await.clone();
