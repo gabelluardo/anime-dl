@@ -349,6 +349,9 @@ mod tests {
             })
             .collect::<Vec<_>>();
 
-        assert_eq!(anime.sort(), files.sort())
+        anime.sort();
+        files.sort_unstable();
+
+        assert_eq!(anime, files)
     }
 }
