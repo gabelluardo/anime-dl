@@ -2,10 +2,9 @@ use std::iter::FromIterator;
 use std::ops::{Deref, DerefMut};
 use std::sync::Arc;
 
-// pub use anyhow::{bail, Result};
 use futures::future::join_all;
 use rand::seq::IteratorRandom;
-use reqwest::{header, header::HeaderValue, Client, Url};
+use reqwest::{header, header::HeaderValue, Client as RClient, Url};
 use scraper::{Html, Selector};
 use tokio::sync::Mutex;
 
@@ -73,21 +72,6 @@ impl Scraper {
         }
     }
 
-    pub fn _proxy(mut self, proxy: bool) -> Self {
-        self.proxy = proxy;
-        self
-    }
-
-    pub fn _query(mut self, query: &str) -> Self {
-        self.query = query.to_string();
-        self
-    }
-
-    pub fn _site(mut self, site: Option<Site>) -> Self {
-        self.site = site;
-        self
-    }
-
     pub fn _collector() -> ScraperCollector {
         ScraperCollector::new()
     }
@@ -125,7 +109,7 @@ impl Scraper {
     }
 
     async fn animeworld(query: &str, proxy: bool, buf: Arc<Mutex<ScraperCollector>>) -> Result<()> {
-        let client = ScraperClient::new(proxy).await?;
+        let client = Client::builder().proxy(proxy).build().await?;
         let search_url = format!("https://www.animeworld.tv/search?keyword={}", query);
 
         let page = Self::parse(search_url, &client).await?;
@@ -206,76 +190,84 @@ impl Scraper {
     async fn parse(url: String, client: &Client) -> Result<Html> {
         let response = client.get(&url).send().await?.error_for_status()?;
 
-        Ok(Html::parse_document(&response.text().await?))
+        Ok(Html::parse_fragment(&response.text().await?))
     }
 }
 
-struct ScraperClient(Client);
+#[derive(Default, Debug)]
+pub struct Client(RClient);
 
-impl<'a> ScraperClient {
-    #[rustfmt::skip]
+impl Client {
+    fn _new() -> Self {
+        Client::default()
+    }
+
+    fn builder() -> ClientBuilder {
+        ClientBuilder::default()
+    }
+}
+
+impl Deref for Client {
+    type Target = RClient;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+#[derive(Default, Debug)]
+pub struct ClientBuilder {
+    proxy: bool,
+}
+
+#[rustfmt::skip]
+impl<'a> ClientBuilder {
     const ACCEPT: &'a str = "text/html,application/xhtml+xml,application/xml; q=0.9,image/webp,*/*; q=0.8";
     const COOKIE: &'a str = "__ddg1=sti44Eo5SrS4IAwJPVFu; __cfduid=d1343ee68e09afafe0a4855d5c35e713f1619342282; _csrf=wSnjNmhifYyOPULeghB6Dloy;";
     const PROXY: &'a str = "https://api.proxyscrape.com/?request=getproxies&proxytype=http&timeout=2000&country=all&ssl=all&anonymity=elite";
     const USER_AGENT: &'a str = "Mozilla/5.0 (Windows; U; Windows NT 5.1; en-GB; rv:1.8.1.6) Gecko/20070725 Firefox/2.0.0.6";
 
-    async fn new(proxy: bool) -> Result<Self> {
-        let headers = Self::set_headers().await;
-
-        let mut builder = Client::builder()
-            .user_agent(Self::USER_AGENT)
-            .default_headers(headers);
-
-        if proxy {
-            builder = builder.proxy(Self::set_proxy().await?);
-        }
-
-        let client = builder.build()?;
-
-        Ok(Self(client))
+    pub fn proxy(mut self, p: bool) -> Self {
+        self.proxy = p;
+        self
     }
 
-    async fn aw_ping() -> Result<String> {
-        let text = reqwest::get("https://www.animeworld.tv/")
-            .await?
-            .text()
-            .await?;
-        let res = utils::extract_aw_cookie(&text)?;
+    pub async fn build(self) -> Result<Client> {
+        let mut ctest = self.aw_ping().await.unwrap_or_default();
+        ctest.push_str(Self::COOKIE);
 
-        Ok(res)
-    }
-
-    async fn set_proxy() -> Result<reqwest::Proxy> {
-        let response = reqwest::get(Self::PROXY).await?.text().await?;
-
-        let proxy = response
-            .split_ascii_whitespace()
-            .choose(&mut rand::thread_rng())
-            .map(|s| format!("https://{}", s));
-
-        reqwest::Proxy::http(&proxy.unwrap()).map_err(|_| Error::Proxy)
-    }
-
-    async fn set_headers() -> header::HeaderMap {
-        let mut aw_test = Self::aw_ping().await.unwrap_or_default();
-        aw_test.push_str(Self::COOKIE);
-
-        let cookie = HeaderValue::from_str(&aw_test).unwrap();
-
+        let cookie = HeaderValue::from_str(&ctest).unwrap();
         let mut headers = header::HeaderMap::new();
         headers.insert(header::COOKIE, cookie);
         headers.insert(header::ACCEPT, HeaderValue::from_static(Self::ACCEPT));
         headers.insert(header::ACCEPT_LANGUAGE, HeaderValue::from_static("it"));
+        headers.insert(header::USER_AGENT, HeaderValue::from_static(Self::USER_AGENT));
 
-        headers
+        let mut builder = RClient::builder().default_headers(headers);
+
+        if self.proxy {
+            let res = reqwest::get(Self::PROXY).await?.text().await?;
+            let proxy = res
+                .split_ascii_whitespace()
+                .choose(&mut rand::thread_rng())
+                .map(|s| format!("https://{}", s))
+                .unwrap_or_default();
+
+            let p = reqwest::Proxy::http(proxy).map_err(|_| Error::Proxy)?;
+
+            builder = builder.proxy(p);
+        }
+
+        let client = builder.build()?;
+
+        Ok(Client(client))
     }
-}
 
-impl Deref for ScraperClient {
-    type Target = Client;
+    async fn aw_ping(&self) -> Result<String> {
+        let text = reqwest::get("https://www.animeworld.tv/").await?.text().await?;
+        let res = utils::extract_aw_cookie(&text)?;
 
-    fn deref(&self) -> &Self::Target {
-        &self.0
+        Ok(res)
     }
 }
 
@@ -296,11 +288,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_client() {
-        let proxy_client = ScraperClient::new(false).await;
-        let no_proxy_client = ScraperClient::new(true).await;
-
-        proxy_client.unwrap();
-        no_proxy_client.unwrap();
+        Client::builder().proxy(true).build().await.unwrap();
+        Client::builder().proxy(false).build().await.unwrap();
     }
 
     #[tokio::test]
@@ -321,9 +310,7 @@ mod tests {
     #[tokio::test]
     async fn test_scraper() {
         let file = "SeishunButaYarouWaBunnyGirlSenpaiNoYumeWoMinai_Ep_01_SUB_ITA.mp4";
-        let anime = Scraper::default()
-            ._site(Some(Site::AW))
-            ._query("bunny girl")
+        let anime = Scraper::new(false, "bunny girl", Some(Site::AW))
             .run()
             .await
             .unwrap();
@@ -341,12 +328,14 @@ mod tests {
             "Promare_Movie_ITA.mp4",
         ];
 
-        let anime = Scraper::default()
-            ._site(Some(Site::AW))
-            ._query("bunny girl, tsuredure children, promare")
-            .run()
-            .await
-            .unwrap();
+        let anime = Scraper::new(
+            false,
+            "bunny girl, tsuredure children, promare",
+            Some(Site::AW),
+        )
+        .run()
+        .await
+        .unwrap();
 
         let mut anime = anime
             .iter()
