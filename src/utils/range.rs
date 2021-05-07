@@ -1,12 +1,12 @@
 use std::ops::{Deref, RangeInclusive as OpsRange};
 use std::str::FromStr;
 
-use super::*;
+use crate::errors::Error;
 
 #[derive(Debug, Clone)]
 pub struct Range<T>(OpsRange<T>);
 
-impl<'a, T> Range<T>
+impl<T> Range<T>
 where
     T: Copy + Clone + FromStr + Ord,
 {
@@ -57,7 +57,7 @@ impl<T> FromStr for Range<T>
 where
     T: Copy + Clone + FromStr + Ord,
 {
-    type Err = anyhow::Error;
+    type Err = Error;
 
     fn from_str(s: &str) -> Result<Self, <Self as FromStr>::Err> {
         let range_str = s
@@ -69,9 +69,9 @@ where
             (Some(f), Some(l)) => match (f.parse::<T>(), l.parse::<T>()) {
                 (Ok(s), Ok(e)) => Ok(Self(s..=e)),
                 (Ok(s), Err(_)) => Ok(Self(s..=s)),
-                _ => bail!("Unable to parse range"),
+                _ => bail!(Error::InvalidRange),
             },
-            _ => bail!("Unable to parse range"),
+            _ => bail!(Error::InvalidRange),
         }
     }
 }
@@ -107,8 +107,8 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "Unable to parse range")]
+    #[should_panic]
     fn test_wrong_range() {
-        let _ = Range::<i32>::from_str("-").unwrap();
+        Range::<i32>::from_str("-").unwrap();
     }
 }

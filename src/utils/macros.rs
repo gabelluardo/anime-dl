@@ -1,23 +1,40 @@
-macro_rules! print_err {
+/// Throw the error to the caller function
+macro_rules! bail {
+    ($err:expr $(,)?) => {
+        return Err($err)
+    };
+}
+
+/// Fill url placeholder with episode digit
+macro_rules! gen_url {
+    ($str:expr, $num:expr) => {
+        $str.replace(crate::utils::PLACEHOLDER, &zfill!($num))
+    };
+}
+
+/// Print the error message and continue
+macro_rules! unroll {
     ($x:expr) => {
         match $x {
             Ok(item) => item,
             Err(err) => {
-                if (err.to_string() != "") {
-                    bunt::eprintln!("{$red}[ERR] {}{/$}", err)
+                if (!matches!(err, Error::Quit)) {
+                    bunt::eprintln!("{$red}{}{/$}", err)
                 }
                 continue;
             }
         }
     };
 }
-macro_rules! return_err {
+
+/// Print the error message and return
+macro_rules! ok {
     ($x:expr) => {
         match $x {
             Ok(item) => item,
             Err(err) => {
-                if (err.to_string() != "") {
-                    bunt::eprintln!("{$red}[ERR] {}{/$}", err);
+                if (!matches!(err, Error::Quit)) {
+                    bunt::eprintln!("{$red}{}{/$}", err);
                 }
                 return;
             }
@@ -25,15 +42,10 @@ macro_rules! return_err {
     };
 }
 
+/// Format digit with 2 zero into a string
 macro_rules! zfill {
     ($num:expr) => {
         format!("_{:02}", $num)
-    };
-}
-
-macro_rules! gen_url {
-    ($str:expr, $num:expr) => {
-        $str.replace(crate::utils::PLACEHOLDER, &zfill!($num))
     };
 }
 

@@ -11,7 +11,6 @@ arg_enum! {
     #[allow(clippy::upper_case_acronyms)]
     pub enum Site {
         AW,
-        AS,
     }
 }
 
