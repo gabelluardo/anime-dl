@@ -114,7 +114,7 @@ impl AniListBuilder {
         let anime_id = self.anime_id.map(|id| id as i64);
         let client = Client::builder().default_headers(headers).build()?;
 
-        Ok(AniList { anime_id, client })
+        Ok(AniList { client, anime_id })
     }
 }
 

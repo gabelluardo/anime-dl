@@ -224,9 +224,9 @@ impl FileDest {
         };
 
         Ok(Self {
+            size,
             root,
             file,
-            size,
             overwrite,
         })
     }
