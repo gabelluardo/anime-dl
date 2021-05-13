@@ -58,7 +58,7 @@ pub fn extract_name(string: &str) -> Result<String> {
 }
 
 pub fn extract_aw_cookie(string: &str) -> Result<String> {
-    let mut m = find_first_match(string, r"AWCookietest=[A-Fa-f0-9]+")?;
+    let mut m = find_first_match(string, r"AWCookie[A-Za-z]*=[A-Fa-f0-9]+")?;
     m.push_str("; ");
 
     Ok(m)
@@ -111,10 +111,10 @@ mod tests {
 
     #[test]
     fn test_extract_test() {
-        let s = r#"<html><script src="/cdn-cgi/apps/head/WvfaYe5SS22u5exoBw70ThuTjHg.js"></script><body><script>document.cookie="AWCookietest=295db002e27e3ac26934485002b41564 ; </script></body></html>"#;
+        let s = r#"<html><script src="/cdn-cgi/apps/head/WvfaYe5SS22u5exoBw70ThuTjHg.js"></script><body><script>document.cookie="AWCookieVerify=295db002e27e3ac26934485002b41564 ; </script></body></html>"#;
         let res = extract_aw_cookie(s).unwrap();
 
-        assert_eq!(res, "AWCookietest=295db002e27e3ac26934485002b41564; ")
+        assert_eq!(res, "AWCookieVerify=295db002e27e3ac26934485002b41564; ")
     }
 
     #[test]
