@@ -1,7 +1,7 @@
 [package]
 name = "anime-dl"
 edition = "2018"
-version = "1.3.2"
+version = "1.3.3"
 description = "Efficient cli app for downloading anime"
 readme = "README.md"
 authors = ["Gabriele Belluardo <gabriele.belluardo@outlook.it>"]
