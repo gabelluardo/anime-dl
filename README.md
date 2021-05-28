@@ -88,7 +88,7 @@ or use the default of the app: `4047`
 
 ### Contribution 
 
-Feel free to add scrapers for your favorite archive, or make any other kind of contribution. 💪
+Currently there is only an italian language scraper, feel free to add others for your favorite archive, or to make any other kind of contribution. 💪
 
 ### License
 
