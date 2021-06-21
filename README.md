@@ -73,7 +73,7 @@ For parsing urls from a file (es. `urls` ):
 anime-dl [FLAGS] [OPTIONS] $(cat urls)
 ```
 
-**⚠️ Streaming requires [vlc](https://www.videolan.org/vlc/) ⚠️**
+**⚠️ Streaming requires [mpv](https://mpv.io/) or [vlc](https://www.videolan.org/vlc/) ⚠️**
 
 ``` sh
 anime-dl -sc <entries>

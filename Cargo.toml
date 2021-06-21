@@ -12,6 +12,10 @@ license = "GPL-3.0+"
 
 exclude = [".*", "*.md", "LICENSE"]
 
+[[bin]]
+name = "adl"
+path = "src/main.rs"
+
 [profile.release]
 lto = true
 opt-level = "s"
@@ -37,6 +41,7 @@ scraper = "0.12"
 structopt = "0.3"
 thiserror = "1.0"
 tokio-stream = "0.1"
+which = "4.1"
 
 reqwest = { default-features = false, version = "0.11", features = ["json", "rustls-tls"] }
 tokio = { version = "1", features = ["full"] }
