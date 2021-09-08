@@ -26,7 +26,7 @@ cargo install --git https://github.com/gabelluardo/anime-dl
 I usually use this:
 
 ``` sh
-anime-dl -cD <entries>
+adl -cD <entries>
 ```
 
 to store every anime in a properly named directory.  
@@ -34,7 +34,7 @@ to store every anime in a properly named directory.
 Or for stream after scraped an archive:
 
 ``` sh
-anime-dl -sS <archive> -- <entries>
+adl -sS <archive> -- <entries>
 ```
 
 [![asciicast](https://asciinema.org/a/392118.svg)](https://asciinema.org/a/392118)
@@ -43,7 +43,7 @@ Anyway, the helper is this:
 
 ``` 
 USAGE:
-    anime-dl [FLAGS] [OPTIONS] <entries>... --range <range>
+    adl [FLAGS] [OPTIONS] <entries>... --range <range>
 
 FLAGS:
     -D, --default-dir    Save files in a folder with a default name
@@ -61,22 +61,22 @@ OPTIONS:
     -d, --dir <dir>...               Root paths where store files [default: .]
     -m, --max-concurrent <max>       Maximum number of simultaneous downloads allowed [default: 24]
     -r, --range <range>              Episodes to download (es. `1-4` or `1,2,3,4`) [default: 1]
-    -S, --search <site>              Search anime in remote archive [possible values: AW, AS]
+    -S, --search <site>              Search anime in remote archive [possible values: AW]
 
 ARGS:
     <entries>...    Source urls or scraper's queries
 ```
 
-For parsing urls from a file (es. `urls` ):
+For parsing urls from a file (es. `urls`):
 
 ``` sh
-anime-dl [FLAGS] [OPTIONS] $(cat urls)
+adl [FLAGS] [OPTIONS] $(cat urls)
 ```
 
 **⚠️ Streaming requires [mpv](https://mpv.io/) or [vlc](https://www.videolan.org/vlc/) ⚠️**
 
 ``` sh
-anime-dl -sc <entries>
+adl -sc <entries>
 ```
 
 ### Anilist 
@@ -88,7 +88,7 @@ or use the default of the app: `4047`
 
 ### Contribution 
 
-Currently there is only an italian language scraper, feel free to add others for your favorite archive, or to make any other kind of contribution. 💪
+Currently, there is only an italian language scraper, feel free to add others (#83) for your favorite archive, or to make any other kind of contribution. 💪
 
 ### License
 
