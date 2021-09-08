@@ -88,7 +88,7 @@ or use the default of the app: `4047`
 
 ### Contribution 
 
-Currently, there is only an italian language scraper, feel free to add others (#83) for your favorite archive, or to make any other kind of contribution. 💪
+Currently, there is only an italian language scraper, feel free to add others ([#83](https://github.com/gabelluardo/anime-dl/issues/83)) for your favorite archive, or to make any other kind of contribution. 💪
 
 ### License
 
