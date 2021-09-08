@@ -6,6 +6,7 @@ use reqwest::header::{CONTENT_LENGTH, RANGE, REFERER};
 use reqwest::{Client, Url};
 use tokio::{io::AsyncWriteExt, process::Command, task};
 use tokio_stream as stream;
+use which::which;
 
 use crate::anime::{AniList, Anime, FileDest};
 use crate::cli::Args;
@@ -157,8 +158,6 @@ async fn download_worker(url: &str, opts: (PathBuf, &str, bool, ProgressBar)) ->
 }
 
 async fn streaming(args: Args, items: ScraperCollector) -> Result<()> {
-    let referer = format!("--http-referrer={}", items.referer);
-
     for item in items.iter() {
         let anime = Anime::builder()
             .auto(true)
@@ -171,19 +170,21 @@ async fn streaming(args: Args, items: ScraperCollector) -> Result<()> {
 
         let urls = unroll!(tui::get_choice(anime.choices(), None).await);
 
-        // NOTE: Workaround for streaming in Windows
-        let cmd = match cfg!(windows) {
-            true => r"C:\Program Files\VideoLAN\VLC\vlc",
-            false => "vlc",
+        let (cmd, referrer) = match which("mpv") {
+            Ok(c) => (c, format!("--referrer={}", items.referer)),
+            _ => (
+                which("vlc").unwrap_or_default(),
+                format!("--http-referrer={}", items.referer),
+            ),
         };
 
         Command::new(cmd)
-            .arg(&referer)
+            .arg(&referrer)
             .args(urls)
             .stdout(Stdio::null())
             .stderr(Stdio::null())
             .spawn()
-            .map_err(|_| Error::Vlc)?;
+            .map_err(|_| Error::MediaPlayer)?;
     }
 
     Ok(())

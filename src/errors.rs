@@ -8,6 +8,9 @@ pub enum Error {
     #[error("Unable to download {0}")]
     Download(String),
 
+    #[error("`mpv` or `vlc` required for streaming")]
+    MediaPlayer,
+
     #[error("Unable get data from source\nFrom: {0}")]
     Network(#[from] reqwest::Error),
 
@@ -26,15 +29,12 @@ pub enum Error {
     #[error("No match found")]
     Tui,
 
-    #[error("vlc is required for streaming")]
-    Vlc,
-
     // Generic errors
     #[error("{0}")]
     Custom(String),
 
     #[error("{0}")]
-    IoError(#[from] std::io::Error),
+    Io(#[from] std::io::Error),
 
     // File system errors
     #[error("Unable to open file")]
