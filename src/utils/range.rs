@@ -24,7 +24,7 @@ where
 
     pub fn parse_and_fill(s: &str, end: T) -> Result<Self, <Self as FromStr>::Err> {
         Self::parse(s).map(|r| {
-            if r.end().gt(&end) || r.end().eq(&r.start()) {
+            if r.end().gt(&end) || r.end().eq(r.start()) {
                 Self::new(*r.start(), end)
             } else {
                 r

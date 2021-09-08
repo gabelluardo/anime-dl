@@ -26,7 +26,7 @@ pub struct RegInfo {
 
 fn find_first_match(url: &str, matcher: &str) -> Result<String> {
     let re = Regex::new(matcher).unwrap();
-    let cap = match re.captures_iter(&url).last() {
+    let cap = match re.captures_iter(url).last() {
         Some(c) => c,
         None => return Err(Error::Parsing(url.to_string())),
     };
