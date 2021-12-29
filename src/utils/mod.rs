@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 use std::path::PathBuf;
 
+use lazy_static::lazy_static;
 use regex::Regex;
 
 pub use bars::Bars;
@@ -18,27 +19,33 @@ pub mod tui;
 
 pub const PLACEHOLDER: &str = "_{}";
 
-pub struct RegInfo {
+lazy_static! {
+    static ref REG_COOKIE: Regex = Regex::new(r"AWCookie[A-Za-z]*=[A-Fa-f0-9]+").unwrap();
+    static ref REG_NAME: Regex = Regex::new(r"\w+[^/]\w+_").unwrap();
+    static ref REG_INFO: Regex = Regex::new(r"_\d{2,}").unwrap();
+    static ref REG_TITLE: Regex = Regex::new(r"([A-Z][a-z]+|\d+)").unwrap();
+}
+
+pub struct Info {
     pub name: String,
     pub raw: String,
     pub num: Option<u32>,
 }
 
-fn find_first_match(url: &str, matcher: &str) -> Result<String> {
-    let re = Regex::new(matcher).unwrap();
+fn find_first_match(url: &str, re: &Regex) -> Result<String> {
     let cap = match re.captures_iter(url).last() {
         Some(c) => c,
         None => return Err(Error::Parsing(url.to_string())),
     };
-    let res = &cap[0];
 
-    Ok(res.to_string())
+    Ok(cap[0].to_string())
 }
 
-pub fn extract_info(string: &str) -> Result<RegInfo> {
+pub fn extract_info(string: &str) -> Result<Info> {
     let name = extract_name(string)?;
 
-    let (raw, num) = match find_first_match(string, r"_\d{2,}") {
+    let re = &REG_INFO;
+    let (raw, num) = match find_first_match(string, &re) {
         Ok(m) => (
             string.replace(m.as_str(), PLACEHOLDER),
             m.replace("_", "").parse().ok(),
@@ -46,11 +53,12 @@ pub fn extract_info(string: &str) -> Result<RegInfo> {
         _ => (string.to_string(), None),
     };
 
-    Ok(RegInfo { name, raw, num })
+    Ok(Info { name, raw, num })
 }
 
 pub fn extract_name(string: &str) -> Result<String> {
-    let m = find_first_match(string, r"\w+[^/]\w+_")?;
+    let re = &REG_NAME;
+    let m = find_first_match(string, &re)?;
     let res = m.split('_').collect::<Vec<_>>();
     let name = to_title_case(res[0]);
 
@@ -58,7 +66,8 @@ pub fn extract_name(string: &str) -> Result<String> {
 }
 
 pub fn extract_aw_cookie(string: &str) -> Result<String> {
-    let mut m = find_first_match(string, r"AWCookie[A-Za-z]*=[A-Fa-f0-9]+")?;
+    let re = &REG_COOKIE;
+    let mut m = find_first_match(string, &re)?;
     m.push_str("; ");
 
     Ok(m)
@@ -67,7 +76,7 @@ pub fn extract_aw_cookie(string: &str) -> Result<String> {
 pub fn to_title_case(s: &str) -> String {
     let mut res = s.to_string();
 
-    let re = Regex::new(r"([A-Z][a-z]+|\d+)").unwrap();
+    let re = &REG_TITLE;
     re.captures_iter(s)
         .map(|c| (&c[0] as &str).to_string())
         .collect::<HashSet<_>>()
@@ -102,7 +111,7 @@ mod tests {
     fn test_extract_info() {
         let url = "https://www.domain.tld/sub/anotherSub/AnimeName/AnimeName_Ep_15_SUB_ITA.mp4";
         let url_raw = "https://www.domain.tld/sub/anotherSub/AnimeName/AnimeName_Ep_{}_SUB_ITA.mp4";
-        let res: RegInfo = extract_info(url).unwrap();
+        let res: Info = extract_info(url).unwrap();
 
         assert_eq!(res.name, "Anime Name");
         assert_eq!(res.num, Some(15));
