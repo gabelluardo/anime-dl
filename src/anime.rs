@@ -177,15 +177,14 @@ impl Anime {
             .iter()
             .map(|u| {
                 let info = utils::extract_info(u).unwrap();
-                let msg = match info.num {
-                    Some(num) => {
-                        let mut name = format!("{} ep. {}", info.name, num);
+                let mark = if info.num <= self.last_viewed {
+                    " ✔"
+                } else {
+                    ""
+                };
 
-                        if info.num <= self.last_viewed {
-                            name = format!("{} ✔️", name)
-                        }
-                        name
-                    }
+                let msg = match info.num {
+                    Some(num) => format!("{} ep. {}{}", &info.name, num, mark),
                     _ => utils::extract_name(u).unwrap(),
                 };
 

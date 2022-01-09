@@ -45,7 +45,7 @@ pub fn extract_info(string: &str) -> Result<Info> {
     let name = extract_name(string)?;
 
     let re = &REG_INFO;
-    let (raw, num) = match find_first_match(string, &re) {
+    let (raw, num) = match find_first_match(string, re) {
         Ok(m) => (
             string.replace(m.as_str(), PLACEHOLDER),
             m.replace("_", "").parse().ok(),
@@ -58,7 +58,7 @@ pub fn extract_info(string: &str) -> Result<Info> {
 
 pub fn extract_name(string: &str) -> Result<String> {
     let re = &REG_NAME;
-    let m = find_first_match(string, &re)?;
+    let m = find_first_match(string, re)?;
     let res = m.split('_').collect::<Vec<_>>();
     let name = to_title_case(res[0]);
 
@@ -67,7 +67,7 @@ pub fn extract_name(string: &str) -> Result<String> {
 
 pub fn extract_aw_cookie(string: &str) -> Result<String> {
     let re = &REG_COOKIE;
-    let mut m = find_first_match(string, &re)?;
+    let mut m = find_first_match(string, re)?;
     m.push_str("; ");
 
     Ok(m)
