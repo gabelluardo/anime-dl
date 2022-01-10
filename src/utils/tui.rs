@@ -7,6 +7,8 @@ use bunt::{
 
 use super::*;
 
+use regex::Regex;
+
 pub struct Choice {
     link: String,
     name: String,

@@ -10,7 +10,7 @@ use tokio::sync::Mutex;
 
 use crate::cli::Site;
 use crate::errors::{Error, Result};
-use crate::utils::{self, tui};
+use crate::utils::{tui, Info};
 
 #[derive(Debug, Clone)]
 pub struct ScraperItem {
@@ -274,7 +274,7 @@ impl<'a> ClientBuilder {
 
     async fn aw_ping(&self) -> Result<String> {
         let text = reqwest::get("https://www.animeworld.tv/").await?.text().await?;
-        let res = utils::extract_aw_cookie(&text)?;
+        let res = Info::parse_aw_cookie(&text)?;
 
         Ok(res)
     }

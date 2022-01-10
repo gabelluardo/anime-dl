@@ -126,7 +126,7 @@ async fn download_worker(url: &str, opts: (PathBuf, &str, bool, ProgressBar)) ->
         bail!(Error::Overwrite(filename));
     }
 
-    let msg = match utils::extract_info(&filename) {
+    let msg = match utils::Info::parse(&filename) {
         Err(_) => utils::to_title_case(&filename),
         Ok(info) => info
             .num

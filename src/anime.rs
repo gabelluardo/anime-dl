@@ -8,7 +8,7 @@ use tokio::fs;
 pub use crate::api::AniList;
 use crate::errors::{Error, Result};
 pub use crate::scraper::{ScraperCollector, ScraperItem};
-use crate::utils::{self, *};
+use crate::utils::{tui, Info, Range};
 
 #[derive(Default, Debug)]
 pub struct AnimeBuilder {
@@ -54,7 +54,7 @@ impl AnimeBuilder {
     }
 
     pub async fn build(mut self) -> Result<Anime> {
-        let info = utils::extract_info(&self.url)?;
+        let info = Info::parse(&self.url)?;
         let episodes = match info.num {
             Some(_) => self.episodes(&info.raw).await?,
             _ => vec![info.raw],
@@ -176,7 +176,7 @@ impl Anime {
         self.episodes
             .iter()
             .map(|u| {
-                let info = utils::extract_info(u).unwrap();
+                let info = Info::parse(u).unwrap();
                 let mark = if info.num <= self.last_viewed {
                     " ✔"
                 } else {
@@ -185,7 +185,7 @@ impl Anime {
 
                 let msg = match info.num {
                     Some(num) => format!("{} ep. {}{}", &info.name, num, mark),
-                    _ => utils::extract_name(u).unwrap(),
+                    _ => Info::parse_name(u).unwrap(),
                 };
 
                 tui::Choice::new(u.to_string(), msg)
