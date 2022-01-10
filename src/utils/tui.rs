@@ -7,8 +7,6 @@ use bunt::{
 
 use super::*;
 
-use regex::Regex;
-
 #[derive(Clone)]
 pub struct Choice {
     link: String,
@@ -22,33 +20,32 @@ impl Choice {
 }
 
 fn parse_input(line: String, choices: Vec<Choice>) -> Vec<String> {
-    let re = Regex::new(r"[^\d]").unwrap();
-    let mut multi = re
-        .replace_all(&line, " ")
+    let line = line
+        .replace(&[',', '.'][..], " ")
+        .chars()
+        .filter(|c| c.is_ascii_digit() || c.is_ascii_whitespace() || *c == '-')
+        .collect::<String>();
+
+    let sel = line
         .split_ascii_whitespace()
-        .into_iter()
-        .filter_map(|v| v.parse().ok())
+        .map(|s| s.trim())
         .collect::<Vec<_>>();
 
-    if line.contains(&[',', '-', '.'][..]) {
-        let re = Regex::new(r"(\d+[,\-.]+\d*)").unwrap();
-        re.captures_iter(&line)
-            .map(|c| c[0].to_string())
-            .for_each(|s| {
-                multi.extend(
-                    Range::<usize>::parse_and_fill(&s, choices.len())
-                        .unwrap()
-                        .expand(),
-                )
-            })
+    let mut selected = vec![];
+    for s in sel {
+        if let Ok(num) = s.parse::<usize>() {
+            selected.push(num);
+        } else if let Ok(range) = Range::<usize>::parse_and_fill(s, choices.len()) {
+            selected.extend(range.expand())
+        }
     }
 
-    multi.sort_unstable();
-    multi.dedup();
+    selected.sort_unstable();
+    selected.dedup();
 
-    match multi.len() {
+    match selected.len() {
         0 => choices.into_iter().map(|c| c.link).collect::<Vec<_>>(),
-        _ => multi
+        _ => selected
             .into_iter()
             .filter_map(|i| choices.get(i - 1))
             .map(|c| c.link.to_string())
@@ -199,6 +196,18 @@ mod tests {
                 "link1".to_string(),
                 "link2".to_string(),
                 "link3".to_string(),
+                "link4".to_string(),
+                "link5".to_string(),
+                "link6".to_string()
+            ]
+        );
+
+        let line = "1-2, 4-6".to_string();
+        assert_eq!(
+            parse_input(line, choices.clone()),
+            vec![
+                "link1".to_string(),
+                "link2".to_string(),
                 "link4".to_string(),
                 "link5".to_string(),
                 "link6".to_string()
