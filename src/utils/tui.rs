@@ -201,6 +201,18 @@ mod tests {
                 "link6".to_string()
             ]
         );
+        let line = "".to_string();
+        assert_eq!(
+            parse_input(line, choices.clone()),
+            vec![
+                "link1".to_string(),
+                "link2".to_string(),
+                "link3".to_string(),
+                "link4".to_string(),
+                "link5".to_string(),
+                "link6".to_string()
+            ]
+        );
 
         let line = "1-2, 4-6".to_string();
         assert_eq!(
