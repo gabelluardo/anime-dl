@@ -9,6 +9,7 @@ use super::*;
 
 use regex::Regex;
 
+#[derive(Clone)]
 pub struct Choice {
     link: String,
     name: String,
@@ -123,4 +124,85 @@ pub async fn get_token(url: &str) -> Result<String> {
     let line = line.trim().to_string();
 
     Ok(line)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_input() {
+        let choices = vec![
+            Choice {
+                link: "link1".to_string(),
+                name: "choice1".to_string(),
+            },
+            Choice {
+                link: "link2".to_string(),
+                name: "choice2".to_string(),
+            },
+            Choice {
+                link: "link3".to_string(),
+                name: "choice3".to_string(),
+            },
+            Choice {
+                link: "link4".to_string(),
+                name: "choice4".to_string(),
+            },
+            Choice {
+                link: "link5".to_string(),
+                name: "choice5".to_string(),
+            },
+            Choice {
+                link: "link6".to_string(),
+                name: "choice6".to_string(),
+            },
+        ];
+
+        let line = "1,2,3".to_string();
+        assert_eq!(
+            parse_input(line, choices.clone()),
+            vec![
+                "link1".to_string(),
+                "link2".to_string(),
+                "link3".to_string()
+            ]
+        );
+
+        let line = "1-5".to_string();
+        assert_eq!(
+            parse_input(line, choices.clone()),
+            vec![
+                "link1".to_string(),
+                "link2".to_string(),
+                "link3".to_string(),
+                "link4".to_string(),
+                "link5".to_string(),
+            ]
+        );
+
+        let line = "1-3, 6".to_string();
+        assert_eq!(
+            parse_input(line, choices.clone()),
+            vec![
+                "link1".to_string(),
+                "link2".to_string(),
+                "link3".to_string(),
+                "link6".to_string()
+            ]
+        );
+
+        let line = "1-".to_string();
+        assert_eq!(
+            parse_input(line, choices.clone()),
+            vec![
+                "link1".to_string(),
+                "link2".to_string(),
+                "link3".to_string(),
+                "link4".to_string(),
+                "link5".to_string(),
+                "link6".to_string()
+            ]
+        );
+    }
 }
