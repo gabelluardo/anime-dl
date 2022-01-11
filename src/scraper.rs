@@ -323,7 +323,7 @@ mod tests {
     #[tokio::test]
     async fn test_scraper() {
         let file = "SeishunButaYarouWaBunnyGirlSenpaiNoYumeWoMinai_Ep_01_SUB_ITA.mp4";
-        let anime = Scraper::new(false, "bunny girl", Some(Site::AW))
+        let anime = Scraper::new(true, "bunny girl", Some(Site::AW))
             .run()
             .await
             .unwrap();
@@ -342,7 +342,7 @@ mod tests {
         ];
 
         let anime = Scraper::new(
-            false,
+            true,
             "bunny girl, tsuredure children, promare",
             Some(Site::AW),
         )
