@@ -305,6 +305,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[ignore]
     async fn test_animeworld() {
         let file = "SeishunButaYarouWaBunnyGirlSenpaiNoYumeWoMinai_Ep_01_SUB_ITA.mp4";
         let anime = ScraperCollector::mutex();
@@ -321,6 +322,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[ignore]
     async fn test_scraper() {
         let file = "SeishunButaYarouWaBunnyGirlSenpaiNoYumeWoMinai_Ep_01_SUB_ITA.mp4";
         let anime = Scraper::new(true, "bunny girl", Some(Site::AW))
@@ -334,6 +336,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[ignore]
     async fn test_scraper_multi() {
         let mut files = vec![
             "SeishunButaYarouWaBunnyGirlSenpaiNoYumeWoMinai_Ep_01_SUB_ITA.mp4",
