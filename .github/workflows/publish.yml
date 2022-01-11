@@ -22,42 +22,23 @@ jobs:
             target: x86_64-unknown-linux-musl
             artifact_name: target/x86_64-unknown-linux-musl/release/anime-dl
             release_name: x86_64-unknown-linux-musl
-            cross: true
-            strip: true
-            compress: true
-          
           - os: ubuntu-latest
             target: armv7-unknown-linux-musleabihf
             artifact_name: target/armv7-unknown-linux-musleabihf/release/anime-dl
             release_name: armv7-unknown-linux-musleabihf
-            cross: true
-            strip: false
-            compress: true
-          
           - os: ubuntu-latest
             target: arm-unknown-linux-musleabihf
             artifact_name: target/arm-unknown-linux-musleabihf/release/anime-dl
             release_name: arm-unknown-linux-musleabihf
-            cross: true
-            strip: false
-            compress: true
-            
           - os: macos-latest          
             target: x86_64-apple-darwin
             artifact_name: target/x86_64-apple-darwin/release/anime-dl
             release_name: x86_64-apple-darwin
-            cross: false
-            strip: true
-            compress: true
-            
           - os: windows-latest
             target: x86_64-pc-windows-msvc
             artifact_name: target/x86_64-pc-windows-msvc/release/anime-dl.exe
             release_name: x86_64-pc-windows-msvc.exe
-            cross: false
-            strip: true
-            compress: true
-            
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
@@ -75,14 +56,10 @@ jobs:
           args: --release --locked --target=${{ matrix.target }}
           use-cross: ${{ matrix.cross }}
       
-      - name: Compress binaries
-        uses: svenstaro/upx-action@v2
-        with:
-          file: ${{ matrix.artifact_name }}
-          args: --lzma
-          strip: ${{ matrix.strip }}
-        if: ${{ matrix.compress }}
-      
+      - name: Strip binary (linux and macos)
+        if: matrix.os == 'ubuntu-latest' || matrix.os == 'macos-latest'
+        run: strip ${{ matrix.artifact_name }}
+
       - name: Release
         uses: svenstaro/upload-release-action@v2
         with:
