@@ -3,14 +3,14 @@ name: Publish
 on:
   push:
     tags:
-      - '*'
+      - "*"
 
 jobs:
   publish:
     name: Publish for ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
-      matrix:        
+      matrix:
         target:
           - x86_64-unknown-linux-musl
           - armv7-unknown-linux-musleabihf
@@ -20,24 +20,34 @@ jobs:
         include:
           - os: ubuntu-latest
             target: x86_64-unknown-linux-musl
-            artifact_name: target/x86_64-unknown-linux-musl/release/anime-dl
+            artifact_name: target/x86_64-unknown-linux-musl/release/adl
             release_name: x86_64-unknown-linux-musl
+            cross: false
+            strip: true
           - os: ubuntu-latest
             target: armv7-unknown-linux-musleabihf
-            artifact_name: target/armv7-unknown-linux-musleabihf/release/anime-dl
+            artifact_name: target/armv7-unknown-linux-musleabihf/release/adl
             release_name: armv7-unknown-linux-musleabihf
+            cross: true
+            strip: false
           - os: ubuntu-latest
             target: arm-unknown-linux-musleabihf
-            artifact_name: target/arm-unknown-linux-musleabihf/release/anime-dl
+            artifact_name: target/arm-unknown-linux-musleabihf/release/adl
             release_name: arm-unknown-linux-musleabihf
-          - os: macos-latest          
+            cross: true
+            strip: false
+          - os: macos-latest
             target: x86_64-apple-darwin
-            artifact_name: target/x86_64-apple-darwin/release/anime-dl
+            artifact_name: target/x86_64-apple-darwin/release/adl
             release_name: x86_64-apple-darwin
+            cross: false
+            strip: true
           - os: windows-latest
             target: x86_64-pc-windows-msvc
-            artifact_name: target/x86_64-pc-windows-msvc/release/anime-dl.exe
+            artifact_name: target/x86_64-pc-windows-msvc/release/adl.exe
             release_name: x86_64-pc-windows-msvc.exe
+            cross: false
+            strip: true
 
     steps:
       - name: Checkout code
@@ -48,16 +58,21 @@ jobs:
         with:
           toolchain: stable
           target: ${{ matrix.target }}
-      
+
+      - name: Install packages (Ubuntu)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          ci/ubuntu-install-packages
+
       - name: Build
         uses: actions-rs/cargo@v1
         with:
           command: build
           args: --release --locked --target=${{ matrix.target }}
           use-cross: ${{ matrix.cross }}
-      
+
       - name: Strip binary (linux and macos)
-        if: matrix.os == 'ubuntu-latest' || matrix.os == 'macos-latest'
+        if: ${{ matrix.strip }}
         run: strip ${{ matrix.artifact_name }}
 
       - name: Release

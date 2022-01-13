@@ -18,12 +18,11 @@ path = "src/main.rs"
 
 [profile.release]
 lto = true
-opt-level = "s"
+opt-level = 2
 codegen-units = 1
 panic = "abort"
 
 [package.metadata.release]
-no-dev-version = true
 tag-name = "v{{version}}"
 tag-message = "v{{version}}"
 pre-release-commit-message = "Bump version to {{version}}"
