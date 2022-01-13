@@ -44,7 +44,7 @@ tokio-stream = "0.1"
 which = "4.1"
 
 reqwest = { default-features = false, version = "0.11", features = ["json", "rustls-tls"] }
-tokio = { version = ">=1.8.1", features = ["full"] }
+tokio = { default-features = false, version = ">=1.8.1", features = ["fs", "macros", "process", "rt-multi-thread"] }
 
 # Optional deps...
 
