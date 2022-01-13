@@ -100,7 +100,7 @@ pub struct Args {
 }
 
 impl Args {
-    pub fn parse() -> Self {
-        Self::from_args()
+    pub fn from_args() -> Self {
+        StructOpt::from_args()
     }
 }

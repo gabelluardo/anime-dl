@@ -25,7 +25,7 @@ mod scraper;
 
 #[tokio::main]
 async fn main() {
-    let args = Args::parse();
+    let args = Args::from_args();
 
     #[cfg(feature = "anilist")]
     if args.clean {
@@ -56,7 +56,7 @@ async fn main() {
 }
 
 async fn download(args: Args, items: ScraperCollector) -> Result<()> {
-    let referer = &items.referer;
+    let referer = &items.referrer;
 
     let bars = Bars::new();
     let mut pool = vec![];
@@ -126,13 +126,14 @@ async fn download_worker(url: &str, opts: (PathBuf, &str, bool, ProgressBar)) ->
         bail!(Error::Overwrite(filename));
     }
 
-    let msg = match utils::Info::parse(&filename) {
-        Err(_) => utils::to_title_case(&filename),
-        Ok(info) => info
-            .num
-            .map(|num| format!("Ep. {:02} {}", num, info.name))
-            .unwrap_or(info.name),
+    let msg = if let Ok(info) = utils::Info::parse(&filename) {
+        let (num, name) = (info.num, info.name);
+        num.map(|num| format!("Ep. {num:02} {name}"))
+            .unwrap_or(name)
+    } else {
+        utils::to_title_case(&filename)
     };
+
     let completed = format!("{} 👍", &msg);
 
     pb.set_position(file.size);
@@ -159,22 +160,24 @@ async fn download_worker(url: &str, opts: (PathBuf, &str, bool, ProgressBar)) ->
 
 async fn streaming(args: Args, items: ScraperCollector) -> Result<()> {
     for item in items.iter() {
+        let referrer = &items.referrer;
+
         let anime = Anime::builder()
             .auto(true)
             .client_id(args.animedl_id)
             .item(item)
             .range(args.range.as_ref().unwrap_or_default())
-            .referer(&items.referer)
+            .referer(referrer)
             .build()
             .await?;
 
         let urls = unroll!(tui::get_choice(anime.choices(), None).await);
 
         let (cmd, referrer) = match which("mpv") {
-            Ok(c) => (c, format!("--referrer={}", items.referer)),
+            Ok(c) => (c, format!("--referrer={referrer}")),
             _ => (
                 which("vlc").unwrap_or_default(),
-                format!("--http-referrer={}", items.referer),
+                format!("--http-referrer={referrer}"),
             ),
         };
 

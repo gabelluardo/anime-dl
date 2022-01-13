@@ -61,12 +61,11 @@ pub async fn get_choice(choices: Vec<Choice>, query: Option<String>) -> Result<V
             let stream = StandardStream::stdout(ColorChoice::Auto);
             let mut stdout = stream.lock();
 
-            writeln!(
-                stdout,
-                "{$cyan+bold}{} results found{}{/$}\n",
-                choices.len(),
-                query.map(|q| format!(" for `{}`", q)).unwrap_or_default()
-            )?;
+            let len = choices.len();
+            let name = query.map(|n| format!(" for `{n}`")).unwrap_or_default();
+            let results = format!("{len} results found{name}");
+
+            writeln!(stdout, "{$cyan+bold}{}{/$}\n", results)?;
             for (i, c) in choices.iter().enumerate() {
                 writeln!(stdout, "[{[magenta]}] {[green]}", i + 1, c.name)?;
             }

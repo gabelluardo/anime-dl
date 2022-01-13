@@ -87,7 +87,7 @@ impl Info {
         let value = preceded(char('='), alphanumeric1);
         let parser = tuple((key, value));
 
-        map(parser, |(k, v)| format!("{}={}", k, v))(input)
+        map(parser, |(k, v)| format!("{k}={v}"))(input)
     }
 }
 

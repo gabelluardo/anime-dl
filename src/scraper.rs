@@ -21,7 +21,7 @@ pub struct ScraperItem {
 #[derive(Debug, Default, Clone)]
 pub struct ScraperCollector {
     pub items: Vec<ScraperItem>,
-    pub referer: String,
+    pub referrer: String,
 }
 
 impl ScraperCollector {
@@ -115,7 +115,7 @@ impl Scraper {
         client: Arc<Client>,
         buf: Arc<Mutex<ScraperCollector>>,
     ) -> Result<()> {
-        let search_url = format!("https://www.animeworld.tv/search?keyword={}", query);
+        let search_url = format!("https://www.animeworld.tv/search?keyword={query}");
 
         let page = Self::parse(search_url, &client).await?;
         let results = {
@@ -149,7 +149,7 @@ impl Scraper {
 
         let pages = choices
             .iter()
-            .map(|c| Self::parse(format!("https://www.animeworld.tv{}", c), &client))
+            .map(|c| Self::parse(format!("https://www.animeworld.tv{c}"), &client))
             .collect::<Vec<_>>();
 
         let res = join_all(pages)
@@ -185,8 +185,8 @@ impl Scraper {
         let mut buf = buf.lock().await;
         buf.extend(res);
 
-        if buf.referer.is_empty() {
-            buf.referer = "https://www.animeworld.tv/".to_string();
+        if buf.referrer.is_empty() {
+            buf.referrer = "https://www.animeworld.tv/".to_string();
         }
 
         Ok(())
@@ -259,7 +259,7 @@ impl<'a> ClientBuilder {
             let proxy = res
                 .split_ascii_whitespace()
                 .choose(&mut rand::thread_rng())
-                .map(|s| format!("https://{}", s))
+                .map(|s| format!("https://{s}"))
                 .unwrap_or_default();
 
             let p = reqwest::Proxy::http(proxy).map_err(|_| Error::Proxy)?;

@@ -17,7 +17,7 @@ pub struct AnimeBuilder {
     id: Option<u32>,
     path: PathBuf,
     range: Range<u32>,
-    referer: String,
+    referrer: String,
     url: String,
 }
 
@@ -49,7 +49,7 @@ impl AnimeBuilder {
     }
 
     pub fn referer(mut self, referer: &str) -> Self {
-        self.referer = referer.to_string();
+        self.referrer = referer.to_string();
         self
     }
 
@@ -84,7 +84,7 @@ impl AnimeBuilder {
 
                 match client
                     .head(&gen_url!(url, counter))
-                    .header(REFERER, &self.referer)
+                    .header(REFERER, &self.referrer)
                     .send()
                     .await?
                     .error_for_status()
@@ -99,7 +99,7 @@ impl AnimeBuilder {
 
                 match client
                     .head(&gen_url!(url, counter))
-                    .header(REFERER, &self.referer)
+                    .header(REFERER, &self.referrer)
                     .send()
                     .await?
                     .error_for_status()
@@ -113,7 +113,7 @@ impl AnimeBuilder {
                 // Check if episode 0 is available
                 1 => match client
                     .head(&gen_url!(url, 0))
-                    .header(REFERER, &self.referer)
+                    .header(REFERER, &self.referrer)
                     .send()
                     .await?
                     .error_for_status()
@@ -183,8 +183,9 @@ impl Anime {
                     ""
                 };
 
+                let name = info.name;
                 let msg = match info.num {
-                    Some(num) => format!("{} ep. {}{}", &info.name, num, mark),
+                    Some(num) => format!("{name} ep. {num}{mark}"),
                     _ => Info::parse_name(u).unwrap(),
                 };
 
