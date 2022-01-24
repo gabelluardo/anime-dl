@@ -1,11 +1,12 @@
-name: CI
+name: Tests
 
 on:
   push:
     branches: [ master ]
   pull_request:
-    branches: [ master ]
-    
+    branches: [ master]
+  workflow_dispatch:
+
 env:
   CARGO_TERM_COLOR: always
 
@@ -14,31 +15,47 @@ jobs:
     name: ${{ matrix.os }} / Stable
     runs-on: ${{ matrix.os }}
     strategy:
-          matrix:
-            os: [ubuntu-latest, windows-latest, macos-latest]
-            rust: [stable]
-  
+      matrix:
+        include:
+          - os: ubuntu-latest
+            rust: stable
+            target: x86_64-unknown-linux-musl
+          - os: windows-latest
+            rust: stable
+            target: x86_64-pc-windows-msvc
+          - os: macos-latest
+            rust: stable
+            target: x86_64-apple-darwin
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
-        
+
       - name: Setup Rust toolchain
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
           toolchain: ${{ matrix.rust }}
+          target: ${{ matrix.target }}
           override: true
           components: rustfmt, clippy
-      
+
+      - name: Install packages (Ubuntu)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          ci/ubuntu-install-packages
+
       - name: Build
         uses: actions-rs/cargo@v1
         with:
           command: build
+          args: --target ${{ matrix.target }}
 
       - name: Test
         uses: actions-rs/cargo@v1
         with:
           command: test
+          args: --target ${{ matrix.target }}
 
       - name: cargo fmt
         uses: actions-rs/cargo@v1
@@ -50,5 +67,4 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: clippy
-          args: -- -D warnings
-          
+          args: --target ${{ matrix.target }} -- -D warnings

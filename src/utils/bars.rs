@@ -3,7 +3,6 @@ use std::ops::Deref;
 pub use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 
 pub struct Bars(MultiProgress);
-
 impl Bars {
     pub fn new() -> Self {
         Self(self::instance_multi_bars())
@@ -23,12 +22,13 @@ impl Deref for Bars {
 }
 
 fn instance_style() -> ProgressStyle {
-    ProgressStyle::default_bar().template("{spinner:.green} [{elapsed:.magenta}] [{bar:20.cyan/blue}] {bytes_per_sec} {bytes:.cyan}/{total_bytes:.blue} ({eta:.magenta}) {wide_msg:.green}").progress_chars("#>-")
+    ProgressStyle::default_bar().template("{spinner:.green} [{elapsed:.magenta}] [{bar:20.cyan/blue}] {bytes_per_sec} {bytes:.cyan}/{total_bytes:.blue} ({eta:.magenta}) {msg:.green}").progress_chars("#>-")
 }
 
 fn instance_multi_bars() -> MultiProgress {
     let multi = MultiProgress::new();
-    // for flickering bar bug on windows (https://github.com/mitsuhiko/indicatif/issues/143)
+
+    // NOTE: fix for flickering bar bug on windows (https://github.com/mitsuhiko/indicatif/issues/143)
     multi.set_move_cursor(cfg!(windows));
     multi
 }

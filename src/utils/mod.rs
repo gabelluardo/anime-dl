@@ -1,7 +1,12 @@
-use std::collections::HashSet;
 use std::path::PathBuf;
 
-use regex::Regex;
+use nom::{
+    bytes::complete::take_until,
+    character::complete::{alpha0, alphanumeric1, char},
+    combinator::map,
+    sequence::{preceded, tuple},
+    {IResult, Slice},
+};
 
 pub use bars::Bars;
 pub use bars::ProgressBar;
@@ -16,73 +21,108 @@ pub mod bars;
 pub mod range;
 pub mod tui;
 
-pub const PLACEHOLDER: &str = "_{}";
-
-pub struct RegInfo {
+#[derive(Debug, PartialEq)]
+pub struct Info {
     pub name: String,
     pub raw: String,
     pub num: Option<u32>,
 }
 
-fn find_first_match(url: &str, matcher: &str) -> Result<String> {
-    let re = Regex::new(matcher).unwrap();
-    let cap = match re.captures_iter(url).last() {
-        Some(c) => c,
-        None => return Err(Error::Parsing(url.to_string())),
-    };
-    let res = &cap[0];
+impl Info {
+    pub fn parse(input: &str) -> Result<Self> {
+        let name = Self::parse_name(input)?;
 
-    Ok(res.to_string())
-}
+        // find episode number position in input
+        let mut opt_pos = None;
+        for (i, c) in input.char_indices() {
+            if let Some(next) = input.chars().nth(i + 1) {
+                if c == '_' && next.is_ascii_digit() {
+                    opt_pos = Some(i);
+                }
+            }
+        }
 
-pub fn extract_info(string: &str) -> Result<RegInfo> {
-    let name = extract_name(string)?;
+        let (raw, num) = match opt_pos {
+            Some(pos) => {
+                let sub_str = input
+                    .slice(pos..pos + 3)
+                    .chars()
+                    .filter(char::is_ascii_digit)
+                    .collect::<String>();
 
-    let (raw, num) = match find_first_match(string, r"_\d{2,}") {
-        Ok(m) => (
-            string.replace(m.as_str(), PLACEHOLDER),
-            m.replace("_", "").parse().ok(),
-        ),
-        _ => (string.to_string(), None),
-    };
+                let raw = input.replace(&sub_str, "{}");
+                let num = sub_str.parse::<u32>().ok();
 
-    Ok(RegInfo { name, raw, num })
-}
+                (raw, num)
+            }
+            _ => (input.to_string(), None),
+        };
 
-pub fn extract_name(string: &str) -> Result<String> {
-    let m = find_first_match(string, r"\w+[^/]\w+_")?;
-    let res = m.split('_').collect::<Vec<_>>();
-    let name = to_title_case(res[0]);
+        Ok(Info { name, raw, num })
+    }
 
-    Ok(name)
-}
+    pub fn parse_name(input: &str) -> Result<String> {
+        let url = reqwest::Url::parse(input).map_err(|_| Error::Parsing(input.to_owned()))?;
+        let res = url
+            .path_segments()
+            .and_then(|s| s.last())
+            .map(|s| s.split('_').collect::<Vec<_>>()[0])
+            .ok_or_else(|| Error::Parsing(input.to_owned()))?;
 
-pub fn extract_aw_cookie(string: &str) -> Result<String> {
-    let mut m = find_first_match(string, r"AWCookie[A-Za-z]*=[A-Fa-f0-9]+")?;
-    m.push_str("; ");
+        let name = to_title_case(res);
 
-    Ok(m)
+        Ok(name)
+    }
+
+    pub fn parse_aw_cookie(input: &str) -> Result<String> {
+        let (_, mut cookie) =
+            Self::aw_parser(input).map_err(|_| Error::Parsing(input.to_owned()))?;
+        cookie.push_str("; ");
+
+        Ok(cookie)
+    }
+
+    fn aw_parser(input: &str) -> IResult<&str, String> {
+        let key = preceded(take_until("AWCookie"), alpha0);
+        let value = preceded(char('='), alphanumeric1);
+        let parser = tuple((key, value));
+
+        map(parser, |(k, v)| format!("{k}={v}"))(input)
+    }
 }
 
 pub fn to_title_case(s: &str) -> String {
-    let mut res = s.to_string();
+    let mut v = String::new();
+    let mut pos = None;
 
-    let re = Regex::new(r"([A-Z][a-z]+|\d+)").unwrap();
-    re.captures_iter(s)
-        .map(|c| (&c[0] as &str).to_string())
-        .collect::<HashSet<_>>()
-        .iter()
-        .for_each(|s| res = res.replace(s, &format!(" {}", s)));
+    for (i, c) in s.char_indices() {
+        if let Some(next) = s.chars().nth(i + 1) {
+            if i != 0 && c.is_uppercase() && !next.is_uppercase() && !next.is_ascii_digit() {
+                v.push(' ')
+            }
+        }
 
-    res.trim().to_string()
+        // save position of the first digit
+        if c.is_ascii_digit() && pos.is_none() {
+            pos = Some(v.len());
+        }
+
+        v.push(c);
+    }
+
+    if let Some(i) = pos {
+        v.insert(i, ' ')
+    }
+
+    v.to_string()
 }
 
 pub fn get_path(args: &crate::cli::Args, url: &str, pos: usize) -> Result<PathBuf> {
     let mut root = args.dir.last().unwrap().to_owned();
 
     let path = if args.auto_dir {
-        let subfolder = self::extract_name(url)?;
-        root.push(subfolder);
+        let sub_folder = Info::parse_name(url)?;
+        root.push(sub_folder);
         root
     } else {
         match args.dir.get(pos) {
@@ -94,15 +134,28 @@ pub fn get_path(args: &crate::cli::Args, url: &str, pos: usize) -> Result<PathBu
     Ok(path)
 }
 
+pub fn is_web_url(s: &str) -> bool {
+    reqwest::Url::parse(s).is_ok()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
+    fn test_is_url() {
+        let url = "https://www.domain.tld/sub/anotherSub/AnimeName/AnimeName_Ep_15_SUB_ITA.mp4";
+        let not_url = "ciao ciao ciao";
+
+        assert!(is_web_url(url));
+        assert!(!is_web_url(not_url));
+    }
+
+    #[test]
     fn test_extract_info() {
         let url = "https://www.domain.tld/sub/anotherSub/AnimeName/AnimeName_Ep_15_SUB_ITA.mp4";
         let url_raw = "https://www.domain.tld/sub/anotherSub/AnimeName/AnimeName_Ep_{}_SUB_ITA.mp4";
-        let res: RegInfo = extract_info(url).unwrap();
+        let res = Info::parse(url).unwrap();
 
         assert_eq!(res.name, "Anime Name");
         assert_eq!(res.num, Some(15));
@@ -110,9 +163,9 @@ mod tests {
     }
 
     #[test]
-    fn test_extract_test() {
+    fn test_extract_cookie() {
         let s = r#"<html><script src="/cdn-cgi/apps/head/WvfaYe5SS22u5exoBw70ThuTjHg.js"></script><body><script>document.cookie="AWCookieVerify=295db002e27e3ac26934485002b41564 ; </script></body></html>"#;
-        let res = extract_aw_cookie(s).unwrap();
+        let res = Info::parse_aw_cookie(s).unwrap();
 
         assert_eq!(res, "AWCookieVerify=295db002e27e3ac26934485002b41564; ")
     }

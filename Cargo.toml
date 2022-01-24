@@ -1,6 +1,6 @@
 [package]
 name = "anime-dl"
-edition = "2018"
+edition = "2021"
 version = "1.3.3"
 description = "Efficient cli app for downloading anime"
 readme = "README.md"
@@ -18,11 +18,11 @@ path = "src/main.rs"
 
 [profile.release]
 lto = true
-opt-level = "s"
+opt-level = 2
 codegen-units = 1
+panic = "abort"
 
 [package.metadata.release]
-no-dev-version = true
 tag-name = "v{{version}}"
 tag-message = "v{{version}}"
 pre-release-commit-message = "Bump version to {{version}}"
@@ -35,8 +35,8 @@ anilist = ["graphql_client", "serde"]
 bunt = "0.2"
 futures = "0.3.8"
 indicatif = "0.16"
+nom = "7"
 rand = "0.8"
-regex = "1.5"
 scraper = "0.12"
 structopt = "0.3"
 thiserror = "1.0"
@@ -44,7 +44,7 @@ tokio-stream = "0.1"
 which = "4.1"
 
 reqwest = { default-features = false, version = "0.11", features = ["json", "rustls-tls"] }
-tokio = { version = ">=1.8.1", features = ["full"] }
+tokio = { default-features = false, version = ">=1.8.1", features = ["fs", "macros", "process", "rt-multi-thread"] }
 
 # Optional deps...
 

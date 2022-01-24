@@ -1,0 +1,15 @@
+[build]
+target = "x86_64-unknown-linux-musl"
+
+[target.'cfg(target_os = "linux")']
+rustflags = ["-C", "relocation-model=static"]
+
+[target.x86_64-unknown-linux-musl]
+rustflags = ["-C", "linker=ld.lld", "-C", "relocation-model=static"]
+
+# On Windows MSVC, statically link the C runtime so that the resulting EXE does
+# not depend on the vcruntime DLL.
+#
+# See: https://github.com/BurntSushi/ripgrep/pull/1613
+[target.x86_64-pc-windows-msvc]
+rustflags = ["-C", "target-feature=+crt-static"]

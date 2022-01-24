@@ -8,7 +8,7 @@ use tokio::fs;
 pub use crate::api::AniList;
 use crate::errors::{Error, Result};
 pub use crate::scraper::{ScraperCollector, ScraperItem};
-use crate::utils::{self, *};
+use crate::utils::{tui, Info, Range};
 
 #[derive(Default, Debug)]
 pub struct AnimeBuilder {
@@ -17,7 +17,7 @@ pub struct AnimeBuilder {
     id: Option<u32>,
     path: PathBuf,
     range: Range<u32>,
-    referer: String,
+    referrer: String,
     url: String,
 }
 
@@ -49,12 +49,12 @@ impl AnimeBuilder {
     }
 
     pub fn referer(mut self, referer: &str) -> Self {
-        self.referer = referer.to_string();
+        self.referrer = referer.to_string();
         self
     }
 
     pub async fn build(mut self) -> Result<Anime> {
-        let info = utils::extract_info(&self.url)?;
+        let info = Info::parse(&self.url)?;
         let episodes = match info.num {
             Some(_) => self.episodes(&info.raw).await?,
             _ => vec![info.raw],
@@ -84,7 +84,7 @@ impl AnimeBuilder {
 
                 match client
                     .head(&gen_url!(url, counter))
-                    .header(REFERER, &self.referer)
+                    .header(REFERER, &self.referrer)
                     .send()
                     .await?
                     .error_for_status()
@@ -99,7 +99,7 @@ impl AnimeBuilder {
 
                 match client
                     .head(&gen_url!(url, counter))
-                    .header(REFERER, &self.referer)
+                    .header(REFERER, &self.referrer)
                     .send()
                     .await?
                     .error_for_status()
@@ -113,7 +113,7 @@ impl AnimeBuilder {
                 // Check if episode 0 is available
                 1 => match client
                     .head(&gen_url!(url, 0))
-                    .header(REFERER, &self.referer)
+                    .header(REFERER, &self.referrer)
                     .send()
                     .await?
                     .error_for_status()
@@ -176,17 +176,17 @@ impl Anime {
         self.episodes
             .iter()
             .map(|u| {
-                let info = utils::extract_info(u).unwrap();
-                let msg = match info.num {
-                    Some(num) => {
-                        let mut name = format!("{} ep. {}", info.name, num);
+                let info = Info::parse(u).unwrap();
+                let mark = if info.num <= self.last_viewed {
+                    " ✔"
+                } else {
+                    ""
+                };
 
-                        if info.num <= self.last_viewed {
-                            name = format!("{} ✔️", name)
-                        }
-                        name
-                    }
-                    _ => utils::extract_name(u).unwrap(),
+                let name = info.name;
+                let msg = match info.num {
+                    Some(num) => format!("{name} ep. {num}{mark}"),
+                    _ => Info::parse_name(u).unwrap(),
                 };
 
                 tui::Choice::new(u.to_string(), msg)

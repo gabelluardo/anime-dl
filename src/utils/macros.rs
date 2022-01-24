@@ -8,7 +8,7 @@ macro_rules! bail {
 /// Fill url placeholder with episode digit
 macro_rules! gen_url {
     ($str:expr, $num:expr) => {
-        $str.replace(crate::utils::PLACEHOLDER, &zfill!($num))
+        $str.replace("_{}", &zfill!($num))
     };
 }
 
