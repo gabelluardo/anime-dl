@@ -15,7 +15,7 @@ For latest release:
 cargo install anime-dl
 ```
 
-or for latest master commit:
+or for latest commit on `main` branch:
 
 ``` sh
 cargo install --git https://github.com/gabelluardo/anime-dl
@@ -34,7 +34,7 @@ to store every anime in a properly named directory.
 Or for stream after scraped an archive:
 
 ``` sh
-adl -sS <archive> -- <entries>
+adl -sS <archive> <entries>
 ```
 
 [![asciicast](https://asciinema.org/a/392118.svg)](https://asciinema.org/a/392118)
@@ -88,7 +88,7 @@ or use the default of the app: `4047`
 
 ### Contribution 
 
-Currently, there is only an italian language scraper, feel free to add others ([#83](https://github.com/gabelluardo/anime-dl/issues/83)) for your favorite archive, or to make any other kind of contribution. 💪
+Currently, there is only an _italian_ language scraper, feel free to add others ([#83](https://github.com/gabelluardo/anime-dl/issues/83)) for your favorite archive, or to make any other kind of contribution. 💪
 
 ### License
 

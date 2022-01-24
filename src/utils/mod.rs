@@ -134,9 +134,22 @@ pub fn get_path(args: &crate::cli::Args, url: &str, pos: usize) -> Result<PathBu
     Ok(path)
 }
 
+pub fn is_web_url(s: &str) -> bool {
+    reqwest::Url::parse(s).is_ok()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_is_url() {
+        let url = "https://www.domain.tld/sub/anotherSub/AnimeName/AnimeName_Ep_15_SUB_ITA.mp4";
+        let not_url = "ciao ciao ciao";
+
+        assert!(is_web_url(url));
+        assert!(!is_web_url(not_url));
+    }
 
     #[test]
     fn test_extract_info() {

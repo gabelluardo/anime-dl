@@ -32,28 +32,26 @@ async fn main() {
         ok!(AniList::clean_cache().await)
     }
 
-    let items = match args.site {
-        Some(site) => {
-            let proxy = !args.no_proxy;
-            let query = &args.entries.join(" ");
-            let site = site.unwrap_or_default();
-
-            ok!(Scraper::new(proxy, query, site).run().await)
-        }
-        None => args
-            .entries
+    let items = if utils::is_web_url(&args.entries[0]) {
+        args.entries
             .iter()
             .map(|s| Scraper::item(s, None))
-            .collect::<_>(),
-    };
-
-    let res = if args.stream {
-        streaming(args, items).await
+            .collect::<_>()
     } else {
-        download(args, items).await
+        let proxy = !args.no_proxy;
+        let query = &args.entries.join(" ");
+
+        // currently only one site can be chosen
+        // let site = args.site.unwrap_or_default();
+
+        ok!(Scraper::new(query).proxy(proxy).run().await)
     };
 
-    ok!(res)
+    if args.stream {
+        ok!(streaming(args, items).await)
+    } else {
+        ok!(download(args, items).await)
+    }
 }
 
 async fn download(args: Args, items: ScraperCollector) -> Result<()> {
@@ -67,7 +65,7 @@ async fn download(args: Args, items: ScraperCollector) -> Result<()> {
 
         let mut anime = Anime::builder()
             .auto(args.auto_episode || args.interactive)
-            .client_id(args.animedl_id)
+            .client_id(args.anilist_id)
             .item(item)
             .range(args.range.as_ref().unwrap_or_default())
             .referer(referer)
@@ -165,7 +163,7 @@ async fn streaming(args: Args, items: ScraperCollector) -> Result<()> {
 
         let anime = Anime::builder()
             .auto(true)
-            .client_id(args.animedl_id)
+            .client_id(args.anilist_id)
             .item(item)
             .range(args.range.as_ref().unwrap_or_default())
             .referer(referrer)

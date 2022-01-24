@@ -56,20 +56,38 @@ impl FromIterator<ScraperItem> for ScraperCollector {
     }
 }
 
-#[derive(Default)]
 pub struct Scraper {
     proxy: bool,
     query: String,
     site: Site,
 }
 
-impl Scraper {
-    pub fn new(proxy: bool, query: &str, site: Site) -> Self {
+impl Default for Scraper {
+    fn default() -> Self {
         Self {
-            proxy,
-            site,
-            query: query.to_string(),
+            proxy: true,
+            query: String::default(),
+            site: Site::default(),
         }
+    }
+}
+
+impl Scraper {
+    pub fn new(query: &str) -> Self {
+        Self {
+            query: query.to_string(),
+            ..Self::default()
+        }
+    }
+
+    pub fn proxy(mut self, proxy: bool) -> Self {
+        self.proxy = proxy;
+        self
+    }
+
+    pub fn _site(mut self, site: Site) -> Self {
+        self.site = site;
+        self
     }
 
     pub fn _collector() -> ScraperCollector {
@@ -350,10 +368,7 @@ mod tests {
     #[ignore]
     async fn test_scraper() {
         let file = "SeishunButaYarouWaBunnyGirlSenpaiNoYumeWoMinai_Ep_01_SUB_ITA.mp4";
-        let anime = Scraper::new(true, "bunny girl", Site::AW)
-            .run()
-            .await
-            .unwrap();
+        let anime = Scraper::new("bunny girl").run().await.unwrap();
 
         let info = get_url(&anime.first().unwrap().url);
 
@@ -369,7 +384,7 @@ mod tests {
             "Promare_Movie_ITA.mp4",
         ];
 
-        let anime = Scraper::new(true, "bunny girl, tsuredure children, promare", Site::AW)
+        let anime = Scraper::new("bunny girl, tsuredure children, promare")
             .run()
             .await
             .unwrap();

@@ -70,7 +70,7 @@ pub struct Args {
         case_insensitive = true,
         possible_values = & Site::variants(),
     )]
-    pub site: Option<Option<Site>>,
+    pub site: Option<Site>,
 
     /// Save files in a folder with a default name
     #[structopt(short = "D", long = "default-dir")]
@@ -85,8 +85,8 @@ pub struct Args {
     pub force: bool,
 
     /// Override app id environment variable
-    #[structopt(short, long, env, hide_env_values = true)]
-    pub animedl_id: Option<u32>,
+    #[structopt(short, long, env = "ANIMEDL_ID", hide_env_values = true)]
+    pub anilist_id: Option<u32>,
 
     /// Stream episode in a media player
     #[structopt(short, long)]
