@@ -32,10 +32,11 @@ async fn main() {
         ok!(AniList::clean_cache().await)
     }
 
-    let items = match args.search {
+    let items = match args.site {
         Some(site) => {
             let proxy = !args.no_proxy;
             let query = &args.entries.join(" ");
+            let site = site.unwrap_or_default();
 
             ok!(Scraper::new(proxy, query, site).run().await)
         }

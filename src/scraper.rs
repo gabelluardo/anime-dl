@@ -60,11 +60,11 @@ impl FromIterator<ScraperItem> for ScraperCollector {
 pub struct Scraper {
     proxy: bool,
     query: String,
-    site: Option<Site>,
+    site: Site,
 }
 
 impl Scraper {
-    pub fn new(proxy: bool, query: &str, site: Option<Site>) -> Self {
+    pub fn new(proxy: bool, query: &str, site: Site) -> Self {
         Self {
             proxy,
             site,
@@ -93,7 +93,7 @@ impl Scraper {
         let client = Arc::new(Client::with_proxy(self.proxy).await?);
 
         let func = match self.site {
-            Some(Site::AW) | None => Self::animeworld,
+            Site::AW => Self::animeworld,
         };
 
         let sc = ScraperCollector::mutex();
@@ -158,9 +158,34 @@ impl Scraper {
             .filter_map(|p| p.ok())
             .map(|page| {
                 let a = Selector::parse(r#"a[id="alternativeDownloadLink"]"#).unwrap();
-                let btn = Selector::parse(r#"a[id="anilist-button"]"#).unwrap();
+                let mut url = page
+                    .select(&a)
+                    .last()
+                    .and_then(|a| a.value().attr("href"))
+                    .map(|u| u.to_string());
 
-                let url = page.select(&a).last().and_then(|a| a.value().attr("href"));
+                // try again with another links
+                if url.is_none() || url == Some("".to_string()) {
+                    let a = Selector::parse(r#"a[id="downloadLink"]"#).unwrap();
+
+                    url = page
+                        .select(&a)
+                        .last()
+                        .and_then(|a| a.value().attr("href"))
+                        .map(|u| u.replace("download-file.php?id=", ""));
+                }
+
+                if url.is_none() || url == Some("".to_string()) {
+                    let a = Selector::parse(r#"a[id="customDownloadButton"]"#).unwrap();
+
+                    url = page
+                        .select(&a)
+                        .last()
+                        .and_then(|a| a.value().attr("href"))
+                        .map(|u| u.replace("download-file.php?id=", ""));
+                }
+
+                let btn = Selector::parse(r#"a[id="anilist-button"]"#).unwrap();
                 let id = page
                     .select(&btn)
                     .last()
@@ -173,7 +198,7 @@ impl Scraper {
                             .and_then(|s| s.parse::<u32>().ok())
                     });
 
-                Self::item(url.unwrap_or_default(), id)
+                Self::item(&url.unwrap_or_default(), id)
             })
             .filter(|i| !i.url.is_empty())
             .collect::<Vec<_>>();
@@ -325,7 +350,7 @@ mod tests {
     #[ignore]
     async fn test_scraper() {
         let file = "SeishunButaYarouWaBunnyGirlSenpaiNoYumeWoMinai_Ep_01_SUB_ITA.mp4";
-        let anime = Scraper::new(true, "bunny girl", Some(Site::AW))
+        let anime = Scraper::new(true, "bunny girl", Site::AW)
             .run()
             .await
             .unwrap();
@@ -344,14 +369,10 @@ mod tests {
             "Promare_Movie_ITA.mp4",
         ];
 
-        let anime = Scraper::new(
-            true,
-            "bunny girl, tsuredure children, promare",
-            Some(Site::AW),
-        )
-        .run()
-        .await
-        .unwrap();
+        let anime = Scraper::new(true, "bunny girl, tsuredure children, promare", Site::AW)
+            .run()
+            .await
+            .unwrap();
 
         let mut anime = anime
             .iter()
