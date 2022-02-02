@@ -25,7 +25,7 @@ mod scraper;
 
 #[tokio::main]
 async fn main() {
-    let args = Args::from_args();
+    let args = Args::parse();
 
     #[cfg(feature = "anilist")]
     if args.clean {

@@ -43,28 +43,25 @@ Anyway, the helper is this:
 
 ``` 
 USAGE:
-    adl [FLAGS] [OPTIONS] <entries>... --range <range>
-
-FLAGS:
-    -D, --default-dir    Save files in a folder with a default name
-    -c, --continue       Find automatically last episode
-        --clean          Delete app cache
-    -f, --force          Override existent files
-    -h, --help           Prints help information
-    -i, --interactive    Interactive mode
-    -p, --no-proxy       Disable automatic proxy (useful for slow connections)
-    -s, --stream         Stream episode in a media player
-    -V, --version        Prints version information
-
-OPTIONS:
-    -a, --animedl-id <animedl-id>    Override app id environment variable [env: ANIMEDL_ID]
-    -d, --dir <dir>...               Root paths where store files [default: .]
-    -m, --max-concurrent <max>       Maximum number of simultaneous downloads allowed [default: 24]
-    -r, --range <range>              Episodes to download (es. `1-4` or `1,2,3,4`) [default: 1]
-    -S, --search <site>              Search anime in remote archive [possible values: AW]
+    adl [OPTIONS] [ENTRIES]...
 
 ARGS:
-    <entries>...    Source urls or scraper's queries
+    <ENTRIES>...    Source urls or scraper's queries
+
+OPTIONS:
+    -a, --anilist-id <ANILIST_ID>    Override app id environment variable [env: ANIMEDL_ID]
+    -c, --continue                   Find automatically last episode
+        --clean                      Delete app cache
+    -d, --dir <DIR>                  Root paths where store files [default: .]
+    -D, --default-dir                Save files in a folder with a default name
+    -f, --force                      Override existent files
+    -h, --help                       Print help information
+    -i, --interactive                Interactive mode
+    -m, --max-concurrent <max>       Maximum number of simultaneous downloads allowed [default: 24]
+    -p, --no-proxy                   Disable automatic proxy (useful for slow connections)
+    -r, --range <range>              Episodes to download (es. `1-4` or `1,2,3,4`) [default: 1]
+    -s, --stream                     Stream episode in a media player
+    -S, --site <site>                Search anime in remote archive [possible values: aw]
 ```
 
 For parsing urls from a file (es. `urls`):
