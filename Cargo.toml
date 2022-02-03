@@ -7,7 +7,7 @@ readme = "README.md"
 authors = ["Gabriele Belluardo <gabriele.belluardo@outlook.it>"]
 homepage = "https://github.com/gabelluardo/anime-dl"
 repository = "https://github.com/gabelluardo/anime-dl"
-documentation = "https://github.com/gabelluardo/anime-dl/blob/master/README.md"
+documentation = "https://github.com/gabelluardo/anime-dl/blob/main/README.md"
 license = "GPL-3.0+"
 
 exclude = [".*", "*.md", "LICENSE"]
