@@ -25,7 +25,7 @@ mod scraper;
 
 #[tokio::main]
 async fn main() {
-    let args = Args::from_args();
+    let args = Args::parse();
 
     #[cfg(feature = "anilist")]
     if args.clean {
@@ -158,9 +158,17 @@ async fn download_worker(url: &str, opts: (PathBuf, &str, bool, ProgressBar)) ->
 }
 
 async fn streaming(args: Args, items: ScraperCollector) -> Result<()> {
-    for item in items.iter() {
-        let referrer = &items.referrer;
+    let referrer = &items.referrer;
 
+    let (cmd, cmd_referrer) = match which("mpv") {
+        Ok(c) => (c, format!("--referrer={referrer}")),
+        _ => (
+            which("vlc").unwrap_or_default(),
+            format!("--http-referrer={referrer}"),
+        ),
+    };
+
+    for item in items.iter() {
         let anime = Anime::builder()
             .auto(true)
             .client_id(args.anilist_id)
@@ -172,16 +180,8 @@ async fn streaming(args: Args, items: ScraperCollector) -> Result<()> {
 
         let urls = unroll!(tui::get_choice(anime.choices(), None).await);
 
-        let (cmd, referrer) = match which("mpv") {
-            Ok(c) => (c, format!("--referrer={referrer}")),
-            _ => (
-                which("vlc").unwrap_or_default(),
-                format!("--http-referrer={referrer}"),
-            ),
-        };
-
-        Command::new(cmd)
-            .arg(&referrer)
+        Command::new(&cmd)
+            .arg(&cmd_referrer)
             .args(urls)
             .stdout(Stdio::null())
             .stderr(Stdio::null())
