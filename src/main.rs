@@ -163,7 +163,7 @@ async fn streaming(args: Args, items: ScraperCollector) -> Result<()> {
     let (cmd, cmd_referrer) = match which("mpv") {
         Ok(c) => (c, format!("--referrer={referrer}")),
         _ => (
-            which("vlc").unwrap_or_default(),
+            which("vlc").unwrap_or(PathBuf::from(r"C:\Program Files\VideoLAN\VLC\vlc")),
             format!("--http-referrer={referrer}"),
         ),
     };
