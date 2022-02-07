@@ -1,11 +1,6 @@
-use std::io::{self, Write};
-
-use bunt::{
-    termcolor::{ColorChoice, StandardStream},
-    write, writeln,
-};
-
 use super::*;
+
+use rustyline::{config::Configurer, error::ReadlineError, ColorMode, Editor};
 
 #[derive(Clone)]
 pub struct Choice {
@@ -53,40 +48,42 @@ fn parse_input(line: String, choices: Vec<Choice>) -> Vec<String> {
     }
 }
 
-pub async fn get_choice(choices: Vec<Choice>, query: Option<String>) -> Result<Vec<String>> {
+pub fn get_choice(choices: Vec<Choice>, query: Option<String>) -> Result<Vec<String>> {
     match choices.len() {
-        0 => bail!(Error::Tui),
+        0 => bail!(Error::Choices),
         1 => Ok(vec![choices[0].link.to_string()]),
         _ => {
-            let stream = StandardStream::stdout(ColorChoice::Auto);
-            let mut stdout = stream.lock();
-
             let len = choices.len();
             let name = query.map(|n| format!(" for `{n}`")).unwrap_or_default();
             let results = format!("{len} results found{name}");
 
-            writeln!(stdout, "{$cyan+bold}{}{/$}\n", results)?;
+            bunt::println!("{$cyan+bold}{}{/$}\n", results);
             for (i, c) in choices.iter().enumerate() {
-                writeln!(stdout, "[{[magenta]}] {[green]}", i + 1, c.name)?;
+                bunt::println!("[{[magenta]}] {[green]}", i + 1, c.name);
             }
 
-            write!(
-                stdout,
-                "\n\
-                {$red}==> {/$}\
-                {$bold}What to watch (eg: 1 2 3 or 1-3) [default=All, <q> for exit]{/$}\n\
-                {$red}==> {/$}",
-            )?;
-            stdout.flush()?;
+            bunt::println!(
+                "\n{$red}::{/$}{$bold} Make your selection (eg: 1 2 3 or 1-3) [default=All, <q> for exit]{/$}"
+            );
 
-            let mut line = String::new();
-            io::stdin().read_line(&mut line)?;
+            let mut rl = Editor::<()>::new();
+            rl.set_color_mode(ColorMode::Enabled);
 
-            if line.contains('q') {
-                bail!(Error::Quit);
-            }
+            let urls = match rl.readline("~❯ ") {
+                Ok(line) => {
+                    if line.contains('q') {
+                        bail!(Error::Quit);
+                    }
 
-            let urls = parse_input(line, choices);
+                    parse_input(line, choices)
+                }
+                Err(ReadlineError::Interrupted | ReadlineError::Eof) => {
+                    bail!(Error::Quit);
+                }
+                Err(err) => {
+                    bail!(Error::UserInput(err));
+                }
+            };
 
             if urls.is_empty() {
                 bail!(Error::EpisodeNotFound);
@@ -98,26 +95,21 @@ pub async fn get_choice(choices: Vec<Choice>, query: Option<String>) -> Result<V
 }
 
 #[cfg(feature = "anilist")]
-pub async fn get_token(url: &str) -> Result<String> {
-    let stream = StandardStream::stdout(ColorChoice::Always);
-    let mut stdout = stream.lock();
-
-    write!(
-        stdout,
+pub fn get_token(url: &str) -> Result<String> {
+    bunt::println!(
         "{$cyan+bold}Anilist Oauth{/$}\n\n\
         {$green}Authenticate to: {/$}\n\
         {[magenta+bold]}\n\n\
         {$red}==> {/$}\
-        {$bold}Paste token here: {/$}\n\
-        {$red}==> {/$}",
+        {$bold}Paste token here: {/$}",
         url
-    )?;
-    stdout.flush()?;
+    );
 
-    let mut line = String::new();
-    io::stdin().read_line(&mut line)?;
-
-    let line = line.trim().to_string();
+    let mut rl = Editor::<()>::new();
+    let line = rl
+        .readline("~❯ ")
+        .map(|s| s.trim().to_string())
+        .map_err(Error::UserInput)?;
 
     Ok(line)
 }

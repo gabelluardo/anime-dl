@@ -78,7 +78,7 @@ async fn download(args: Args, items: ScraperCollector) -> Result<()> {
             .await?;
 
         if args.interactive {
-            anime.episodes = unroll!(tui::get_choice(anime.choices(), None).await)
+            anime.episodes = unroll!(tui::get_choice(anime.choices(), None))
         }
 
         let tasks = anime.episodes.into_iter().map(|u| {
@@ -182,7 +182,7 @@ async fn streaming(args: Args, items: ScraperCollector) -> Result<()> {
             .build()
             .await?;
 
-        let urls = unroll!(tui::get_choice(anime.choices(), None).await);
+        let urls = unroll!(tui::get_choice(anime.choices(), None));
 
         Command::new(&cmd)
             .arg(&cmd_referrer)

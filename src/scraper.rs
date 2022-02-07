@@ -158,7 +158,7 @@ impl Scraper {
             bail!(Error::AnimeNotFound)
         }
 
-        let choices = tui::get_choice(results, Some(query.replace("+", " "))).await?;
+        let choices = tui::get_choice(results, Some(query.replace("+", " ")))?;
 
         let pages = choices
             .iter()

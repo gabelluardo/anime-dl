@@ -95,7 +95,7 @@ impl AniListBuilder {
         let token = match config.load().await {
             Some(t) => t,
             _ => {
-                let token = tui::get_token(&oauth_url).await?;
+                let token = tui::get_token(&oauth_url)?;
                 config.save(&token).await?;
                 token
             }

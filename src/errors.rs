@@ -1,4 +1,5 @@
 use reqwest::header::InvalidHeaderValue;
+use rustyline::error::ReadlineError;
 use thiserror::Error;
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -27,7 +28,10 @@ pub enum Error {
     Quit,
 
     #[error("No match found")]
-    Tui,
+    Choices,
+
+    #[error("Invalid input")]
+    UserInput(ReadlineError),
 
     // Generic errors
     #[error("{0}")]
