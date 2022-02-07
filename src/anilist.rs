@@ -89,8 +89,7 @@ impl AniListBuilder {
         let config = Config::new();
 
         let oauth_url = format!(
-            "https://anilist.co/api/v2/oauth/authorize?response_type=token&client_id={}",
-            client_id
+            "https://anilist.co/api/v2/oauth/authorize?response_type=token&client_id={client_id}"
         );
 
         let token = match config.load().await {
@@ -104,7 +103,7 @@ impl AniListBuilder {
 
         let mut headers = header::HeaderMap::new();
         let auth =
-            HeaderValue::from_str(&format!("Bearer {}", token)).map_err(Error::InvalidToken)?;
+            HeaderValue::from_str(&format!("Bearer {token}")).map_err(Error::InvalidToken)?;
         let application = HeaderValue::from_static("application/json");
 
         headers.insert(header::AUTHORIZATION, auth);
@@ -152,8 +151,8 @@ impl AniList {
 
 #[derive(GraphQLQuery)]
 #[graphql(
-    schema_path = "src/api/assets/anilist_schema.graphql",
-    query_path = "src/api/assets/progress_query.graphql",
+    schema_path = "src/utils/assets/anilist_schema.graphql",
+    query_path = "src/utils/assets/progress_query.graphql",
     response_derives = "Debug"
 )]
 pub struct ProgressQuery;

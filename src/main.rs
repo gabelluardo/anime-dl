@@ -8,7 +8,9 @@ use tokio::{io::AsyncWriteExt, process::Command, task};
 use tokio_stream as stream;
 use which::which;
 
-use crate::anime::{AniList, Anime, FileDest};
+#[cfg(feature = "anilist")]
+use crate::anilist::AniList;
+use crate::anime::{Anime, FileDest};
 use crate::cli::Args;
 use crate::errors::{Error, Result};
 use crate::scraper::{Scraper, ScraperCollector};
@@ -17,8 +19,10 @@ use crate::utils::{get_path, tui, Bars, ProgressBar};
 #[macro_use]
 mod utils;
 
+#[cfg(feature = "anilist")]
+mod anilist;
+
 mod anime;
-mod api;
 mod cli;
 mod errors;
 mod scraper;

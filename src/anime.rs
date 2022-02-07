@@ -5,10 +5,15 @@ use reqwest::Client;
 use tokio::fs;
 
 #[cfg(feature = "anilist")]
-pub use crate::api::AniList;
+use crate::anilist::AniList;
 use crate::errors::{Error, Result};
-pub use crate::scraper::{ScraperCollector, ScraperItem};
 use crate::utils::{tui, Info, Range};
+
+#[derive(Debug, Clone)]
+pub struct AnimeInfo {
+    pub id: Option<u32>,
+    pub url: String,
+}
 
 #[derive(Default, Debug)]
 pub struct AnimeBuilder {
@@ -32,7 +37,7 @@ impl AnimeBuilder {
         self
     }
 
-    pub fn item(mut self, item: &ScraperItem) -> Self {
+    pub fn item(mut self, item: &AnimeInfo) -> Self {
         self.id = item.id;
         self.url = item.url.to_owned();
         self

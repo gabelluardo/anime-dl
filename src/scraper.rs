@@ -8,19 +8,14 @@ use reqwest::{header, header::HeaderValue, Client as RClient, Url};
 use scraper::{Html, Selector};
 use tokio::sync::Mutex;
 
+use crate::anime::AnimeInfo;
 use crate::cli::Site;
 use crate::errors::{Error, Result};
 use crate::utils::{tui, Info};
 
-#[derive(Debug, Clone)]
-pub struct ScraperItem {
-    pub id: Option<u32>,
-    pub url: String,
-}
-
 #[derive(Debug, Default, Clone)]
 pub struct ScraperCollector {
-    pub items: Vec<ScraperItem>,
+    pub items: Vec<AnimeInfo>,
     pub referrer: String,
 }
 
@@ -35,7 +30,7 @@ impl ScraperCollector {
 }
 
 impl Deref for ScraperCollector {
-    type Target = Vec<ScraperItem>;
+    type Target = Vec<AnimeInfo>;
 
     fn deref(&self) -> &Self::Target {
         &self.items
@@ -48,8 +43,8 @@ impl DerefMut for ScraperCollector {
     }
 }
 
-impl FromIterator<ScraperItem> for ScraperCollector {
-    fn from_iter<I: IntoIterator<Item = ScraperItem>>(iter: I) -> Self {
+impl FromIterator<AnimeInfo> for ScraperCollector {
+    fn from_iter<I: IntoIterator<Item = AnimeInfo>>(iter: I) -> Self {
         let mut c = ScraperCollector::new();
         c.extend(iter);
         c
@@ -94,8 +89,8 @@ impl Scraper {
         ScraperCollector::new()
     }
 
-    pub fn item(url: &str, id: Option<u32>) -> ScraperItem {
-        ScraperItem {
+    pub fn item(url: &str, id: Option<u32>) -> AnimeInfo {
+        AnimeInfo {
             id,
             url: url.to_owned(),
         }
