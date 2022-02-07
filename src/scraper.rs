@@ -241,16 +241,25 @@ impl Scraper {
 pub struct Client(RClient);
 
 impl Client {
-    async fn _new() -> Result<Self> {
-        ClientBuilder::default().build().await
+    async fn with_proxy(enable_proxy: bool) -> Result<Self> {
+        let mut ctest = ClientBuilder::aw_ping().await.unwrap_or_default();
+        ctest.push_str(ClientBuilder::COOKIE);
+
+        let proxy = if enable_proxy {
+            let res = reqwest::get(ClientBuilder::PROXY).await?.text().await?;
+            res.split_ascii_whitespace()
+                .choose(&mut rand::thread_rng())
+                .map(|s| format!("https://{s}"))
+        } else {
+            None
+        };
+
+        ClientBuilder::default().ctest(&ctest).proxy(proxy).build()
     }
 
+    #[cfg(test)]
     fn _builder() -> ClientBuilder {
         ClientBuilder::default()
-    }
-
-    async fn with_proxy(p: bool) -> Result<Self> {
-        ClientBuilder::default().proxy(p).build().await
     }
 }
 
@@ -264,7 +273,8 @@ impl Deref for Client {
 
 #[derive(Default, Debug)]
 pub struct ClientBuilder {
-    proxy: bool,
+    proxy: Option<String>,
+    ctest: String,
 }
 
 #[rustfmt::skip]
@@ -274,16 +284,18 @@ impl<'a> ClientBuilder {
     const PROXY: &'a str = "https://api.proxyscrape.com/?request=getproxies&proxytype=http&timeout=2000&country=all&ssl=all&anonymity=elite";
     const USER_AGENT: &'a str = "Mozilla/5.0 (Windows; U; Windows NT 5.1; en-GB; rv:1.8.1.6) Gecko/20070725 Firefox/2.0.0.6";
 
-    pub fn proxy(mut self, p: bool) -> Self {
-        self.proxy = p;
+    pub fn proxy(mut self, proxy: Option<String>) -> Self {
+        self.proxy = proxy;
+        self
+    }
+    
+    pub fn ctest(mut self, ctest: &str) -> Self {
+        self.ctest = ctest.to_owned();
         self
     }
 
-    pub async fn build(self) -> Result<Client> {
-        let mut ctest = self.aw_ping().await.unwrap_or_default();
-        ctest.push_str(Self::COOKIE);
-
-        let cookie = HeaderValue::from_str(&ctest).unwrap();
+    pub fn build(self) -> Result<Client> {
+        let cookie = HeaderValue::from_str(&self.ctest).unwrap();
         let mut headers = header::HeaderMap::new();
         headers.insert(header::COOKIE, cookie);
         headers.insert(header::ACCEPT, HeaderValue::from_static(Self::ACCEPT));
@@ -292,17 +304,9 @@ impl<'a> ClientBuilder {
 
         let mut builder = RClient::builder().default_headers(headers);
 
-        if self.proxy {
-            let res = reqwest::get(Self::PROXY).await?.text().await?;
-            let proxy = res
-                .split_ascii_whitespace()
-                .choose(&mut rand::thread_rng())
-                .map(|s| format!("https://{s}"))
-                .unwrap_or_default();
-
-            let p = reqwest::Proxy::http(proxy).map_err(|_| Error::Proxy)?;
-
-            builder = builder.proxy(p);
+        if let Some(proxy) = self.proxy{
+            let req_proxy = reqwest::Proxy::http(proxy).map_err(|_| Error::Proxy)?;
+            builder = builder.proxy(req_proxy);
         }
 
         let client = builder.build()?;
@@ -310,7 +314,7 @@ impl<'a> ClientBuilder {
         Ok(Client(client))
     }
 
-    async fn aw_ping(&self) -> Result<String> {
+    async fn aw_ping() -> Result<String> {
         let text = reqwest::get("https://www.animeworld.tv/").await?.text().await?;
         let res = Info::parse_aw_cookie(&text)?;
 
@@ -335,8 +339,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_client() {
-        Client::_builder().proxy(true).build().await.unwrap();
-        Client::_builder().proxy(false).build().await.unwrap();
+        let opt_proxy = Some("127.0.0.1".to_string());
+
+        Client::_builder().proxy(opt_proxy).build().unwrap();
+        Client::_builder().proxy(None).build().unwrap();
 
         Client::with_proxy(true).await.unwrap();
         Client::with_proxy(false).await.unwrap();
@@ -347,13 +353,13 @@ mod tests {
     async fn test_animeworld() {
         let file = "SeishunButaYarouWaBunnyGirlSenpaiNoYumeWoMinai_Ep_01_SUB_ITA.mp4";
         let anime = ScraperCollector::mutex();
-        let client = Arc::new(Client::_new().await.unwrap());
+        let client = Arc::new(Client::_builder().build().unwrap());
 
         Scraper::animeworld("bunny girl", client, anime.clone())
             .await
             .unwrap();
-        let anime = anime.lock().await.clone();
 
+        let anime = anime.lock().await.clone();
         let info = get_url(&anime.first().unwrap().url);
 
         assert_eq!(file, info)
