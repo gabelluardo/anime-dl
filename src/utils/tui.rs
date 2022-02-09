@@ -69,7 +69,7 @@ pub fn get_choice(choices: Vec<Choice>, query: Option<String>) -> Result<Vec<Str
             let mut rl = Editor::<()>::new();
             rl.set_color_mode(ColorMode::Enabled);
 
-            let urls = match rl.readline("~❯ ") {
+            let urls = match rl.readline("\x1b[1;31m~❯ \x1b[0m") {
                 Ok(line) => {
                     if line.contains('q') {
                         bail!(Error::Quit);
@@ -84,6 +84,7 @@ pub fn get_choice(choices: Vec<Choice>, query: Option<String>) -> Result<Vec<Str
                     bail!(Error::UserInput(err));
                 }
             };
+            println!();
 
             if urls.is_empty() {
                 bail!(Error::EpisodeNotFound);
@@ -107,7 +108,7 @@ pub fn get_token(url: &str) -> Result<String> {
 
     let mut rl = Editor::<()>::new();
     let line = rl
-        .readline("~❯ ")
+        .readline("\x1b[1;31m~❯ \x1b[0m")
         .map(|s| s.trim().to_string())
         .map_err(Error::UserInput)?;
 
