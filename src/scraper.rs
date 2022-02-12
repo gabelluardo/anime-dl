@@ -3,6 +3,7 @@ use std::ops::{Deref, DerefMut};
 use std::sync::Arc;
 
 use futures::future::join_all;
+use owo_colors::OwoColorize;
 use rand::seq::IteratorRandom;
 use reqwest::{header, header::HeaderValue, Client as RClient, Url};
 use scraper::{Html, Selector};
@@ -288,7 +289,7 @@ impl<'a> ClientBuilder {
         self.proxy = proxy;
         self
     }
-    
+
     pub fn ctest(mut self, ctest: &str) -> Self {
         self.ctest = ctest.to_owned();
         self
@@ -304,7 +305,7 @@ impl<'a> ClientBuilder {
 
         let mut builder = RClient::builder().default_headers(headers);
 
-        if let Some(proxy) = self.proxy{
+        if let Some(proxy) = self.proxy {
             let req_proxy = reqwest::Proxy::http(proxy).map_err(|_| Error::Proxy)?;
             builder = builder.proxy(req_proxy);
         }

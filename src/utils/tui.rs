@@ -1,6 +1,7 @@
-use super::*;
-
+use owo_colors::OwoColorize;
 use rustyline::{config::Configurer, error::ReadlineError, ColorMode, Editor};
+
+use super::*;
 
 #[derive(Clone)]
 pub struct Choice {
@@ -57,19 +58,23 @@ pub fn get_choice(choices: Vec<Choice>, query: Option<String>) -> Result<Vec<Str
             let name = query.map(|n| format!(" for `{n}`")).unwrap_or_default();
             let results = format!("{len} results found{name}");
 
-            bunt::println!("{$cyan+bold}{}{/$}\n", results);
+            println!("{}\n", results.cyan().bold());
             for (i, c) in choices.iter().enumerate() {
-                bunt::println!("[{[magenta]}] {[green]}", i + 1, c.name);
+                println!("[{}] {}", (i + 1).magenta(), c.name.green());
             }
+            println!();
 
-            bunt::println!(
-                "\n{$red}::{/$}{$bold} Make your selection (eg: 1 2 3 or 1-3) [default=All, <q> for exit]{/$}"
+            println!(
+                "{} {}",
+                "::".red(),
+                "Make your selection (eg: 1 2 3 or 1-3) [default=All, <q> for exit]".bold()
             );
 
             let mut rl = Editor::<()>::new();
             rl.set_color_mode(ColorMode::Enabled);
 
-            let urls = match rl.readline("\x1b[1;31m~❯ \x1b[0m") {
+            let prompt = "~❯ ".red().to_string();
+            let urls = match rl.readline(&prompt) {
                 Ok(line) => {
                     if line.contains('q') {
                         bail!(Error::Quit);
@@ -97,18 +102,21 @@ pub fn get_choice(choices: Vec<Choice>, query: Option<String>) -> Result<Vec<Str
 
 #[cfg(feature = "anilist")]
 pub fn get_token(url: &str) -> Result<String> {
-    bunt::println!(
-        "{$cyan+bold}Anilist Oauth{/$}\n\n\
-        {$green}Authenticate to: {/$}\n\
-        {[magenta+bold]}\n\n\
-        {$red}==> {/$}\
-        {$bold}Paste token here: {/$}",
-        url
+    let action = "Authenticate to:".green();
+    let input = format!("{} {}", "::".red(), "Paste token here:".bold());
+
+    println!(
+        "{}\n\n\
+        {action} {}\n\n\
+        {input}",
+        "Anilist Oauth".cyan().bold(),
+        url.magenta().bold()
     );
 
     let mut rl = Editor::<()>::new();
+    let prompt = "~❯ ".red().to_string();
     let line = rl
-        .readline("\x1b[1;31m~❯ \x1b[0m")
+        .readline(&prompt)
         .map(|s| s.trim().to_string())
         .map_err(Error::UserInput)?;
 
@@ -154,7 +162,7 @@ mod tests {
             vec![
                 "link1".to_string(),
                 "link2".to_string(),
-                "link3".to_string()
+                "link3".to_string(),
             ]
         );
 
@@ -177,7 +185,7 @@ mod tests {
                 "link1".to_string(),
                 "link2".to_string(),
                 "link3".to_string(),
-                "link6".to_string()
+                "link6".to_string(),
             ]
         );
 
@@ -190,7 +198,7 @@ mod tests {
                 "link3".to_string(),
                 "link4".to_string(),
                 "link5".to_string(),
-                "link6".to_string()
+                "link6".to_string(),
             ]
         );
         let line = "".to_string();
@@ -202,7 +210,7 @@ mod tests {
                 "link3".to_string(),
                 "link4".to_string(),
                 "link5".to_string(),
-                "link6".to_string()
+                "link6".to_string(),
             ]
         );
 
@@ -214,7 +222,7 @@ mod tests {
                 "link2".to_string(),
                 "link4".to_string(),
                 "link5".to_string(),
-                "link6".to_string()
+                "link6".to_string(),
             ]
         );
     }

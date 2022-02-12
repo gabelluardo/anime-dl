@@ -19,7 +19,7 @@ macro_rules! unroll {
             Ok(item) => item,
             Err(err) => {
                 if (!matches!(err, Error::Quit)) {
-                    bunt::eprintln!("{$red}{}{/$}", err)
+                    eprintln!("{}", err.red())
                 }
                 continue;
             }
@@ -34,7 +34,7 @@ macro_rules! ok {
             Ok(item) => item,
             Err(err) => {
                 if (!matches!(err, Error::Quit)) {
-                    bunt::eprintln!("{$red}{}{/$}", err);
+                    eprintln!("{}", err.red());
                 }
                 return;
             }

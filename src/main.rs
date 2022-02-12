@@ -2,6 +2,7 @@ use std::path::PathBuf;
 use std::process::Stdio;
 
 use futures::stream::StreamExt;
+use owo_colors::OwoColorize;
 use reqwest::header::{CONTENT_LENGTH, RANGE, REFERER};
 use reqwest::{Client, Url};
 use tokio::{io::AsyncWriteExt, process::Command, task};
@@ -33,7 +34,7 @@ async fn main() {
 
     #[cfg(feature = "anilist")]
     if args.clean {
-        ok!(AniList::clean_cache().await)
+        ok!(AniList::clean_cache().await);
     }
 
     let items = if utils::is_web_url(&args.entries[0]) {
