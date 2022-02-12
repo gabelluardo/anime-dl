@@ -52,7 +52,6 @@ pub struct Args {
         long = "range",
         name = "range",
         required_unless_present("auto-episode"),
-        required_unless_present("clean"),
         required_unless_present("interactive"),
         required_unless_present("stream")
     )]
