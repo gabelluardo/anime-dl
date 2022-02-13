@@ -280,10 +280,10 @@ pub struct ClientBuilder {
 
 #[rustfmt::skip]
 impl<'a> ClientBuilder {
-    const ACCEPT: &'a str = "text/html,application/xhtml+xml,application/xml; q=0.9,image/webp,*/*; q=0.8";
+    const ACCEPT: &'a str = "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8";
     const COOKIE: &'a str = "__ddg1=sti44Eo5SrS4IAwJPVFu; __cfduid=d1343ee68e09afafe0a4855d5c35e713f1619342282; _csrf=wSnjNmhifYyOPULeghB6Dloy;";
     const PROXY: &'a str = "https://api.proxyscrape.com/?request=getproxies&proxytype=http&timeout=2000&country=all&ssl=all&anonymity=elite";
-    const USER_AGENT: &'a str = "Mozilla/5.0 (Windows; U; Windows NT 5.1; en-GB; rv:1.8.1.6) Gecko/20070725 Firefox/2.0.0.6";
+    const USER_AGENT: &'a str = "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)";
 
     pub fn proxy(mut self, proxy: Option<String>) -> Self {
         self.proxy = proxy;
@@ -296,8 +296,9 @@ impl<'a> ClientBuilder {
     }
 
     pub fn build(self) -> Result<Client> {
-        let cookie = HeaderValue::from_str(&self.ctest).unwrap();
         let mut headers = header::HeaderMap::new();
+        
+        let cookie = HeaderValue::from_str(&self.ctest).unwrap();
         headers.insert(header::COOKIE, cookie);
         headers.insert(header::ACCEPT, HeaderValue::from_static(Self::ACCEPT));
         headers.insert(header::ACCEPT_LANGUAGE, HeaderValue::from_static("it"));
