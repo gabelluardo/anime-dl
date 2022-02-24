@@ -101,7 +101,7 @@ impl Scraper {
         let query = self
             .query
             .split(',')
-            .map(|s| s.trim().replace(" ", "+"))
+            .map(|s| s.trim().replace(' ', "+"))
             .collect::<Vec<_>>();
 
         let client = Arc::new(Client::with_proxy(self.proxy).await?);
@@ -159,7 +159,7 @@ impl Scraper {
             bail!(Error::AnimeNotFound)
         }
 
-        let choices = tui::get_choice(results, Some(query.replace("+", " ")))?;
+        let choices = tui::get_choice(results, Some(query.replace('+', " ")))?;
 
         let pages = choices
             .iter()
