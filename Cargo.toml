@@ -21,6 +21,7 @@ lto = true
 opt-level = 2
 codegen-units = 1
 panic = "abort"
+strip = true
 
 [package.metadata.release]
 tag-name = "v{{version}}"
