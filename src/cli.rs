@@ -26,7 +26,11 @@ fn parse_dim_buff(src: &str) -> Result<usize, ParseIntError> {
 }
 
 #[derive(clap::Parser, Debug, Default)]
-#[clap(name = "anime-dl", about = "Efficient cli app for downloading anime")]
+#[clap(
+    name = "anime-dl",
+    about = "Efficient cli app for downloading anime",
+    version
+)]
 pub struct Args {
     /// Source urls or scraper's queries
     #[clap(required_unless_present("clean"))]
