@@ -15,7 +15,7 @@ impl Choice {
     }
 }
 
-fn parse_input(line: String, choices: Vec<Choice>) -> Vec<String> {
+fn parse_input(line: String, choices: &[Choice]) -> Vec<String> {
     let line = line
         .replace(&[',', '.'][..], " ")
         .chars()
@@ -40,16 +40,19 @@ fn parse_input(line: String, choices: Vec<Choice>) -> Vec<String> {
     selected.dedup();
 
     match selected.len() {
-        0 => choices.into_iter().map(|c| c.link).collect::<Vec<_>>(),
+        0 => choices
+            .iter()
+            .map(|c| c.link.to_string())
+            .collect::<Vec<_>>(),
         _ => selected
-            .into_iter()
+            .iter()
             .filter_map(|i| choices.get(i - 1))
             .map(|c| c.link.to_string())
             .collect::<Vec<_>>(),
     }
 }
 
-pub fn get_choice(choices: Vec<Choice>, query: Option<String>) -> Result<Vec<String>> {
+pub fn get_choice(choices: &[Choice], query: Option<String>) -> Result<Vec<String>> {
     match choices.len() {
         0 => bail!(Error::Choices),
         1 => Ok(vec![choices[0].link.to_string()]),
@@ -158,7 +161,7 @@ mod tests {
 
         let line = "1,2,3".to_string();
         assert_eq!(
-            parse_input(line, choices.clone()),
+            parse_input(line, &choices),
             vec![
                 "link1".to_string(),
                 "link2".to_string(),
@@ -168,7 +171,7 @@ mod tests {
 
         let line = "1-5".to_string();
         assert_eq!(
-            parse_input(line, choices.clone()),
+            parse_input(line, &choices),
             vec![
                 "link1".to_string(),
                 "link2".to_string(),
@@ -180,7 +183,7 @@ mod tests {
 
         let line = "1-3, 6".to_string();
         assert_eq!(
-            parse_input(line, choices.clone()),
+            parse_input(line, &choices),
             vec![
                 "link1".to_string(),
                 "link2".to_string(),
@@ -191,7 +194,7 @@ mod tests {
 
         let line = "1-".to_string();
         assert_eq!(
-            parse_input(line, choices.clone()),
+            parse_input(line, &choices),
             vec![
                 "link1".to_string(),
                 "link2".to_string(),
@@ -203,7 +206,7 @@ mod tests {
         );
         let line = "".to_string();
         assert_eq!(
-            parse_input(line, choices.clone()),
+            parse_input(line, &choices),
             vec![
                 "link1".to_string(),
                 "link2".to_string(),
@@ -216,7 +219,7 @@ mod tests {
 
         let line = "1-2, 4-6".to_string();
         assert_eq!(
-            parse_input(line, choices.clone()),
+            parse_input(line, &choices),
             vec![
                 "link1".to_string(),
                 "link2".to_string(),
