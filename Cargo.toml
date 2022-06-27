@@ -50,5 +50,5 @@ tokio = { default-features = false, version = "1.19.2", features = ["fs", "macro
 # Optional deps...
 
 ## anilist
-graphql_client = { version = "0.10.0", optional = true }
+graphql_client = { version = "0.11.0", optional = true }
 serde = { version = "1.0.137", optional = true }
