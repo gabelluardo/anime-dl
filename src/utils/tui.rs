@@ -73,7 +73,7 @@ pub fn get_choice(choices: &[Choice], query: Option<String>) -> Result<Vec<Strin
                 "Make your selection (eg: 1 2 3 or 1-3) [default=All, <q> for exit]".bold()
             );
 
-            let mut rl = Editor::<()>::new();
+            let mut rl = Editor::<()>::new().map_err(Error::UserInput)?;
             rl.set_color_mode(ColorMode::Enabled);
 
             let prompt = "~❯ ".red().to_string();
@@ -116,7 +116,7 @@ pub fn get_token(url: &str) -> Result<String> {
         url.magenta().bold()
     );
 
-    let mut rl = Editor::<()>::new();
+    let mut rl = Editor::<()>::new().map_err(Error::UserInput)?;
     let prompt = "~❯ ".red().to_string();
     let line = rl
         .readline(&prompt)
