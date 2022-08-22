@@ -91,7 +91,6 @@ async fn download(args: Args, items: ScraperCollector) -> Result<()> {
         pool.extend(tasks)
     }
 
-    // task::spawn_blocking(move || bars.join().unwrap());
     stream::iter(pool)
         .buffer_unordered(args.dim_buff)
         .collect::<Vec<_>>()
