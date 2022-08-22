@@ -6,11 +6,11 @@ pub struct Bars(MultiProgress);
 
 impl Bars {
     pub fn new() -> Self {
-        Self(self::instance_multi_bars())
+        Self(instance_multi_bars())
     }
 
     pub fn add_bar(&self) -> ProgressBar {
-        self.add(self::instance_bar())
+        self.add(instance_bar())
     }
 }
 
@@ -23,7 +23,9 @@ impl Deref for Bars {
 }
 
 fn instance_style() -> ProgressStyle {
-    ProgressStyle::default_bar().template("{spinner:.green} [{elapsed:.magenta}] [{bar:20.cyan/blue}] {bytes_per_sec} {bytes:.cyan}/{total_bytes:.blue} ({eta:.magenta}) {msg:.green}").progress_chars("#>-")
+    let style = ProgressStyle::default_bar().template("{spinner:.green} [{elapsed:.magenta}] [{bar:20.cyan/blue}] {binary_bytes_per_sec} {bytes:.cyan}/{total_bytes:.blue} ({eta:.magenta}) {msg:.green}").unwrap();
+
+    style.progress_chars("#>-")
 }
 
 fn instance_multi_bars() -> MultiProgress {
