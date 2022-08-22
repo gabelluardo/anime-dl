@@ -34,7 +34,7 @@ anilist = ["graphql_client", "serde"]
 
 [dependencies]
 futures = "0.3.21"
-indicatif = "0.16.2"
+indicatif = "0.17.0"
 nom = "7.1.1"
 owo-colors = "3.4.0"
 rand = "0.8.5"

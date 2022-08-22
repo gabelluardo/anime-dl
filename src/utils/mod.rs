@@ -21,7 +21,7 @@ pub mod bars;
 pub mod range;
 pub mod tui;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct Info {
     pub name: String,
     pub raw: String,
