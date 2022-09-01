@@ -129,15 +129,15 @@ async fn download_worker(url: &str, opts: (PathBuf, &str, bool, ProgressBar)) ->
         bail!(Error::Overwrite(filename));
     }
 
-    let msg = if let Ok(info) = utils::Info::parse(&filename) {
+    let msg = if let Ok(info) = utils::Info::parse(url) {
         let (num, name) = (info.num, info.name);
         num.map(|num| format!("Ep. {num:02} {name}"))
             .unwrap_or(name)
     } else {
-        utils::to_title_case(&filename)
+        utils::to_title_case(filename.split('_').collect::<Vec<_>>()[0])
     };
 
-    let completed = format!("{} 👍", &msg);
+    let completed = format!("{msg} 👍");
 
     pb.set_position(file.size);
     pb.set_length(source_size);

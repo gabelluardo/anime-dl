@@ -182,17 +182,16 @@ impl Anime {
             .iter()
             .map(|u| {
                 let info = Info::parse(u).unwrap();
-                let mark = if info.num <= self.last_viewed {
-                    " ✔"
-                } else {
-                    ""
-                };
 
-                let name = info.name;
-                let msg = match info.num {
-                    Some(num) => format!("{name} ep. {num}{mark}"),
-                    _ => Info::parse_name(u).unwrap(),
-                };
+                let mut msg = info.name;
+                if let Some(num) = info.num {
+                    let s = format!(" - ep {num:02}");
+                    msg.push_str(&s)
+                }
+
+                if info.num <= self.last_viewed {
+                    msg.push_str(" ✔")
+                }
 
                 tui::Choice::new(u.to_string(), msg)
             })
