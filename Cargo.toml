@@ -42,7 +42,7 @@ rustyline = "10.0.0"
 scraper = "0.13.0"
 thiserror = "1.0.31"
 tokio-stream = "0.1.9"
-which = "4.2.5"
+which = "4.3.0"
 
 clap = { version = "3.2.5", features = ["derive", "env"] }
 reqwest = { default-features = false, version = "0.11.11", features = ["json", "rustls-tls"] }
