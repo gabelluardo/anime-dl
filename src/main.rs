@@ -4,14 +4,14 @@ use std::process::Stdio;
 use futures::stream::StreamExt;
 use owo_colors::OwoColorize;
 use reqwest::header::{CONTENT_LENGTH, RANGE, REFERER};
-use reqwest::{Client, Url};
+use reqwest::Client;
 use tokio::{io::AsyncWriteExt, process::Command, task};
 use tokio_stream as stream;
 use which::which;
 
 #[cfg(feature = "anilist")]
 use crate::anilist::AniList;
-use crate::anime::{Anime, FileDest};
+use crate::anime::{Anime, AnimeInfo, FileDest, InfoNum};
 use crate::cli::Args;
 use crate::errors::{Error, Result};
 use crate::scraper::{Scraper, ScraperCollector};
@@ -40,7 +40,7 @@ async fn main() {
     let items = if utils::is_web_url(&args.entries[0]) {
         args.entries
             .iter()
-            .map(|s| Scraper::item(s, None))
+            .map(|s| Scraper::info(s, None))
             .collect::<_>()
     } else {
         let proxy = !args.no_proxy;
@@ -71,7 +71,7 @@ async fn download(args: Args, items: ScraperCollector) -> Result<()> {
         let mut anime = Anime::builder()
             .auto(args.auto_episode || args.interactive)
             .client_id(args.anilist_id)
-            .item(item)
+            .info(item)
             .range(args.range.as_ref().unwrap_or_default())
             .referer(referer)
             .path(&path)
@@ -104,12 +104,7 @@ async fn download_worker(url: &str, opts: (PathBuf, &str, bool, ProgressBar)) ->
     let (root, referer, overwrite, pb) = opts;
     let client = Client::new();
 
-    let filename = Url::parse(url)
-        .map_err(|_| Error::InvalidUrl)?
-        .path_segments()
-        .and_then(|segments| segments.last())
-        .unwrap_or("tmp.bin")
-        .to_owned();
+    let filename = utils::parse_filename(url)?;
 
     let source_size = client
         .head(url)
@@ -130,10 +125,12 @@ async fn download_worker(url: &str, opts: (PathBuf, &str, bool, ProgressBar)) ->
         bail!(Error::Overwrite(filename));
     }
 
-    let msg = if let Ok(info) = utils::Info::parse(url) {
-        let (num, name) = (info.num, info.name);
-        num.map(|num| format!("Ep. {num:02} {name}"))
-            .unwrap_or(name)
+    let msg = if let Ok(info) = AnimeInfo::new(url, None) {
+        let num = info
+            .num
+            .map(|InfoNum { value, alignment }| format!("{value:0fill$} ", fill = alignment))
+            .unwrap_or_default();
+        format!("Ep. {}{}", num, info.name)
     } else {
         utils::to_title_case(filename.split('_').collect::<Vec<_>>()[0])
     };
@@ -177,7 +174,7 @@ async fn streaming(args: Args, items: ScraperCollector) -> Result<()> {
         let anime = Anime::builder()
             .auto(true)
             .client_id(args.anilist_id)
-            .item(item)
+            .info(item)
             .range(args.range.as_ref().unwrap_or_default())
             .referer(referrer)
             .build()

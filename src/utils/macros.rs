@@ -7,8 +7,8 @@ macro_rules! bail {
 
 /// Fill url placeholder with episode digit
 macro_rules! gen_url {
-    ($str:expr, $num:expr) => {
-        $str.replace("_{}", &zfill!($num))
+    ($str:expr, $num:expr, $alignment:expr) => {
+        $str.replace("_{}", &zfill!($num, $alignment))
     };
 }
 
@@ -44,8 +44,8 @@ macro_rules! ok {
 
 /// Format digit with 2 zero into a string
 macro_rules! zfill {
-    ($num:expr) => {
-        format!("_{:02}", $num)
+    ($num:expr, $alignment:expr) => {
+        format!("_{:0fill$}", $num, fill = $alignment)
     };
 }
 
@@ -53,16 +53,21 @@ macro_rules! zfill {
 mod tests {
     #[test]
     fn test_zfill() {
-        assert_eq!(zfill!(1), "_01");
-        assert_eq!(zfill!(200), "_200");
+        assert_eq!(zfill!(1, 2), "_01");
+        assert_eq!(zfill!(200, 2), "_200");
+        assert_eq!(zfill!(15, 3), "_015")
     }
 
     #[test]
     fn test_gen_url() {
-        let url = "http://robe_{}_.tld";
+        let url = "https://robe_{}_.tld";
 
-        assert_eq!(gen_url!(url, 1), "http://robe_01_.tld");
-        assert_eq!(gen_url!(url, 14), "http://robe_14_.tld");
-        assert_eq!(gen_url!(url, 1400), "http://robe_1400_.tld");
+        assert_eq!(gen_url!(url, 1, 2), "https://robe_01_.tld");
+        assert_eq!(gen_url!(url, 14, 2), "https://robe_14_.tld");
+        assert_eq!(gen_url!(url, 1400, 2), "https://robe_1400_.tld");
+
+        assert_eq!(gen_url!(url, 1, 3), "https://robe_001_.tld");
+        assert_eq!(gen_url!(url, 14, 3), "https://robe_014_.tld");
+        assert_eq!(gen_url!(url, 1400, 3), "https://robe_1400_.tld");
     }
 }

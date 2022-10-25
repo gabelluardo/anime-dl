@@ -12,7 +12,7 @@ use tokio::sync::Mutex;
 use crate::anime::AnimeInfo;
 use crate::cli::Site;
 use crate::errors::{Error, Result};
-use crate::utils::{tui, Info};
+use crate::utils::{self, tui};
 
 #[derive(Debug, Default, Clone)]
 pub struct ScraperCollector {
@@ -90,11 +90,8 @@ impl Scraper {
         ScraperCollector::new()
     }
 
-    pub fn item(url: &str, id: Option<u32>) -> AnimeInfo {
-        AnimeInfo {
-            id,
-            url: url.to_owned(),
-        }
+    pub fn info(url: &str, id: Option<u32>) -> AnimeInfo {
+        AnimeInfo::new(url, id).unwrap_or_default()
     }
 
     pub async fn run(self) -> Result<ScraperCollector> {
@@ -212,7 +209,7 @@ impl Scraper {
                             .and_then(|s| s.parse::<u32>().ok())
                     });
 
-                Self::item(&url.unwrap_or_default(), id)
+                Self::info(&url.unwrap_or_default(), id)
             })
             .filter(|i| !i.url.is_empty())
             .collect::<Vec<_>>();
@@ -318,7 +315,7 @@ impl<'a> ClientBuilder {
 
     async fn aw_ping() -> Result<String> {
         let text = reqwest::get("https://www.animeworld.tv/").await?.text().await?;
-        let res = Info::parse_aw_cookie(&text)?;
+        let res = utils::parse_aw_cookie(&text)?;
 
         Ok(res)
     }
@@ -362,7 +359,7 @@ mod tests {
             .unwrap();
 
         let anime = anime.lock().await.clone();
-        let info = get_url(&anime.first().unwrap().url);
+        let info = get_url(&anime.first().unwrap().origin);
 
         assert_eq!(file, info)
     }
@@ -373,7 +370,7 @@ mod tests {
         let file = "SeishunButaYarouWaBunnyGirlSenpaiNoYumeWoMinai_Ep_01_SUB_ITA.mp4";
         let anime = Scraper::new("bunny girl").run().await.unwrap();
 
-        let info = get_url(&anime.first().unwrap().url);
+        let info = get_url(&anime.first().unwrap().origin);
 
         assert_eq!(file, info)
     }
@@ -395,7 +392,7 @@ mod tests {
         let mut anime = anime
             .iter()
             .map(|a| {
-                Url::parse(&a.url)
+                Url::parse(&a.origin)
                     .unwrap()
                     .path_segments()
                     .and_then(|segments| segments.last())

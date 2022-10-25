@@ -5,7 +5,7 @@ use nom::{
     character::complete::{alpha0, alphanumeric1, char},
     combinator::map,
     sequence::{preceded, tuple},
-    {IResult, Slice},
+    IResult,
 };
 
 pub use bars::Bars;
@@ -21,67 +21,30 @@ pub mod bars;
 pub mod range;
 pub mod tui;
 
-#[derive(Debug, PartialEq, Eq)]
-pub struct Info {
-    pub name: String,
-    pub raw: String,
-    pub num: Option<u32>,
+pub fn parse_name(input: &str) -> Result<String> {
+    let url = reqwest::Url::parse(input).map_err(|_| Error::Parsing(input.to_owned()))?;
+    let res = url
+        .path_segments()
+        .and_then(|s| s.last())
+        .map(|s| s.split('_').collect::<Vec<_>>()[0])
+        .ok_or_else(|| Error::Parsing(input.to_owned()))?;
+
+    let name = to_title_case(res);
+
+    Ok(name)
 }
 
-impl Info {
-    pub fn parse(input: &str) -> Result<Self> {
-        let name = Self::parse_name(input)?;
+pub fn parse_filename(input: &str) -> Result<String> {
+    let filename = reqwest::Url::parse(input)
+        .map_err(|_| Error::InvalidUrl)?
+        .path_segments()
+        .and_then(|segments| segments.last())
+        .map(|s| s.to_string())
+        .ok_or_else(|| Error::Parsing(input.to_owned()))?;
 
-        // find episode number position in input
-        let mut opt_pos = None;
-        for (i, c) in input.char_indices() {
-            if let Some(next) = input.chars().nth(i + 1) {
-                if c == '_' && next.is_ascii_digit() {
-                    opt_pos = Some(i);
-                }
-            }
-        }
-
-        let (raw, num) = match opt_pos {
-            Some(pos) => {
-                let sub_str = input
-                    .slice(pos..pos + 3)
-                    .chars()
-                    .filter(char::is_ascii_digit)
-                    .collect::<String>();
-
-                let raw = input.replace(&sub_str, "{}");
-                let num = sub_str.parse::<u32>().ok();
-
-                (raw, num)
-            }
-            _ => (input.to_string(), None),
-        };
-
-        Ok(Info { name, raw, num })
-    }
-
-    pub fn parse_name(input: &str) -> Result<String> {
-        let url = reqwest::Url::parse(input).map_err(|_| Error::Parsing(input.to_owned()))?;
-        let res = url
-            .path_segments()
-            .and_then(|s| s.last())
-            .map(|s| s.split('_').collect::<Vec<_>>()[0])
-            .ok_or_else(|| Error::Parsing(input.to_owned()))?;
-
-        let name = to_title_case(res);
-
-        Ok(name)
-    }
-
-    pub fn parse_aw_cookie(input: &str) -> Result<String> {
-        let (_, mut cookie) =
-            Self::aw_parser(input).map_err(|_| Error::Parsing(input.to_owned()))?;
-        cookie.push_str("; ");
-
-        Ok(cookie)
-    }
-
+    Ok(filename)
+}
+pub fn parse_aw_cookie(input: &str) -> Result<String> {
     fn aw_parser(input: &str) -> IResult<&str, String> {
         let key = preceded(take_until("AWCookie"), alpha0);
         let value = preceded(char('='), alphanumeric1);
@@ -89,6 +52,11 @@ impl Info {
 
         map(parser, |(k, v)| format!("{k}={v}"))(input)
     }
+
+    let (_, mut cookie) = aw_parser(input).map_err(|_| Error::Parsing(input.to_owned()))?;
+    cookie.push_str("; ");
+
+    Ok(cookie)
 }
 
 pub fn to_title_case(s: &str) -> String {
@@ -121,7 +89,7 @@ pub fn get_path(args: &crate::cli::Args, url: &str, pos: usize) -> Result<PathBu
     let mut root = args.dir.last().unwrap().to_owned();
 
     let path = if args.auto_dir {
-        let sub_folder = Info::parse_name(url)?;
+        let sub_folder = parse_name(url)?;
         root.push(sub_folder);
         root
     } else {
@@ -152,20 +120,9 @@ mod tests {
     }
 
     #[test]
-    fn test_extract_info() {
-        let url = "https://www.domain.tld/sub/anotherSub/AnimeName/AnimeName_Ep_15_SUB_ITA.mp4";
-        let url_raw = "https://www.domain.tld/sub/anotherSub/AnimeName/AnimeName_Ep_{}_SUB_ITA.mp4";
-        let res = Info::parse(url).unwrap();
-
-        assert_eq!(res.name, "Anime Name");
-        assert_eq!(res.num, Some(15));
-        assert_eq!(res.raw, url_raw);
-    }
-
-    #[test]
     fn test_extract_cookie() {
         let s = r#"<html><script src="/cdn-cgi/apps/head/WvfaYe5SS22u5exoBw70ThuTjHg.js"></script><body><script>document.cookie="AWCookieVerify=295db002e27e3ac26934485002b41564 ; </script></body></html>"#;
-        let res = Info::parse_aw_cookie(s).unwrap();
+        let res = parse_aw_cookie(s).unwrap();
 
         assert_eq!(res, "AWCookieVerify=295db002e27e3ac26934485002b41564; ")
     }
