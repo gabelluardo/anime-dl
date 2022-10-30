@@ -40,7 +40,7 @@ async fn main() {
     let items = if utils::is_web_url(&args.entries[0]) {
         args.entries
             .iter()
-            .map(|s| Scraper::info(s, None))
+            .map(|s| AnimeInfo::new(s, None).unwrap_or_default())
             .collect::<_>()
     } else {
         let proxy = !args.no_proxy;
@@ -49,7 +49,7 @@ async fn main() {
         // currently only one site can be chosen
         // let site = args.site.unwrap_or_default();
 
-        ok!(Scraper::new(query).proxy(proxy).run().await)
+        ok!(Scraper::new(query).with_proxy(proxy).run().await)
     };
 
     if args.stream {

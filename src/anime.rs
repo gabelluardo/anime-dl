@@ -29,19 +29,18 @@ impl AnimeInfo {
         let name = utils::parse_name(input)?;
 
         // find episode number position in input
-        let mut opt_start_pos = None;
-        let mut opt_end_pos = None;
+        let (mut opt_start, mut opt_end) = (None, None);
         for (i, c) in input.char_indices() {
             if let Some(next) = input.chars().nth(i + 1) {
                 if c == '_' && next.is_ascii_digit() {
-                    opt_start_pos = Some(i);
+                    opt_start = Some(i);
                 } else if c.is_ascii_digit() && next == '_' {
-                    opt_end_pos = Some(i);
+                    opt_end = Some(i);
                 }
             }
         }
 
-        let (url, info_num) = match (opt_start_pos, opt_end_pos) {
+        let (url, info_num) = match (opt_start, opt_end) {
             (Some(start_pos), Some(end_pos)) => {
                 let sub_str = input
                     .slice(start_pos..end_pos + 1)
@@ -132,15 +131,12 @@ impl AnimeBuilder {
         let InfoNum { alignment, .. } = self.info.num.as_ref().unwrap();
 
         if self.auto {
-            // Last episode search is an O(log2 n) algorithm:
-            // first loop finds a possible least upper bound [O(log2 n)]
-            // second loop finds the real upper bound with a binary search [O(log2 n)]
-
             let client = Client::new();
             let mut err;
             let mut last;
             let mut counter = 2;
 
+            // finds a possible least upper bound
             loop {
                 err = counter;
                 last = counter / 2;
@@ -157,6 +153,7 @@ impl AnimeBuilder {
                 }
             }
 
+            // finds the real upper bound with a binary search
             while err != last + 1 {
                 counter = (err + last) / 2;
 
@@ -172,8 +169,8 @@ impl AnimeBuilder {
                 }
             }
 
+            // Check if there is a 0 episode
             let first = match self.range.start() {
-                // Check if episode 0 is available
                 1 => match client
                     .head(&gen_url!(url, 0, alignment))
                     .header(REFERER, &self.referrer)

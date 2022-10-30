@@ -11,6 +11,7 @@ use tokio::sync::Mutex;
 
 use crate::anime::AnimeInfo;
 use crate::cli::Site;
+use crate::errors::Error::Proxy;
 use crate::errors::{Error, Result};
 use crate::utils::{self, tui};
 
@@ -18,16 +19,6 @@ use crate::utils::{self, tui};
 pub struct ScraperCollector {
     pub items: Vec<AnimeInfo>,
     pub referrer: String,
-}
-
-impl ScraperCollector {
-    fn new() -> Self {
-        Self::default()
-    }
-
-    fn mutex() -> Arc<Mutex<Self>> {
-        Arc::new(Mutex::new(Self::default()))
-    }
 }
 
 impl Deref for ScraperCollector {
@@ -46,89 +37,20 @@ impl DerefMut for ScraperCollector {
 
 impl FromIterator<AnimeInfo> for ScraperCollector {
     fn from_iter<I: IntoIterator<Item = AnimeInfo>>(iter: I) -> Self {
-        let mut c = ScraperCollector::new();
+        let mut c = ScraperCollector::default();
         c.extend(iter);
         c
     }
 }
 
-pub struct Scraper {
-    proxy: bool,
-    query: String,
-    site: Site,
-}
+struct Archive;
+impl Archive {
+    async fn animeworld(param: (&str, Arc<Client>, Arc<Mutex<ScraperCollector>>)) -> Result<()> {
+        let (query, client, buf) = param;
 
-impl Default for Scraper {
-    fn default() -> Self {
-        Self {
-            proxy: true,
-            query: String::default(),
-            site: Site::default(),
-        }
-    }
-}
-
-impl Scraper {
-    pub fn new(query: &str) -> Self {
-        Self {
-            query: query.to_string(),
-            ..Self::default()
-        }
-    }
-
-    pub fn proxy(mut self, proxy: bool) -> Self {
-        self.proxy = proxy;
-        self
-    }
-
-    pub fn _site(mut self, site: Site) -> Self {
-        self.site = site;
-        self
-    }
-
-    pub fn _collector() -> ScraperCollector {
-        ScraperCollector::new()
-    }
-
-    pub fn info(url: &str, id: Option<u32>) -> AnimeInfo {
-        AnimeInfo::new(url, id).unwrap_or_default()
-    }
-
-    pub async fn run(self) -> Result<ScraperCollector> {
-        let query = self
-            .query
-            .split(',')
-            .map(|s| s.trim().replace(' ', "+"))
-            .collect::<Vec<_>>();
-
-        let client = Arc::new(Client::with_proxy(self.proxy).await?);
-
-        let func = match self.site {
-            Site::AW => Self::animeworld,
-        };
-
-        let sc = ScraperCollector::mutex();
-        let tasks = query
-            .iter()
-            .map(|q| func(q, client.clone(), sc.clone()))
-            .map(|f| async move { ok!(f.await) })
-            .collect::<Vec<_>>();
-
-        join_all(tasks).await;
-
-        let res = sc.lock().await.clone();
-
-        Ok(res)
-    }
-
-    async fn animeworld(
-        query: &str,
-        client: Arc<Client>,
-        buf: Arc<Mutex<ScraperCollector>>,
-    ) -> Result<()> {
         let search_url = format!("https://www.animeworld.tv/search?keyword={query}");
 
-        let page = Self::parse(search_url, &client).await?;
+        let page = client.parse_url(&search_url).await?;
         let results = {
             let div = Selector::parse("div.film-list").unwrap();
             let a = Selector::parse("a.name").unwrap();
@@ -158,9 +80,14 @@ impl Scraper {
 
         let choices = tui::get_choice(&results, Some(query.replace('+', " ")))?;
 
+        let choices = choices
+            .iter()
+            .map(|c| format!("https://www.animeworld.tv{c}"))
+            .collect::<Vec<_>>();
+
         let pages = choices
             .iter()
-            .map(|c| Self::parse(format!("https://www.animeworld.tv{c}"), &client))
+            .map(|u| client.parse_url(u))
             .collect::<Vec<_>>();
 
         let res = join_all(pages)
@@ -209,9 +136,11 @@ impl Scraper {
                             .and_then(|s| s.parse::<u32>().ok())
                     });
 
-                Self::info(&url.unwrap_or_default(), id)
+                let url = url.unwrap_or_default();
+
+                AnimeInfo::new(&url, id).unwrap_or_default()
             })
-            .filter(|i| !i.url.is_empty())
+            .filter(|info| !info.url.is_empty())
             .collect::<Vec<_>>();
 
         if res.is_empty() {
@@ -228,36 +157,131 @@ impl Scraper {
         Ok(())
     }
 
-    async fn parse(url: String, client: &Client) -> Result<Html> {
-        let response = client.get(&url).send().await?.error_for_status()?;
+    async fn _placeholder(_param: (&str, Arc<Client>, Arc<Mutex<ScraperCollector>>)) -> Result<()> {
+        unimplemented!()
+    }
+}
 
-        Ok(Html::parse_fragment(&response.text().await?))
+#[derive(Debug, Default)]
+pub struct Scraper {
+    proxy: bool,
+    query: String,
+    site: Site,
+}
+
+impl Scraper {
+    pub fn new(query: &str) -> Self {
+        Self {
+            query: query.to_string(),
+            ..Self::default()
+        }
+    }
+
+    pub fn with_proxy(mut self, proxy: bool) -> Self {
+        self.proxy = proxy;
+        self
+    }
+
+    pub async fn run(self) -> Result<ScraperCollector> {
+        let query = self
+            .query
+            .split(',')
+            .map(|s| s.trim().replace(' ', "+"))
+            .collect::<Vec<_>>();
+
+        let mut proxy = None;
+        if self.proxy {
+            proxy = Client::find_proxy().await.ok();
+        }
+
+        let ctest = Client::find_ctest().await?;
+        let client = Arc::new(Client::new(proxy, &ctest));
+
+        let sc = Arc::new(Mutex::new(ScraperCollector::default()));
+        let tasks = query
+            .iter()
+            .map(|q| async {
+                let param = (q.as_str(), client.clone(), sc.clone());
+
+                match self.site {
+                    Site::AW => Archive::animeworld(param).await,
+                    // _ => Archive::placeholder(param).await,
+                }
+            })
+            .map(|f| async move { ok!(f.await) })
+            .collect::<Vec<_>>();
+
+        join_all(tasks).await;
+
+        let res = sc.lock().await.clone();
+
+        Ok(res)
     }
 }
 
 #[derive(Default, Debug)]
 pub struct Client(RClient);
 
-impl Client {
-    async fn with_proxy(enable_proxy: bool) -> Result<Self> {
-        let mut ctest = ClientBuilder::aw_ping().await.unwrap_or_default();
-        ctest.push_str(ClientBuilder::COOKIE);
+impl<'a> Client {
+    const ACCEPT: &'a str =
+        "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8";
+    const COOKIE: &'a str = "__ddg1=sti44Eo5SrS4IAwJPVFu; __cfduid=d1343ee68e09afafe0a4855d5c35e713f1619342282; _csrf=wSnjNmhifYyOPULeghB6Dloy;";
+    const PROXY_SCRAPE: &'a str = "https://api.proxyscrape.com/?request=getproxies&proxytype=http&timeout=2000&country=all&ssl=all&anonymity=elite";
+    const USER_AGENT: &'a str =
+        "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)";
 
-        let proxy = if enable_proxy {
-            let res = reqwest::get(ClientBuilder::PROXY).await?.text().await?;
-            res.split_ascii_whitespace()
-                .choose(&mut rand::thread_rng())
-                .map(|s| format!("https://{s}"))
-        } else {
-            None
-        };
+    fn new(proxy: Option<String>, ctest: &str) -> Self {
+        let mut headers = header::HeaderMap::new();
+        let cookie = HeaderValue::from_str(ctest).unwrap();
 
-        ClientBuilder::default().ctest(&ctest).proxy(proxy).build()
+        headers.insert(header::COOKIE, cookie);
+        headers.insert(header::ACCEPT, HeaderValue::from_static(Self::ACCEPT));
+        headers.insert(header::ACCEPT_LANGUAGE, HeaderValue::from_static("it"));
+        headers.insert(
+            header::USER_AGENT,
+            HeaderValue::from_static(Self::USER_AGENT),
+        );
+
+        let mut builder = RClient::builder().default_headers(headers);
+
+        if let Some(proxy) = proxy {
+            if let Ok(req_proxy) = reqwest::Proxy::http(proxy).map_err(|_| Proxy) {
+                builder = builder.proxy(req_proxy)
+            }
+        }
+
+        let client = builder.build().unwrap_or_default();
+
+        Self(client)
     }
 
-    #[cfg(test)]
-    fn _builder() -> ClientBuilder {
-        ClientBuilder::default()
+    async fn find_proxy() -> Result<String> {
+        let res = reqwest::get(Self::PROXY_SCRAPE).await?.text().await?;
+
+        let proxy = res
+            .split_ascii_whitespace()
+            .choose(&mut rand::thread_rng())
+            .map(|s| format!("https://{s}"))
+            .unwrap_or_default();
+
+        Ok(proxy)
+    }
+
+    async fn find_ctest() -> Result<String> {
+        let text = reqwest::get("https://www.animeworld.tv/")
+            .await?
+            .text()
+            .await?;
+        let mut ctest = utils::parse_aw_cookie(&text).unwrap_or_default();
+        ctest.push_str(Self::COOKIE);
+
+        Ok(ctest)
+    }
+
+    async fn parse_url(&self, url: &str) -> Result<Html> {
+        let response = self.get(url).send().await?.error_for_status()?;
+
+        Ok(Html::parse_fragment(&response.text().await?))
     }
 }
 
@@ -266,58 +290,6 @@ impl Deref for Client {
 
     fn deref(&self) -> &Self::Target {
         &self.0
-    }
-}
-
-#[derive(Default, Debug)]
-pub struct ClientBuilder {
-    proxy: Option<String>,
-    ctest: String,
-}
-
-#[rustfmt::skip]
-impl<'a> ClientBuilder {
-    const ACCEPT: &'a str = "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8";
-    const COOKIE: &'a str = "__ddg1=sti44Eo5SrS4IAwJPVFu; __cfduid=d1343ee68e09afafe0a4855d5c35e713f1619342282; _csrf=wSnjNmhifYyOPULeghB6Dloy;";
-    const PROXY: &'a str = "https://api.proxyscrape.com/?request=getproxies&proxytype=http&timeout=2000&country=all&ssl=all&anonymity=elite";
-    const USER_AGENT: &'a str = "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)";
-
-    pub fn proxy(mut self, proxy: Option<String>) -> Self {
-        self.proxy = proxy;
-        self
-    }
-
-    pub fn ctest(mut self, ctest: &str) -> Self {
-        self.ctest = ctest.to_owned();
-        self
-    }
-
-    pub fn build(self) -> Result<Client> {
-        let mut headers = header::HeaderMap::new();
-        
-        let cookie = HeaderValue::from_str(&self.ctest).unwrap();
-        headers.insert(header::COOKIE, cookie);
-        headers.insert(header::ACCEPT, HeaderValue::from_static(Self::ACCEPT));
-        headers.insert(header::ACCEPT_LANGUAGE, HeaderValue::from_static("it"));
-        headers.insert(header::USER_AGENT, HeaderValue::from_static(Self::USER_AGENT));
-
-        let mut builder = RClient::builder().default_headers(headers);
-
-        if let Some(proxy) = self.proxy {
-            let req_proxy = reqwest::Proxy::http(proxy).map_err(|_| Error::Proxy)?;
-            builder = builder.proxy(req_proxy);
-        }
-
-        let client = builder.build()?;
-
-        Ok(Client(client))
-    }
-
-    async fn aw_ping() -> Result<String> {
-        let text = reqwest::get("https://www.animeworld.tv/").await?.text().await?;
-        let res = utils::parse_aw_cookie(&text)?;
-
-        Ok(res)
     }
 }
 
@@ -338,25 +310,27 @@ mod tests {
 
     #[tokio::test]
     async fn test_client() {
-        let opt_proxy = Some("127.0.0.1".to_string());
+        let local_proxy = Some("127.0.0.1".to_string());
 
-        Client::_builder().proxy(opt_proxy).build().unwrap();
-        Client::_builder().proxy(None).build().unwrap();
+        Client::new(local_proxy, "");
+        Client::new(None, "");
 
-        Client::with_proxy(true).await.unwrap();
-        Client::with_proxy(false).await.unwrap();
+        let proxy = Client::find_proxy().await.ok();
+        let ctest = Client::find_ctest().await.unwrap();
+
+        Client::new(proxy, &ctest);
+        Client::new(None, &ctest);
     }
 
     #[tokio::test]
     #[ignore]
     async fn test_animeworld() {
         let file = "SeishunButaYarouWaBunnyGirlSenpaiNoYumeWoMinai_Ep_01_SUB_ITA.mp4";
-        let anime = ScraperCollector::mutex();
-        let client = Arc::new(Client::_builder().build().unwrap());
+        let anime = Arc::new(Mutex::new(ScraperCollector::default()));
+        let client = Arc::new(Client::default());
 
-        Scraper::animeworld("bunny girl", client, anime.clone())
-            .await
-            .unwrap();
+        let param = ("bunny girl", client, anime.clone());
+        Archive::animeworld(param).await.unwrap();
 
         let anime = anime.lock().await.clone();
         let info = get_url(&anime.first().unwrap().origin);
@@ -368,7 +342,11 @@ mod tests {
     #[ignore]
     async fn test_scraper() {
         let file = "SeishunButaYarouWaBunnyGirlSenpaiNoYumeWoMinai_Ep_01_SUB_ITA.mp4";
-        let anime = Scraper::new("bunny girl").run().await.unwrap();
+        let anime = Scraper::new("bunny girl")
+            .with_proxy(true)
+            .run()
+            .await
+            .unwrap();
 
         let info = get_url(&anime.first().unwrap().origin);
 
@@ -385,6 +363,7 @@ mod tests {
         ];
 
         let anime = Scraper::new("bunny girl, tsuredure children, promare")
+            .with_proxy(true)
             .run()
             .await
             .unwrap();

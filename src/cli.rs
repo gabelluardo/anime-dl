@@ -4,7 +4,7 @@ use std::str::FromStr;
 
 use crate::utils::Range;
 
-#[derive(clap::ArgEnum, Debug, Copy, Clone)]
+#[derive(clap::ArgEnum, Debug, Clone)]
 #[allow(clippy::upper_case_acronyms)]
 pub enum Site {
     AW,
