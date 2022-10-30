@@ -4,7 +4,7 @@ use std::str::FromStr;
 
 use crate::utils::Range;
 
-#[derive(clap::ArgEnum, Debug, Clone)]
+#[derive(clap::ValueEnum, Debug, Clone)]
 #[allow(clippy::upper_case_acronyms)]
 pub enum Site {
     AW,
@@ -46,7 +46,7 @@ pub struct Args {
         short = 'm',
         long = "max-concurrent",
         name = "max",
-        parse(try_from_str = parse_dim_buff)
+        value_parser = parse_dim_buff
     )]
     pub dim_buff: usize,
 
@@ -55,14 +55,14 @@ pub struct Args {
         short = 'r',
         long = "range",
         name = "range",
-        required_unless_present("auto-episode"),
+        required_unless_present("auto_episode"),
         required_unless_present("interactive"),
         required_unless_present("stream")
     )]
     pub range: Option<Range<u32>>,
 
     /// Search anime in remote archive
-    #[clap(long, short = 'S', name = "site", ignore_case = true, arg_enum)]
+    #[clap(long, short = 'S', name = "site", ignore_case = true, value_enum)]
     pub site: Option<Site>,
 
     /// Save files in a folder with a default name
