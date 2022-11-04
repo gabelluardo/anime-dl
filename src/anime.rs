@@ -116,7 +116,7 @@ impl AnimeBuilder {
             _ => vec![self.info.url.clone()],
         };
 
-        let last_viewed = self.last_viewed().await?;
+        let last_viewed = self.last_viewed().await;
 
         Ok(Anime {
             episodes,
@@ -201,17 +201,10 @@ impl AnimeBuilder {
     }
 
     #[cfg(feature = "anilist")]
-    async fn last_viewed(&self) -> Result<Option<u32>> {
-        let anilist = AniList::builder()
-            .anime_id(self.info.id)
-            .client_id(self.client_id)
-            .build()
-            .await;
+    async fn last_viewed(&self) -> Option<u32> {
+        let anilist = AniList::new(self.client_id).unwrap_or_default();
 
-        match anilist {
-            Ok(a) => a.last_viewed().await,
-            _ => Ok(None),
-        }
+        anilist.last_viewed(self.info.id).await.unwrap_or_default()
     }
 
     #[cfg(not(feature = "anilist"))]

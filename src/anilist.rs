@@ -1,8 +1,8 @@
 use std::path::PathBuf;
+use std::{fs, io::Read, io::Write};
 
 use graphql_client::{GraphQLQuery, Response};
 use reqwest::{header, header::HeaderValue, Client};
-use tokio::{fs, io::AsyncReadExt, io::AsyncWriteExt};
 
 use crate::errors::{Error, Result};
 use crate::utils::tui;
@@ -32,71 +32,65 @@ impl Config {
         Self::default()
     }
 
-    async fn clean(&self) -> Result<()> {
-        fs::remove_file(&self.0).await.map_err(|_| Error::FsRemove)
+    fn clean(&self) -> Result<()> {
+        fs::remove_file(&self.0).map_err(|_| Error::FsRemove)
     }
 
-    async fn load(&self) -> Option<String> {
-        let file = fs::OpenOptions::new().read(true).open(&self.0).await;
+    fn load(&self) -> Result<String> {
+        let file = fs::OpenOptions::new().read(true).open(&self.0);
 
-        match file {
-            Ok(mut f) => {
-                let mut contents = String::new();
-                f.read_to_string(&mut contents).await.ok();
-                Some(contents)
-            }
-            _ => None,
-        }
+        file.map(|mut f| {
+            let mut contents = String::new();
+
+            f.read_to_string(&mut contents).ok();
+
+            contents
+        })
+        .map_err(|_| Error::FsLoad)
     }
 
-    async fn save(&self, token: &str) -> Result<()> {
-        if !self.0.exists() {
-            fs::create_dir_all(&self.0.parent().unwrap()).await?;
+    fn save(&self, token: &str) -> Result<()> {
+        let path = &self.0;
+
+        if !path.exists() {
+            fs::create_dir_all(path.parent().unwrap())?;
         }
 
         let mut buf = fs::OpenOptions::new()
             .write(true)
             .create(true)
             .truncate(true)
-            .open(&self.0)
-            .await?;
+            .open(path)?;
 
-        buf.write_all(token.as_bytes())
-            .await
-            .map_err(|_| Error::FsWrite)
+        buf.write_all(token.as_bytes()).map_err(|_| Error::FsWrite)
     }
 }
 
-#[derive(Default)]
-pub struct AniListBuilder {
-    anime_id: Option<u32>,
-    client_id: Option<u32>,
-}
+#[derive(GraphQLQuery)]
+#[graphql(
+    schema_path = "src/utils/assets/anilist_schema.graphql",
+    query_path = "src/utils/assets/progress_query.graphql",
+    response_derives = "Debug"
+)]
+pub struct ProgressQuery;
 
-impl AniListBuilder {
-    pub fn anime_id(mut self, anime_id: Option<u32>) -> Self {
-        self.anime_id = anime_id;
-        self
-    }
+#[derive(Default, Debug)]
+pub struct AniList(Client);
 
-    pub fn client_id(mut self, client_id: Option<u32>) -> Self {
-        self.client_id = client_id;
-        self
-    }
-
-    pub async fn build(self) -> Result<AniList> {
-        let client_id = self.client_id.ok_or(Error::EnvNotFound)?;
+impl AniList {
+    pub fn new(client_id: Option<u32>) -> Result<Self> {
+        let client_id = client_id.ok_or(Error::EnvNotFound)?;
         let config = Config::new();
 
         let oauth_url = format!(
             "https://anilist.co/api/v2/oauth/authorize?response_type=token&client_id={client_id}"
         );
 
-        let token = match config.load().await {
-            Some(t) => t,
+        let token = match config.load() {
+            Ok(t) => t,
             _ => {
                 let token = tui::get_token(&oauth_url)?;
-                config.save(&token).await?;
+                config.save(&token)?;
                 token
             }
         };
@@ -110,32 +104,22 @@ impl AniListBuilder {
         headers.insert(header::ACCEPT, application.clone());
         headers.insert(header::CONTENT_TYPE, application);
 
-        let anime_id = self.anime_id.map(|id| id as i64);
-        let client = Client::builder().default_headers(headers).build()?;
+        let client = Self(Client::builder().default_headers(headers).build()?);
 
-        Ok(AniList { client, anime_id })
-    }
-}
-
-pub struct AniList {
-    client: Client,
-    anime_id: Option<i64>,
-}
-
-impl AniList {
-    pub fn builder() -> AniListBuilder {
-        AniListBuilder::default()
+        Ok(client)
     }
 
-    pub async fn clean_cache() -> Result<()> {
-        Config::default().clean().await
+    pub fn clean_cache() -> Result<()> {
+        Config::default().clean()
     }
 
-    pub async fn last_viewed(&self) -> Result<Option<u32>> {
+    pub async fn last_viewed(&self, anime_id: Option<u32>) -> Result<Option<u32>> {
         let endpoint = "https://graphql.anilist.co";
 
-        let q = ProgressQuery::build_query(progress_query::Variables { id: self.anime_id });
-        let res = self.client.post(endpoint).json(&q).send().await?;
+        let q = ProgressQuery::build_query(progress_query::Variables {
+            id: anime_id.map(|u| u as i64),
+        });
+        let res = self.0.post(endpoint).json(&q).send().await?;
         let response_body: Response<progress_query::ResponseData> = res.json().await?;
 
         let data = response_body
@@ -149,45 +133,41 @@ impl AniList {
     }
 }
 
-#[derive(GraphQLQuery)]
-#[graphql(
-    schema_path = "src/utils/assets/anilist_schema.graphql",
-    query_path = "src/utils/assets/progress_query.graphql",
-    response_derives = "Debug"
-)]
-pub struct ProgressQuery;
-
 #[cfg(test)]
+#[allow(non_upper_case_globals)]
 mod tests {
     use super::*;
 
-    const PATH_STR: &str = "/tmp/test.cache";
-    const PATH_STR_PANIC: &str = "/tmp/test2.cache";
-
-    #[tokio::test]
-    async fn test_write_config() {
-        let string = "asdfasdfasdf";
-        let path = PathBuf::from(PATH_STR);
-        let c = Config(path.clone());
-
-        let res = c.save(string).await;
-        assert!(res.is_ok());
-        assert!(path.is_file());
-
-        let res = c.load().await;
-        assert!(res.is_some());
-        assert_eq!(string, res.unwrap());
-
-        let res = c.clean().await;
-        assert!(res.is_ok())
+    lazy_static! {
+        static ref config: Config = Config(PathBuf::from("/tmp/test.cache"));
+        static ref config_panic: Config = Config(PathBuf::from("/tmp/test2.cache"));
     }
 
-    #[tokio::test]
-    #[should_panic]
-    async fn test_clean_config_panic() {
-        let path = PathBuf::from(PATH_STR_PANIC);
-        let c = Config(path);
+    #[test]
+    fn test_write_config() {
+        let string = "asdfasdfasdf";
 
-        c.clean().await.unwrap()
+        let res = config.save(string);
+        assert!(res.is_ok());
+        assert!(config.0.is_file());
+
+        let res = config.load();
+        assert!(res.is_ok());
+        assert_eq!(string, res.unwrap());
+
+        let res = config.clean();
+        assert!(res.is_ok());
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_clean_config_panic() {
+        config_panic.clean().unwrap();
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_load_config_panic() {
+        config_panic.load().unwrap();
     }
 }

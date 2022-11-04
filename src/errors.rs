@@ -50,6 +50,9 @@ pub enum Error {
     #[error("Unable to write file")]
     FsWrite,
 
+    #[error("Unable to load configuration")]
+    FsLoad,
+
     // Invalid errors
     #[error("Invalid range")]
     InvalidRange,

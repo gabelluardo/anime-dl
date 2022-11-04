@@ -10,6 +10,7 @@ dependencies = [
  "futures",
  "graphql_client",
  "indicatif",
+ "lazy_static",
  "nom",
  "owo-colors",
  "rand 0.8.5",

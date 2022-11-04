@@ -20,6 +20,10 @@ use crate::utils::{get_path, tui, Bars, ProgressBar};
 #[macro_use]
 mod utils;
 
+#[cfg(test)]
+#[macro_use]
+extern crate lazy_static;
+
 #[cfg(feature = "anilist")]
 mod anilist;
 
@@ -34,7 +38,7 @@ async fn main() {
 
     #[cfg(feature = "anilist")]
     if args.clean {
-        ok!(AniList::clean_cache().await);
+        ok!(AniList::clean_cache());
     }
 
     let items = if utils::is_web_url(&args.entries[0]) {
