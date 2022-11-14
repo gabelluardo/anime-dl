@@ -1,9 +1,9 @@
 /// Throw the error to the caller function
-macro_rules! bail {
-    ($err:expr $(,)?) => {
-        return Err($err)
-    };
-}
+// macro_rules! bail {
+//     ($err:expr $(,)?) => {
+//         return Err($err)
+//     };
+// }
 
 /// Fill url placeholder with episode digit
 macro_rules! gen_url {
@@ -18,9 +18,9 @@ macro_rules! unroll {
         match $x {
             Ok(item) => item,
             Err(err) => {
-                if (!matches!(err, Error::Quit)) {
-                    eprintln!("{}", err.red())
-                }
+                // if (!matches!(err, Err("..."))) {
+                eprintln!("{}", err.red());
+                // }
                 continue;
             }
         }
@@ -33,9 +33,9 @@ macro_rules! ok {
         match $x {
             Ok(item) => item,
             Err(err) => {
-                if (!matches!(err, Error::Quit)) {
-                    eprintln!("{}", err.red());
-                }
+                // if (!matches!(err, "...")) {
+                eprintln!("{}", err.red());
+                // }
                 return;
             }
         }

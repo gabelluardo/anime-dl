@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 use std::process::Stdio;
 
+use anyhow::{bail, Context, Result};
 use futures::stream::StreamExt;
 use owo_colors::OwoColorize;
 use reqwest::header::{CONTENT_LENGTH, RANGE, REFERER};
@@ -13,7 +14,6 @@ use which::which;
 use crate::anilist::AniList;
 use crate::anime::{Anime, AnimeInfo, FileDest, InfoNum};
 use crate::cli::Args;
-use crate::errors::{Error, Result};
 use crate::scraper::{Scraper, ScraperCollector};
 use crate::utils::{get_path, tui, Bars, ProgressBar};
 
@@ -29,7 +29,6 @@ mod anilist;
 
 mod anime;
 mod cli;
-mod errors;
 mod scraper;
 
 #[tokio::main]
@@ -116,7 +115,8 @@ async fn download_worker(url: &str, opts: (PathBuf, &str, bool, ProgressBar)) ->
         .send()
         .await?
         .error_for_status()
-        .map_err(|_| Error::Download(filename.clone()))?
+        .context(format!("Unable to download {filename}"))?
+        // .map_err(|_| Error::Download(filename.clone()))?
         .headers()
         .get(CONTENT_LENGTH)
         .and_then(|ct_len| ct_len.to_str().ok())
@@ -126,7 +126,7 @@ async fn download_worker(url: &str, opts: (PathBuf, &str, bool, ProgressBar)) ->
     let props = (root.as_path(), filename.as_str(), overwrite);
     let file = FileDest::new(props).await?;
     if file.size >= source_size {
-        bail!(Error::Overwrite(filename));
+        bail!(format!("{filename} already exists"));
     }
 
     let msg = if let Ok(info) = AnimeInfo::new(url, None) {
@@ -192,7 +192,7 @@ async fn streaming(args: Args, items: ScraperCollector) -> Result<()> {
             .stdout(Stdio::null())
             .stderr(Stdio::null())
             .spawn()
-            .map_err(|_| Error::MediaPlayer)?;
+            .context("`mpv` or `vlc` required for streaming")?;
     }
 
     Ok(())

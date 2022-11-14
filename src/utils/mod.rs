@@ -12,7 +12,7 @@ pub use bars::Bars;
 pub use bars::ProgressBar;
 pub use range::Range;
 
-use crate::errors::{Error, Result};
+use anyhow::{bail, Context, Result};
 
 #[macro_use]
 mod macros;
@@ -22,12 +22,12 @@ pub mod range;
 pub mod tui;
 
 pub fn parse_name(input: &str) -> Result<String> {
-    let url = reqwest::Url::parse(input).map_err(|_| Error::Parsing(input.to_owned()))?;
+    let url = reqwest::Url::parse(input).context(format!("Unable to parse `{input}`"))?;
     let res = url
         .path_segments()
         .and_then(|s| s.last())
         .map(|s| s.split('_').collect::<Vec<_>>()[0])
-        .ok_or_else(|| Error::Parsing(input.to_owned()))?;
+        .context(format!("Unable to parse `{input}`"))?;
 
     let name = to_title_case(res);
 
@@ -36,24 +36,25 @@ pub fn parse_name(input: &str) -> Result<String> {
 
 pub fn parse_filename(input: &str) -> Result<String> {
     let filename = reqwest::Url::parse(input)
-        .map_err(|_| Error::InvalidUrl)?
+        .context("Invalid url")?
         .path_segments()
         .and_then(|segments| segments.last())
         .map(|s| s.to_string())
-        .ok_or_else(|| Error::Parsing(input.to_owned()))?;
+        .context(format!("Unable to parse `{input}`"))?;
 
     Ok(filename)
 }
-pub fn parse_aw_cookie(input: &str) -> Result<String> {
-    fn aw_parser(input: &str) -> IResult<&str, String> {
+
+pub fn parse_aw_cookie<'a>(input: &'a str) -> Result<String> {
+    let parser = |input: &'a str| -> IResult<&str, String> {
         let key = preceded(take_until("AWCookie"), alpha0);
         let value = preceded(char('='), alphanumeric1);
         let parser = tuple((key, value));
 
         map(parser, |(k, v)| format!("{k}={v}"))(input)
-    }
+    };
 
-    let (_, mut cookie) = aw_parser(input).map_err(|_| Error::Parsing(input.to_owned()))?;
+    let (_, mut cookie) = parser(input).unwrap_or_default();
     cookie.push_str("; ");
 
     Ok(cookie)
@@ -124,7 +125,12 @@ mod tests {
         let s = r#"<html><script src="/cdn-cgi/apps/head/WvfaYe5SS22u5exoBw70ThuTjHg.js"></script><body><script>document.cookie="AWCookieVerify=295db002e27e3ac26934485002b41564 ; </script></body></html>"#;
         let res = parse_aw_cookie(s).unwrap();
 
-        assert_eq!(res, "AWCookieVerify=295db002e27e3ac26934485002b41564; ")
+        assert_eq!(res, "AWCookieVerify=295db002e27e3ac26934485002b41564; ");
+
+        let s = r#"<html><script src="/cdn-cgi/apps/head/WvfaYe5SS22u5exoBw70ThuTjHg.js"></script><body><script>document.cookie=" ; </script></body></html>"#;
+        let res = parse_aw_cookie(s).unwrap();
+
+        assert_eq!(res, "; ")
     }
 
     #[test]

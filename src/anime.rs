@@ -7,8 +7,8 @@ use tokio::fs;
 
 #[cfg(feature = "anilist")]
 use crate::anilist::AniList;
-use crate::errors::{Error, Result};
 use crate::utils::{self, tui, Range};
+use anyhow::{bail, Context, Result};
 
 #[derive(Clone, Default, Debug, PartialEq, Eq)]
 pub struct InfoNum {
@@ -188,7 +188,7 @@ impl AnimeBuilder {
         }
 
         if self.range.is_empty() {
-            bail!(Error::Download(String::new()))
+            bail!("Unable to download")
         }
 
         let episodes = self
@@ -303,7 +303,7 @@ impl FileDest {
             .create(true)
             .open(&self.file)
             .await
-            .map_err(|_| Error::FsOpen)
+            .context("Unable to open file")
     }
 }
 

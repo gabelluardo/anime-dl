@@ -4,8 +4,8 @@ use std::{fs, io::Read, io::Write};
 use graphql_client::{GraphQLQuery, Response};
 use reqwest::{header, header::HeaderValue, Client};
 
-use crate::errors::{Error, Result};
 use crate::utils::tui;
+use anyhow::{Context, Result};
 
 struct Config(PathBuf);
 
@@ -33,7 +33,7 @@ impl Config {
     }
 
     fn clean(&self) -> Result<()> {
-        fs::remove_file(&self.0).map_err(|_| Error::FsRemove)
+        fs::remove_file(&self.0).context("Unable to remove file")
     }
 
     fn load(&self) -> Result<String> {
@@ -46,7 +46,7 @@ impl Config {
 
             contents
         })
-        .map_err(|_| Error::FsLoad)
+        .context("Unable to load configuration")
     }
 
     fn save(&self, token: &str) -> Result<()> {
@@ -62,7 +62,8 @@ impl Config {
             .truncate(true)
             .open(path)?;
 
-        buf.write_all(token.as_bytes()).map_err(|_| Error::FsWrite)
+        buf.write_all(token.as_bytes())
+            .context("Unable to write file")
     }
 }
 
@@ -79,7 +80,7 @@ pub struct AniList(Client);
 
 impl AniList {
     pub fn new(client_id: Option<u32>) -> Result<Self> {
-        let client_id = client_id.ok_or(Error::EnvNotFound)?;
+        let client_id = client_id.context("No client id")?;
         let config = Config::new();
 
         let oauth_url = format!(
@@ -96,8 +97,7 @@ impl AniList {
         };
 
         let mut headers = header::HeaderMap::new();
-        let auth =
-            HeaderValue::from_str(&format!("Bearer {token}")).map_err(Error::InvalidToken)?;
+        let auth = HeaderValue::from_str(&format!("Bearer {token}"))?;
         let application = HeaderValue::from_static("application/json");
 
         headers.insert(header::AUTHORIZATION, auth);

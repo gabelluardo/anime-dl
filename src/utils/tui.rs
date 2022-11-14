@@ -54,7 +54,7 @@ fn parse_input(line: String, choices: &[Choice]) -> Vec<String> {
 
 pub fn get_choice(choices: &[Choice], query: Option<String>) -> Result<Vec<String>> {
     match choices.len() {
-        0 => bail!(Error::Choices),
+        0 => bail!("No match found"),
         1 => Ok(vec![choices[0].link.to_string()]),
         _ => {
             let len = choices.len();
@@ -73,29 +73,29 @@ pub fn get_choice(choices: &[Choice], query: Option<String>) -> Result<Vec<Strin
                 "Make your selection (eg: 1 2 3 or 1-3) [default=All, <q> for exit]".bold()
             );
 
-            let mut rl = Editor::<()>::new().map_err(Error::UserInput)?;
+            let mut rl = Editor::<()>::new().context("Invalid input")?;
             rl.set_color_mode(ColorMode::Enabled);
 
             let prompt = "~❯ ".red().to_string();
             let urls = match rl.readline(&prompt) {
                 Ok(line) => {
                     if line.contains('q') {
-                        bail!(Error::Quit);
+                        bail!("...");
                     }
 
                     parse_input(line, choices)
                 }
                 Err(ReadlineError::Interrupted | ReadlineError::Eof) => {
-                    bail!(Error::Quit);
+                    bail!("...");
                 }
-                Err(err) => {
-                    bail!(Error::UserInput(err));
+                Err(_) => {
+                    bail!("Invalid input");
                 }
             };
             println!();
 
             if urls.is_empty() {
-                bail!(Error::EpisodeNotFound);
+                bail!("No episode found");
             }
 
             Ok(urls)
@@ -116,12 +116,12 @@ pub fn get_token(url: &str) -> Result<String> {
         url.magenta().bold()
     );
 
-    let mut rl = Editor::<()>::new().map_err(Error::UserInput)?;
+    let mut rl = Editor::<()>::new().context("Invalid input")?;
     let prompt = "~❯ ".red().to_string();
     let line = rl
         .readline(&prompt)
         .map(|s| s.trim().to_string())
-        .map_err(Error::UserInput)?;
+        .context("Invalid input")?;
 
     Ok(line)
 }

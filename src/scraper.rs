@@ -2,6 +2,7 @@ use std::iter::FromIterator;
 use std::ops::{Deref, DerefMut};
 use std::sync::Arc;
 
+use anyhow::{bail, Context, Result};
 use futures::future::join_all;
 use owo_colors::OwoColorize;
 use rand::seq::IteratorRandom;
@@ -11,8 +12,6 @@ use tokio::sync::Mutex;
 
 use crate::anime::AnimeInfo;
 use crate::cli::Site;
-use crate::errors::Error::Proxy;
-use crate::errors::{Error, Result};
 use crate::utils::{self, tui};
 
 #[derive(Debug, Default, Clone)]
@@ -55,10 +54,7 @@ impl Archive {
             let div = Selector::parse("div.film-list").unwrap();
             let a = Selector::parse("a.name").unwrap();
 
-            let elem = page
-                .select(&div)
-                .next()
-                .ok_or_else(|| Error::with_msg("Request blocked, retry"))?;
+            let elem = page.select(&div).next().context("Request blocked, retry")?;
             elem.select(&a)
                 .into_iter()
                 .map(|a| {
@@ -75,7 +71,7 @@ impl Archive {
         };
 
         if results.is_empty() {
-            bail!(Error::AnimeNotFound)
+            bail!("No anime found")
         }
 
         let choices = tui::get_choice(&results, Some(query.replace('+', " ")))?;
@@ -144,7 +140,7 @@ impl Archive {
             .collect::<Vec<_>>();
 
         if res.is_empty() {
-            bail!(Error::UrlNotFound)
+            bail!("No url found")
         }
 
         let mut buf = buf.lock().await;
@@ -245,7 +241,7 @@ impl<'a> Client {
         let mut builder = RClient::builder().default_headers(headers);
 
         if let Some(proxy) = proxy {
-            if let Ok(req_proxy) = reqwest::Proxy::http(proxy).map_err(|_| Proxy) {
+            if let Ok(req_proxy) = reqwest::Proxy::http(proxy).context("Unable to find a proxy") {
                 builder = builder.proxy(req_proxy)
             }
         }
