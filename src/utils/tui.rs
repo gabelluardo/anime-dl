@@ -80,13 +80,13 @@ pub fn get_choice(choices: &[Choice], query: Option<String>) -> Result<Vec<Strin
             let urls = match rl.readline(&prompt) {
                 Ok(line) => {
                     if line.contains('q') {
-                        bail!("...");
+                        bail!("")
                     }
 
                     parse_input(line, choices)
                 }
                 Err(ReadlineError::Interrupted | ReadlineError::Eof) => {
-                    bail!("...");
+                    bail!("")
                 }
                 Err(_) => {
                     bail!("Invalid input");

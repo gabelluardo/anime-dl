@@ -23,15 +23,10 @@ pub mod tui;
 
 pub fn parse_name(input: &str) -> Result<String> {
     let url = reqwest::Url::parse(input).context(format!("Unable to parse `{input}`"))?;
-    let res = url
-        .path_segments()
+    url.path_segments()
         .and_then(|s| s.last())
-        .map(|s| s.split('_').collect::<Vec<_>>()[0])
-        .context(format!("Unable to parse `{input}`"))?;
-
-    let name = to_title_case(res);
-
-    Ok(name)
+        .map(|s| s.split('_').collect::<Vec<_>>()[0].to_string())
+        .context(format!("Unable to parse `{input}`"))
 }
 
 pub fn parse_filename(input: &str) -> Result<String> {
@@ -60,14 +55,14 @@ pub fn parse_aw_cookie<'a>(input: &'a str) -> Result<String> {
     Ok(cookie)
 }
 
-pub fn to_title_case(s: &str) -> String {
+pub fn recase_string(s: &str, separator: char, all_lowercase: bool) -> String {
     let mut v = String::new();
     let mut pos = None;
 
     for (i, c) in s.char_indices() {
         if let Some(next) = s.chars().nth(i + 1) {
             if i != 0 && c.is_uppercase() && !next.is_uppercase() && !next.is_ascii_digit() {
-                v.push(' ')
+                v.push(separator)
             }
         }
 
@@ -80,25 +75,24 @@ pub fn to_title_case(s: &str) -> String {
     }
 
     if let Some(i) = pos {
-        v.insert(i, ' ')
+        v.insert(i, separator)
     }
 
-    v.to_string()
+    if all_lowercase {
+        v = v.to_lowercase();
+    }
+
+    v
 }
 
-pub fn get_path(args: &crate::cli::Args, url: &str, pos: usize) -> Result<PathBuf> {
-    let mut root = args.dir.last().unwrap().to_owned();
+pub fn get_path(args: &crate::cli::Args, url: &str) -> Result<PathBuf> {
+    let mut path = args.dir.clone();
 
-    let path = if args.auto_dir {
-        let sub_folder = parse_name(url)?;
-        root.push(sub_folder);
-        root
-    } else {
-        match args.dir.get(pos) {
-            Some(path) => path.to_owned(),
-            None => root,
-        }
-    };
+    if args.auto_dir {
+        let name = parse_name(url)?;
+        let dir = to_snake_case!(name);
+        path.push(dir)
+    }
 
     Ok(path)
 }
@@ -110,6 +104,34 @@ pub fn is_web_url(s: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_get_path() {
+        let url = "https://www.domain.tld/sub/anotherSub/AnimeName/AnimeName_Ep_15_SUB_ITA.mp4";
+        let mut args = crate::cli::Args::default();
+
+        args.auto_dir = true;
+        args.dir = PathBuf::from("root");
+        assert_eq!(
+            get_path(&args, url).unwrap(),
+            PathBuf::from("root/anime_name")
+        );
+
+        args.auto_dir = true;
+        args.dir = PathBuf::from("custom_root");
+        assert_eq!(
+            get_path(&args, url).unwrap(),
+            PathBuf::from("custom_root/anime_name")
+        );
+
+        args.auto_dir = false;
+        args.dir = PathBuf::from("root");
+        assert_eq!(get_path(&args, url).unwrap(), PathBuf::from("root"));
+
+        args.auto_dir = false;
+        args.dir = PathBuf::from("custom_root");
+        assert_eq!(get_path(&args, url).unwrap(), PathBuf::from("custom_root"))
+    }
 
     #[test]
     fn test_is_url() {
@@ -131,35 +153,5 @@ mod tests {
         let res = parse_aw_cookie(s).unwrap();
 
         assert_eq!(res, "; ")
-    }
-
-    #[test]
-    fn test_to_title_case() {
-        let s = "StringaInTitleCase-con-delle-linee";
-        assert_eq!(to_title_case(s), "Stringa In Title Case-con-delle-linee");
-
-        let s = "StringaCoNMaiuscole";
-        assert_eq!(to_title_case(s), "Stringa CoN Maiuscole");
-
-        let s = "HighSchoolDxD";
-        assert_eq!(to_title_case(s), "High School DxD");
-
-        let s = "IDInvaded";
-        assert_eq!(to_title_case(s), "ID Invaded");
-
-        let s = "SwordArtOnline2";
-        assert_eq!(to_title_case(s), "Sword Art Online 2");
-
-        let s = "SAO2";
-        assert_eq!(to_title_case(s), "SAO 2");
-
-        let s = "SlimeTaoshite300-nen";
-        assert_eq!(to_title_case(s), "Slime Taoshite 300-nen");
-
-        let s = "HigeWoSoruSoshiteJoshikouseiWoHirou";
-        assert_eq!(
-            to_title_case(s),
-            "Hige Wo Soru Soshite Joshikousei Wo Hirou"
-        )
     }
 }

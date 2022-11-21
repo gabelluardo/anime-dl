@@ -68,13 +68,13 @@ async fn download(args: Args, items: ScraperCollector) -> Result<()> {
     let bars = Bars::new();
     let mut pool = vec![];
 
-    for (pos, item) in items.iter().enumerate() {
-        let path = get_path(&args, &item.url, pos)?;
+    for info in items.iter() {
+        let path = get_path(&args, &info.url)?;
 
         let mut anime = Anime::builder()
             .auto(args.auto_episode || args.interactive)
             .client_id(args.anilist_id)
-            .info(item)
+            .info(info)
             .range(args.range.as_ref().unwrap_or_default())
             .referer(referer)
             .path(&path)
@@ -116,7 +116,6 @@ async fn download_worker(url: &str, opts: (PathBuf, &str, bool, ProgressBar)) ->
         .await?
         .error_for_status()
         .context(format!("Unable to download {filename}"))?
-        // .map_err(|_| Error::Download(filename.clone()))?
         .headers()
         .get(CONTENT_LENGTH)
         .and_then(|ct_len| ct_len.to_str().ok())
@@ -136,7 +135,7 @@ async fn download_worker(url: &str, opts: (PathBuf, &str, bool, ProgressBar)) ->
             .unwrap_or_default();
         format!("Ep. {}{}", num, info.name)
     } else {
-        utils::to_title_case(filename.split('_').collect::<Vec<_>>()[0])
+        to_title_case!(filename.split('_').collect::<Vec<_>>()[0])
     };
 
     let completed = format!("{msg} 👍");

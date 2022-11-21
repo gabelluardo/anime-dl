@@ -26,7 +26,7 @@ pub struct AnimeInfo {
 
 impl AnimeInfo {
     pub fn new(input: &str, id: Option<u32>) -> Result<Self> {
-        let name = utils::parse_name(input)?;
+        let name = to_title_case!(utils::parse_name(input)?);
 
         // find episode number position in input
         let (mut opt_start, mut opt_end) = (None, None);

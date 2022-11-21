@@ -36,9 +36,9 @@ pub struct Args {
     #[clap(required_unless_present("clean"))]
     pub entries: Vec<String>,
 
-    /// Root paths where store files
+    /// Root path where store files
     #[clap(default_value = ".", short, long)]
-    pub dir: Vec<PathBuf>,
+    pub dir: PathBuf,
 
     /// Maximum number of simultaneous downloads allowed
     #[clap(

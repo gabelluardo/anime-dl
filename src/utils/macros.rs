@@ -49,6 +49,20 @@ macro_rules! zfill {
     };
 }
 
+/// Convert a string from CamelCase to Title Case
+macro_rules! to_title_case {
+    ($str:expr) => {
+        crate::utils::recase_string(&$str, ' ', false)
+    };
+}
+
+/// Convert a string from CamelCase to snake_case
+macro_rules! to_snake_case {
+    ($str:expr) => {
+        crate::utils::recase_string(&$str, '_', true)
+    };
+}
+
 #[cfg(test)]
 mod tests {
     #[test]
@@ -69,5 +83,65 @@ mod tests {
         assert_eq!(gen_url!(url, 1, 3), "https://robe_001_.tld");
         assert_eq!(gen_url!(url, 14, 3), "https://robe_014_.tld");
         assert_eq!(gen_url!(url, 1400, 3), "https://robe_1400_.tld");
+    }
+
+    #[test]
+    fn test_to_title_case() {
+        let s = "StringaInTitleCase-con-delle-linee";
+        assert_eq!(to_title_case!(s), "Stringa In Title Case-con-delle-linee");
+
+        let s = "StringaCoNMaiuscole";
+        assert_eq!(to_title_case!(s), "Stringa CoN Maiuscole");
+
+        let s = "HighSchoolDxD";
+        assert_eq!(to_title_case!(s), "High School DxD");
+
+        let s = "IDInvaded";
+        assert_eq!(to_title_case!(s), "ID Invaded");
+
+        let s = "SwordArtOnline2";
+        assert_eq!(to_title_case!(s), "Sword Art Online 2");
+
+        let s = "SAO2";
+        assert_eq!(to_title_case!(s), "SAO 2");
+
+        let s = "SlimeTaoshite300-nen";
+        assert_eq!(to_title_case!(s), "Slime Taoshite 300-nen");
+
+        let s = "HigeWoSoruSoshiteJoshikouseiWoHirou";
+        assert_eq!(
+            to_title_case!(s),
+            "Hige Wo Soru Soshite Joshikousei Wo Hirou"
+        )
+    }
+
+    #[test]
+    fn test_to_snake_case() {
+        let s = "StringaInTitleCase-con-delle-linee";
+        assert_eq!(to_snake_case!(s), "stringa_in_title_case-con-delle-linee");
+
+        let s = "StringaCoNMaiuscole";
+        assert_eq!(to_snake_case!(s), "stringa_con_maiuscole");
+
+        let s = "HighSchoolDxD";
+        assert_eq!(to_snake_case!(s), "high_school_dxd");
+
+        let s = "IDInvaded";
+        assert_eq!(to_snake_case!(s), "id_invaded");
+
+        let s = "SwordArtOnline2";
+        assert_eq!(to_snake_case!(s), "sword_art_online_2");
+
+        let s = "SAO2";
+        assert_eq!(to_snake_case!(s), "sao_2");
+
+        let s = "SlimeTaoshite300-nen";
+        assert_eq!(to_snake_case!(s), "slime_taoshite_300-nen");
+
+        let s = "HigeWoSoruSoshiteJoshikouseiWoHirou";
+        assert_eq!(
+            to_snake_case!(s),
+            "hige_wo_soru_soshite_joshikousei_wo_hirou"
+        )
     }
 }
