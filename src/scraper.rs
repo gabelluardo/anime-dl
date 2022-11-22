@@ -12,6 +12,7 @@ use tokio::sync::Mutex;
 
 use crate::anime::AnimeInfo;
 use crate::cli::Site;
+use crate::errors::RemoteError;
 use crate::utils::{self, tui};
 
 #[derive(Debug, Default, Clone)]
@@ -43,6 +44,7 @@ impl FromIterator<AnimeInfo> for ScraperCollector {
 }
 
 struct Archive;
+
 impl Archive {
     async fn animeworld(param: (&str, Arc<Client>, Arc<Mutex<ScraperCollector>>)) -> Result<()> {
         let (query, client, buf) = param;
@@ -71,7 +73,7 @@ impl Archive {
         };
 
         if results.is_empty() {
-            bail!("No anime found")
+            bail!(RemoteError::AnimeNotFound)
         }
 
         let choices = tui::get_choice(&results, Some(query.replace('+', " ")))?;
@@ -140,7 +142,7 @@ impl Archive {
             .collect::<Vec<_>>();
 
         if res.is_empty() {
-            bail!("No url found")
+            bail!(RemoteError::UrlNotFound)
         }
 
         let mut buf = buf.lock().await;
@@ -241,7 +243,7 @@ impl<'a> Client {
         let mut builder = RClient::builder().default_headers(headers);
 
         if let Some(proxy) = proxy {
-            if let Ok(req_proxy) = reqwest::Proxy::http(proxy).context("Unable to find a proxy") {
+            if let Ok(req_proxy) = reqwest::Proxy::http(proxy).context(RemoteError::Proxy) {
                 builder = builder.proxy(req_proxy)
             }
         }

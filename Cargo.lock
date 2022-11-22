@@ -19,6 +19,7 @@ dependencies = [
  "rustyline",
  "scraper",
  "serde",
+ "thiserror",
  "tokio",
  "tokio-stream",
  "which",

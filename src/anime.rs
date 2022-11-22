@@ -1,5 +1,6 @@
 use std::path::{Path, PathBuf};
 
+use anyhow::{bail, Context, Result};
 use nom::Slice;
 use reqwest::header::REFERER;
 use reqwest::Client;
@@ -7,14 +8,15 @@ use tokio::fs;
 
 #[cfg(feature = "anilist")]
 use crate::anilist::AniList;
+use crate::errors::SystemError;
 use crate::utils::{self, tui, Range};
-use anyhow::{bail, Context, Result};
 
 #[derive(Clone, Default, Debug, PartialEq, Eq)]
 pub struct InfoNum {
     pub value: u32,
     pub alignment: usize,
 }
+
 #[derive(Clone, Default, Debug, PartialEq, Eq)]
 pub struct AnimeInfo {
     pub id: Option<u32>,
@@ -303,7 +305,7 @@ impl FileDest {
             .create(true)
             .open(&self.file)
             .await
-            .context("Unable to open file")
+            .context(SystemError::FsOpen)
     }
 }
 

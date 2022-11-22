@@ -42,11 +42,11 @@ pub struct Args {
 
     /// Maximum number of simultaneous downloads allowed
     #[clap(
-        default_value = "24",
-        short = 'm',
-        long = "max-concurrent",
-        name = "max",
-        value_parser = parse_dim_buff
+    default_value = "24",
+    short = 'm',
+    long = "max-concurrent",
+    name = "max",
+    value_parser = parse_dim_buff
     )]
     pub dim_buff: usize,
 

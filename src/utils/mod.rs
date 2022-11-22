@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+use anyhow::{bail, Context, Result};
 use nom::{
     bytes::complete::take_until,
     character::complete::{alpha0, alphanumeric1, char},
@@ -12,7 +13,7 @@ pub use bars::Bars;
 pub use bars::ProgressBar;
 pub use range::Range;
 
-use anyhow::{bail, Context, Result};
+use crate::errors::UserError;
 
 #[macro_use]
 mod macros;
@@ -22,20 +23,19 @@ pub mod range;
 pub mod tui;
 
 pub fn parse_name(input: &str) -> Result<String> {
-    let url = reqwest::Url::parse(input).context(format!("Unable to parse `{input}`"))?;
+    let url = reqwest::Url::parse(input).context(UserError::Parsing(input.to_string()))?;
     url.path_segments()
         .and_then(|s| s.last())
         .map(|s| s.split('_').collect::<Vec<_>>()[0].to_string())
-        .context(format!("Unable to parse `{input}`"))
+        .context(UserError::Parsing(input.to_string()))
 }
 
 pub fn parse_filename(input: &str) -> Result<String> {
-    let filename = reqwest::Url::parse(input)
-        .context("Invalid url")?
+    let filename = reqwest::Url::parse(input)?
         .path_segments()
         .and_then(|segments| segments.last())
         .map(|s| s.to_string())
-        .context(format!("Unable to parse `{input}`"))?;
+        .context(UserError::Parsing(input.to_string()))?;
 
     Ok(filename)
 }

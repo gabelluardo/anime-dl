@@ -1,11 +1,12 @@
 use std::path::PathBuf;
 use std::{fs, io::Read, io::Write};
 
+use anyhow::{Context, Result};
 use graphql_client::{GraphQLQuery, Response};
 use reqwest::{header, header::HeaderValue, Client};
 
+use crate::errors::SystemError;
 use crate::utils::tui;
-use anyhow::{Context, Result};
 
 struct Config(PathBuf);
 
@@ -33,7 +34,7 @@ impl Config {
     }
 
     fn clean(&self) -> Result<()> {
-        fs::remove_file(&self.0).context("Unable to remove file")
+        fs::remove_file(&self.0).context(SystemError::FsRemove)
     }
 
     fn load(&self) -> Result<String> {
@@ -46,7 +47,7 @@ impl Config {
 
             contents
         })
-        .context("Unable to load configuration")
+        .context(SystemError::FsLoad)
     }
 
     fn save(&self, token: &str) -> Result<()> {
@@ -63,7 +64,7 @@ impl Config {
             .open(path)?;
 
         buf.write_all(token.as_bytes())
-            .context("Unable to write file")
+            .context(SystemError::FsWrite)
     }
 }
 
@@ -80,7 +81,7 @@ pub struct AniList(Client);
 
 impl AniList {
     pub fn new(client_id: Option<u32>) -> Result<Self> {
-        let client_id = client_id.context("No client id")?;
+        let client_id = client_id.unwrap_or(4047);
         let config = Config::new();
 
         let oauth_url = format!(

@@ -3,6 +3,8 @@ use std::str::FromStr;
 
 use anyhow::{bail, Result};
 
+use crate::errors::UserError;
+
 #[derive(Debug, Clone)]
 pub struct Range<T>(OpsRange<T>);
 
@@ -69,9 +71,9 @@ where
             (Some(f), Some(l)) => match (f.parse::<T>(), l.parse::<T>()) {
                 (Ok(s), Ok(e)) => Ok(Self(s..=e)),
                 (Ok(s), Err(_)) => Ok(Self(s..=s)),
-                _ => bail!("Invalid range"),
+                _ => bail!(UserError::InvalidRange),
             },
-            _ => bail!("Invalid range"),
+            _ => bail!(UserError::InvalidRange),
         }
     }
 }

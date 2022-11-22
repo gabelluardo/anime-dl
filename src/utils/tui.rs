@@ -1,6 +1,8 @@
 use owo_colors::OwoColorize;
 use rustyline::{config::Configurer, error::ReadlineError, ColorMode, Editor};
 
+use crate::errors::{Quit, RemoteError};
+
 use super::*;
 
 #[derive(Clone)]
@@ -54,7 +56,7 @@ fn parse_input(line: String, choices: &[Choice]) -> Vec<String> {
 
 pub fn get_choice(choices: &[Choice], query: Option<String>) -> Result<Vec<String>> {
     match choices.len() {
-        0 => bail!("No match found"),
+        0 => bail!(UserError::Choices),
         1 => Ok(vec![choices[0].link.to_string()]),
         _ => {
             let len = choices.len();
@@ -73,29 +75,29 @@ pub fn get_choice(choices: &[Choice], query: Option<String>) -> Result<Vec<Strin
                 "Make your selection (eg: 1 2 3 or 1-3) [default=All, <q> for exit]".bold()
             );
 
-            let mut rl = Editor::<()>::new().context("Invalid input")?;
+            let mut rl = Editor::<()>::new().context(UserError::InvalidInput)?;
             rl.set_color_mode(ColorMode::Enabled);
 
             let prompt = "~❯ ".red().to_string();
             let urls = match rl.readline(&prompt) {
                 Ok(line) => {
                     if line.contains('q') {
-                        bail!("")
+                        bail!(Quit)
                     }
 
                     parse_input(line, choices)
                 }
                 Err(ReadlineError::Interrupted | ReadlineError::Eof) => {
-                    bail!("")
+                    bail!(Quit)
                 }
                 Err(_) => {
-                    bail!("Invalid input");
+                    bail!(UserError::InvalidInput);
                 }
             };
             println!();
 
             if urls.is_empty() {
-                bail!("No episode found");
+                bail!(RemoteError::EpisodeNotFound);
             }
 
             Ok(urls)
@@ -116,12 +118,12 @@ pub fn get_token(url: &str) -> Result<String> {
         url.magenta().bold()
     );
 
-    let mut rl = Editor::<()>::new().context("Invalid input")?;
+    let mut rl = Editor::<()>::new().context(UserError::InvalidInput)?;
     let prompt = "~❯ ".red().to_string();
     let line = rl
         .readline(&prompt)
         .map(|s| s.trim().to_string())
-        .context("Invalid input")?;
+        .context(UserError::InvalidInput)?;
 
     Ok(line)
 }

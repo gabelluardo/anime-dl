@@ -1,3 +1,7 @@
+#[cfg(test)]
+#[macro_use]
+extern crate lazy_static;
+
 use std::path::PathBuf;
 use std::process::Stdio;
 
@@ -14,21 +18,19 @@ use which::which;
 use crate::anilist::AniList;
 use crate::anime::{Anime, AnimeInfo, FileDest, InfoNum};
 use crate::cli::Args;
+use crate::errors::{RemoteError, SystemError};
 use crate::scraper::{Scraper, ScraperCollector};
 use crate::utils::{get_path, tui, Bars, ProgressBar};
 
 #[macro_use]
 mod utils;
 
-#[cfg(test)]
-#[macro_use]
-extern crate lazy_static;
-
 #[cfg(feature = "anilist")]
 mod anilist;
 
 mod anime;
 mod cli;
+mod errors;
 mod scraper;
 
 #[tokio::main]
@@ -48,9 +50,6 @@ async fn main() {
     } else {
         let proxy = !args.no_proxy;
         let query = &args.entries.join(" ");
-
-        // currently only one site can be chosen
-        // let site = args.site.unwrap_or_default();
 
         ok!(Scraper::new(query).with_proxy(proxy).run().await)
     };
@@ -115,7 +114,7 @@ async fn download_worker(url: &str, opts: (PathBuf, &str, bool, ProgressBar)) ->
         .send()
         .await?
         .error_for_status()
-        .context(format!("Unable to download {filename}"))?
+        .context(RemoteError::Download(filename.clone()))?
         .headers()
         .get(CONTENT_LENGTH)
         .and_then(|ct_len| ct_len.to_str().ok())
@@ -125,7 +124,7 @@ async fn download_worker(url: &str, opts: (PathBuf, &str, bool, ProgressBar)) ->
     let props = (root.as_path(), filename.as_str(), overwrite);
     let file = FileDest::new(props).await?;
     if file.size >= source_size {
-        bail!(format!("{filename} already exists"));
+        bail!(SystemError::Overwrite(filename));
     }
 
     let msg = if let Ok(info) = AnimeInfo::new(url, None) {
@@ -191,7 +190,7 @@ async fn streaming(args: Args, items: ScraperCollector) -> Result<()> {
             .stdout(Stdio::null())
             .stderr(Stdio::null())
             .spawn()
-            .context("`mpv` or `vlc` required for streaming")?;
+            .context(SystemError::MediaPlayer)?;
     }
 
     Ok(())

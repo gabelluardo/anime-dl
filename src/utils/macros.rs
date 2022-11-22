@@ -1,10 +1,3 @@
-/// Throw the error to the caller function
-// macro_rules! bail {
-//     ($err:expr $(,)?) => {
-//         return Err($err)
-//     };
-// }
-
 /// Fill url placeholder with episode digit
 macro_rules! gen_url {
     ($str:expr, $num:expr, $alignment:expr) => {
@@ -18,9 +11,9 @@ macro_rules! unroll {
         match $x {
             Ok(item) => item,
             Err(err) => {
-                // if (!matches!(err, Err("..."))) {
-                eprintln!("{}", err.red());
-                // }
+                if !err.is::<crate::errors::Quit>() {
+                    eprintln!("{}", err.red());
+                }
                 continue;
             }
         }
@@ -33,9 +26,9 @@ macro_rules! ok {
         match $x {
             Ok(item) => item,
             Err(err) => {
-                // if (!matches!(err, "...")) {
-                eprintln!("{}", err.red());
-                // }
+                if !err.is::<crate::errors::Quit>() {
+                    eprintln!("{}", err.red());
+                }
                 return;
             }
         }
@@ -65,6 +58,24 @@ macro_rules! to_snake_case {
 
 #[cfg(test)]
 mod tests {
+    // use anyhow::{anyhow, bail, Error};
+    // use owo_colors::OwoColorize;
+    //
+    // #[test]
+    // fn test_() {
+    //     let x = || bail!(crate::errors::QuitError::Quit);
+    //
+    //     match x() {
+    //         Ok(item) => item,
+    //         Err(err) => {
+    //             if !err.is::<crate::errors::QuitError>() {
+    //                 eprintln!("{}", err.red());
+    //             }
+    //             return;
+    //         }
+    //     }
+    // }
+
     #[test]
     fn test_zfill() {
         assert_eq!(zfill!(1, 2), "_01");
