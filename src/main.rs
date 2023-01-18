@@ -35,29 +35,37 @@ mod scraper;
 
 #[tokio::main]
 async fn main() {
-    let args = Args::parse();
+    let app = async {
+        let args = Args::parse();
 
-    #[cfg(feature = "anilist")]
-    if args.clean {
-        ok!(AniList::clean_cache());
-    }
+        #[cfg(feature = "anilist")]
+        if args.clean {
+            AniList::clean_cache()?
+        }
 
-    let items = if utils::is_web_url(&args.entries[0]) {
-        args.entries
-            .iter()
-            .map(|s| AnimeInfo::new(s, None).unwrap_or_default())
-            .collect::<_>()
-    } else {
-        let proxy = !args.no_proxy;
-        let query = &args.entries.join(" ");
+        let items = if utils::is_web_url(&args.entries[0]) {
+            args.entries
+                .iter()
+                .map(|s| AnimeInfo::new(s, None).unwrap_or_default())
+                .collect::<_>()
+        } else {
+            let proxy = !args.no_proxy;
+            let query = &args.entries.join(" ");
 
-        ok!(Scraper::new(query).with_proxy(proxy).run().await)
+            Scraper::new(query).with_proxy(proxy).run().await?
+        };
+
+        if args.stream {
+            streaming(args, items).await
+        } else {
+            download(args, items).await
+        }
     };
 
-    if args.stream {
-        ok!(streaming(args, items).await)
-    } else {
-        ok!(download(args, items).await)
+    if let Err(err) = app.await {
+        if !err.is::<errors::Quit>() {
+            eprintln!("{}", err.red());
+        }
     }
 }
 
@@ -87,7 +95,10 @@ async fn download(args: Args, items: ScraperCollector) -> Result<()> {
         let tasks = anime.episodes.into_iter().map(|u| {
             let opts = (path.clone(), referer.as_str(), args.force, bars.add_bar());
 
-            async move { ok!(download_worker(&u, opts).await) }
+            async move {
+                download_worker(&u, opts).await?;
+                Ok::<(), anyhow::Error>(())
+            }
         });
 
         pool.extend(tasks)

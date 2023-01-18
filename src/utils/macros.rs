@@ -20,21 +20,6 @@ macro_rules! unroll {
     };
 }
 
-/// Print the error message and return
-macro_rules! ok {
-    ($x:expr) => {
-        match $x {
-            Ok(item) => item,
-            Err(err) => {
-                if !err.is::<crate::errors::Quit>() {
-                    eprintln!("{}", err.red());
-                }
-                return;
-            }
-        }
-    };
-}
-
 /// Format digit with 2 zero into a string
 macro_rules! zfill {
     ($num:expr, $alignment:expr) => {
@@ -58,24 +43,6 @@ macro_rules! to_snake_case {
 
 #[cfg(test)]
 mod tests {
-    // use anyhow::{anyhow, bail, Error};
-    // use owo_colors::OwoColorize;
-    //
-    // #[test]
-    // fn test_() {
-    //     let x = || bail!(crate::errors::QuitError::Quit);
-    //
-    //     match x() {
-    //         Ok(item) => item,
-    //         Err(err) => {
-    //             if !err.is::<crate::errors::QuitError>() {
-    //                 eprintln!("{}", err.red());
-    //             }
-    //             return;
-    //         }
-    //     }
-    // }
-
     #[test]
     fn test_zfill() {
         assert_eq!(zfill!(1, 2), "_01");

@@ -12,7 +12,7 @@ use tokio::sync::Mutex;
 
 use crate::anime::AnimeInfo;
 use crate::cli::Site;
-use crate::errors::RemoteError;
+use crate::errors::{Quit, RemoteError};
 use crate::utils::{self, tui};
 
 #[derive(Debug, Default, Clone)]
@@ -206,7 +206,13 @@ impl Scraper {
                     // _ => Archive::placeholder(param).await,
                 }
             })
-            .map(|f| async move { ok!(f.await) })
+            .map(|f| async move {
+                if let Err(err) = f.await {
+                    if !err.is::<Quit>() {
+                        eprintln!("{}", err.red());
+                    }
+                }
+            })
             .collect::<Vec<_>>();
 
         join_all(tasks).await;
