@@ -58,7 +58,6 @@ impl Archive {
 
             let elem = page.select(&div).next().context("Request blocked, retry")?;
             elem.select(&a)
-                .into_iter()
                 .map(|a| {
                     let link = a.value().attr("href").expect("No link found").to_string();
                     let name = a

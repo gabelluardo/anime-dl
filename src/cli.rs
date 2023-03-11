@@ -4,16 +4,11 @@ use std::str::FromStr;
 
 use crate::utils::Range;
 
-#[derive(clap::ValueEnum, Debug, Clone)]
+#[derive(clap::ValueEnum, Debug, Clone, Default)]
 #[allow(clippy::upper_case_acronyms)]
 pub enum Site {
+    #[default]
     AW,
-}
-
-impl Default for Site {
-    fn default() -> Self {
-        Site::AW
-    }
 }
 
 fn parse_dim_buff(src: &str) -> Result<usize, ParseIntError> {
