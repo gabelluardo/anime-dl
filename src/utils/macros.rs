@@ -1,7 +1,7 @@
 /// Fill url placeholder with episode digit
 macro_rules! gen_url {
     ($str:expr, $num:expr, $alignment:expr) => {
-        $str.replace("_{}", &zfill!($num, $alignment))
+        $str.replace("_{}", &("_".to_string() + &zfill!($num, $alignment)))
     };
 }
 
@@ -23,7 +23,7 @@ macro_rules! unroll {
 /// Format digit with 2 zero into a string
 macro_rules! zfill {
     ($num:expr, $alignment:expr) => {
-        format!("_{:0fill$}", $num, fill = $alignment)
+        format!("{:0fill$}", $num, fill = $alignment)
     };
 }
 
@@ -45,9 +45,9 @@ macro_rules! to_snake_case {
 mod tests {
     #[test]
     fn test_zfill() {
-        assert_eq!(zfill!(1, 2), "_01");
-        assert_eq!(zfill!(200, 2), "_200");
-        assert_eq!(zfill!(15, 3), "_015")
+        assert_eq!(zfill!(1, 2), "01");
+        assert_eq!(zfill!(200, 2), "200");
+        assert_eq!(zfill!(15, 3), "015")
     }
 
     #[test]

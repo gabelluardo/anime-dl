@@ -231,25 +231,20 @@ impl Anime {
     pub fn choices(&self) -> Vec<tui::Choice> {
         let mut choices = vec![];
         let mut start_range = 0;
-        let mut align = 0;
 
         for (i, ep) in self.episodes.iter().enumerate() {
-            let mut msg = self.info.name.to_string();
-
             // find first episode number
             if start_range == 0 {
                 if let Ok(info) = AnimeInfo::new(ep, None) {
-                    if let Some(InfoNum { value, alignment }) = info.num {
+                    if let Some(InfoNum { value, .. }) = info.num {
                         start_range = value;
-                        align = alignment;
                     }
                 }
             }
 
             let num = start_range + i as u32;
 
-            msg.push_str(&format!(" - ep {:0fill$}", num, fill = align));
-
+            let mut msg = self.info.name.to_string() + " - ep " + &zfill!(num, 2);
             if Some(num) <= self.last_viewed {
                 msg.push_str(" ✔")
             }
