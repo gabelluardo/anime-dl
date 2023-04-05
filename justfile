@@ -1,3 +1,6 @@
+dev-install:
+    cargo install --path . --target x86_64-unknown-linux-musl
+
 test:
     cargo test
 

@@ -4,16 +4,11 @@ use std::str::FromStr;
 
 use crate::utils::Range;
 
-#[derive(clap::ValueEnum, Debug, Clone)]
+#[derive(clap::ValueEnum, Debug, Clone, Default)]
 #[allow(clippy::upper_case_acronyms)]
 pub enum Site {
+    #[default]
     AW,
-}
-
-impl Default for Site {
-    fn default() -> Self {
-        Site::AW
-    }
 }
 
 fn parse_dim_buff(src: &str) -> Result<usize, ParseIntError> {
@@ -36,17 +31,17 @@ pub struct Args {
     #[clap(required_unless_present("clean"))]
     pub entries: Vec<String>,
 
-    /// Root paths where store files
+    /// Root path where store files
     #[clap(default_value = ".", short, long)]
-    pub dir: Vec<PathBuf>,
+    pub dir: PathBuf,
 
     /// Maximum number of simultaneous downloads allowed
     #[clap(
-        default_value = "24",
-        short = 'm',
-        long = "max-concurrent",
-        name = "max",
-        value_parser = parse_dim_buff
+    default_value = "24",
+    short = 'm',
+    long = "max-concurrent",
+    name = "max",
+    value_parser = parse_dim_buff
     )]
     pub dim_buff: usize,
 

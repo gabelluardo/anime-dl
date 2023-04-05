@@ -1,7 +1,9 @@
 use std::ops::{Deref, RangeInclusive as OpsRange};
 use std::str::FromStr;
 
-use crate::errors::Error;
+use anyhow::{bail, Result};
+
+use crate::errors::UserError;
 
 #[derive(Debug, Clone)]
 pub struct Range<T>(OpsRange<T>);
@@ -57,7 +59,7 @@ impl<T> FromStr for Range<T>
 where
     T: Copy + Clone + FromStr + Ord,
 {
-    type Err = Error;
+    type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, <Self as FromStr>::Err> {
         let range_str = s
@@ -69,9 +71,9 @@ where
             (Some(f), Some(l)) => match (f.parse::<T>(), l.parse::<T>()) {
                 (Ok(s), Ok(e)) => Ok(Self(s..=e)),
                 (Ok(s), Err(_)) => Ok(Self(s..=s)),
-                _ => bail!(Error::InvalidRange),
+                _ => bail!(UserError::InvalidRange),
             },
-            _ => bail!(Error::InvalidRange),
+            _ => bail!(UserError::InvalidRange),
         }
     }
 }

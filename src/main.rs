@@ -1,6 +1,11 @@
+#[cfg(test)]
+#[macro_use]
+extern crate lazy_static;
+
 use std::path::PathBuf;
 use std::process::Stdio;
 
+use anyhow::{bail, Context, Result};
 use futures::stream::StreamExt;
 use owo_colors::OwoColorize;
 use reqwest::header::{CONTENT_LENGTH, RANGE, REFERER};
@@ -13,16 +18,12 @@ use which::which;
 use crate::anilist::AniList;
 use crate::anime::{Anime, AnimeInfo, FileDest, InfoNum};
 use crate::cli::Args;
-use crate::errors::{Error, Result};
+use crate::errors::{RemoteError, SystemError};
 use crate::scraper::{Scraper, ScraperCollector};
 use crate::utils::{get_path, tui, Bars, ProgressBar};
 
 #[macro_use]
 mod utils;
-
-#[cfg(test)]
-#[macro_use]
-extern crate lazy_static;
 
 #[cfg(feature = "anilist")]
 mod anilist;
@@ -34,32 +35,37 @@ mod scraper;
 
 #[tokio::main]
 async fn main() {
-    let args = Args::parse();
+    let app = async {
+        let args = Args::parse();
 
-    #[cfg(feature = "anilist")]
-    if args.clean {
-        ok!(AniList::clean_cache());
-    }
+        #[cfg(feature = "anilist")]
+        if args.clean {
+            AniList::clean_cache()?
+        }
 
-    let items = if utils::is_web_url(&args.entries[0]) {
-        args.entries
-            .iter()
-            .map(|s| AnimeInfo::new(s, None).unwrap_or_default())
-            .collect::<_>()
-    } else {
-        let proxy = !args.no_proxy;
-        let query = &args.entries.join(" ");
+        let items = if utils::is_web_url(&args.entries[0]) {
+            args.entries
+                .iter()
+                .map(|s| AnimeInfo::new(s, None).unwrap_or_default())
+                .collect::<_>()
+        } else {
+            let proxy = !args.no_proxy;
+            let query = &args.entries.join(" ");
 
-        // currently only one site can be chosen
-        // let site = args.site.unwrap_or_default();
+            Scraper::new(query).with_proxy(proxy).run().await?
+        };
 
-        ok!(Scraper::new(query).with_proxy(proxy).run().await)
+        if args.stream {
+            streaming(args, items).await
+        } else {
+            download(args, items).await
+        }
     };
 
-    if args.stream {
-        ok!(streaming(args, items).await)
-    } else {
-        ok!(download(args, items).await)
+    if let Err(err) = app.await {
+        if !err.is::<errors::Quit>() {
+            eprintln!("{}", err.red());
+        }
     }
 }
 
@@ -69,13 +75,13 @@ async fn download(args: Args, items: ScraperCollector) -> Result<()> {
     let bars = Bars::new();
     let mut pool = vec![];
 
-    for (pos, item) in items.iter().enumerate() {
-        let path = get_path(&args, &item.url, pos)?;
+    for info in items.iter() {
+        let path = get_path(&args, &info.url)?;
 
         let mut anime = Anime::builder()
             .auto(args.auto_episode || args.interactive)
             .client_id(args.anilist_id)
-            .info(item)
+            .info(info)
             .range(args.range.as_ref().unwrap_or_default())
             .referer(referer)
             .path(&path)
@@ -89,7 +95,10 @@ async fn download(args: Args, items: ScraperCollector) -> Result<()> {
         let tasks = anime.episodes.into_iter().map(|u| {
             let opts = (path.clone(), referer.as_str(), args.force, bars.add_bar());
 
-            async move { ok!(download_worker(&u, opts).await) }
+            async move {
+                download_worker(&u, opts).await?;
+                Ok::<(), anyhow::Error>(())
+            }
         });
 
         pool.extend(tasks)
@@ -116,7 +125,7 @@ async fn download_worker(url: &str, opts: (PathBuf, &str, bool, ProgressBar)) ->
         .send()
         .await?
         .error_for_status()
-        .map_err(|_| Error::Download(filename.clone()))?
+        .context(RemoteError::Download(filename.clone()))?
         .headers()
         .get(CONTENT_LENGTH)
         .and_then(|ct_len| ct_len.to_str().ok())
@@ -126,7 +135,7 @@ async fn download_worker(url: &str, opts: (PathBuf, &str, bool, ProgressBar)) ->
     let props = (root.as_path(), filename.as_str(), overwrite);
     let file = FileDest::new(props).await?;
     if file.size >= source_size {
-        bail!(Error::Overwrite(filename));
+        bail!(SystemError::Overwrite(filename));
     }
 
     let msg = if let Ok(info) = AnimeInfo::new(url, None) {
@@ -136,7 +145,7 @@ async fn download_worker(url: &str, opts: (PathBuf, &str, bool, ProgressBar)) ->
             .unwrap_or_default();
         format!("Ep. {}{}", num, info.name)
     } else {
-        utils::to_title_case(filename.split('_').collect::<Vec<_>>()[0])
+        to_title_case!(filename.split('_').collect::<Vec<_>>()[0])
     };
 
     let completed = format!("{msg} 👍");
@@ -192,7 +201,7 @@ async fn streaming(args: Args, items: ScraperCollector) -> Result<()> {
             .stdout(Stdio::null())
             .stderr(Stdio::null())
             .spawn()
-            .map_err(|_| Error::MediaPlayer)?;
+            .context(SystemError::MediaPlayer)?;
     }
 
     Ok(())

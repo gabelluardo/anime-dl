@@ -2,6 +2,7 @@ use std::iter::FromIterator;
 use std::ops::{Deref, DerefMut};
 use std::sync::Arc;
 
+use anyhow::{bail, Context, Result};
 use futures::future::join_all;
 use owo_colors::OwoColorize;
 use rand::seq::IteratorRandom;
@@ -11,8 +12,7 @@ use tokio::sync::Mutex;
 
 use crate::anime::AnimeInfo;
 use crate::cli::Site;
-use crate::errors::Error::Proxy;
-use crate::errors::{Error, Result};
+use crate::errors::{Quit, RemoteError};
 use crate::utils::{self, tui};
 
 #[derive(Debug, Default, Clone)]
@@ -44,6 +44,7 @@ impl FromIterator<AnimeInfo> for ScraperCollector {
 }
 
 struct Archive;
+
 impl Archive {
     async fn animeworld(param: (&str, Arc<Client>, Arc<Mutex<ScraperCollector>>)) -> Result<()> {
         let (query, client, buf) = param;
@@ -55,12 +56,8 @@ impl Archive {
             let div = Selector::parse("div.film-list").unwrap();
             let a = Selector::parse("a.name").unwrap();
 
-            let elem = page
-                .select(&div)
-                .next()
-                .ok_or_else(|| Error::with_msg("Request blocked, retry"))?;
+            let elem = page.select(&div).next().context("Request blocked, retry")?;
             elem.select(&a)
-                .into_iter()
                 .map(|a| {
                     let link = a.value().attr("href").expect("No link found").to_string();
                     let name = a
@@ -75,7 +72,7 @@ impl Archive {
         };
 
         if results.is_empty() {
-            bail!(Error::AnimeNotFound)
+            bail!(RemoteError::AnimeNotFound)
         }
 
         let choices = tui::get_choice(&results, Some(query.replace('+', " ")))?;
@@ -144,7 +141,7 @@ impl Archive {
             .collect::<Vec<_>>();
 
         if res.is_empty() {
-            bail!(Error::UrlNotFound)
+            bail!(RemoteError::UrlNotFound)
         }
 
         let mut buf = buf.lock().await;
@@ -208,7 +205,13 @@ impl Scraper {
                     // _ => Archive::placeholder(param).await,
                 }
             })
-            .map(|f| async move { ok!(f.await) })
+            .map(|f| async move {
+                if let Err(err) = f.await {
+                    if !err.is::<Quit>() {
+                        eprintln!("{}", err.red());
+                    }
+                }
+            })
             .collect::<Vec<_>>();
 
         join_all(tasks).await;
@@ -245,7 +248,7 @@ impl<'a> Client {
         let mut builder = RClient::builder().default_headers(headers);
 
         if let Some(proxy) = proxy {
-            if let Ok(req_proxy) = reqwest::Proxy::http(proxy).map_err(|_| Proxy) {
+            if let Ok(req_proxy) = reqwest::Proxy::http(proxy).context(RemoteError::Proxy) {
                 builder = builder.proxy(req_proxy)
             }
         }

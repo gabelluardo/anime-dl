@@ -1,5 +1,6 @@
 use std::path::{Path, PathBuf};
 
+use anyhow::{bail, Context, Result};
 use nom::Slice;
 use reqwest::header::REFERER;
 use reqwest::Client;
@@ -7,7 +8,7 @@ use tokio::fs;
 
 #[cfg(feature = "anilist")]
 use crate::anilist::AniList;
-use crate::errors::{Error, Result};
+use crate::errors::SystemError;
 use crate::utils::{self, tui, Range};
 
 #[derive(Clone, Default, Debug, PartialEq, Eq)]
@@ -15,6 +16,7 @@ pub struct InfoNum {
     pub value: u32,
     pub alignment: usize,
 }
+
 #[derive(Clone, Default, Debug, PartialEq, Eq)]
 pub struct AnimeInfo {
     pub id: Option<u32>,
@@ -26,7 +28,7 @@ pub struct AnimeInfo {
 
 impl AnimeInfo {
     pub fn new(input: &str, id: Option<u32>) -> Result<Self> {
-        let name = utils::parse_name(input)?;
+        let name = to_title_case!(utils::parse_name(input)?);
 
         // find episode number position in input
         let (mut opt_start, mut opt_end) = (None, None);
@@ -188,7 +190,7 @@ impl AnimeBuilder {
         }
 
         if self.range.is_empty() {
-            bail!(Error::Download(String::new()))
+            bail!("Unable to download")
         }
 
         let episodes = self
@@ -229,25 +231,20 @@ impl Anime {
     pub fn choices(&self) -> Vec<tui::Choice> {
         let mut choices = vec![];
         let mut start_range = 0;
-        let mut align = 0;
 
         for (i, ep) in self.episodes.iter().enumerate() {
-            let mut msg = self.info.name.to_string();
-
             // find first episode number
             if start_range == 0 {
                 if let Ok(info) = AnimeInfo::new(ep, None) {
-                    if let Some(InfoNum { value, alignment }) = info.num {
+                    if let Some(InfoNum { value, .. }) = info.num {
                         start_range = value;
-                        align = alignment;
                     }
                 }
             }
 
             let num = start_range + i as u32;
 
-            msg.push_str(&format!(" - ep {:0fill$}", num, fill = align));
-
+            let mut msg = self.info.name.to_string() + " - ep " + &zfill!(num, 2);
             if Some(num) <= self.last_viewed {
                 msg.push_str(" ✔")
             }
@@ -303,7 +300,7 @@ impl FileDest {
             .create(true)
             .open(&self.file)
             .await
-            .map_err(|_| Error::FsOpen)
+            .context(SystemError::FsOpen)
     }
 }
 
