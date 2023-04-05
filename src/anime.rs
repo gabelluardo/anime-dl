@@ -258,8 +258,7 @@ impl Anime {
 
 pub struct FileDest {
     pub size: u64,
-    pub root: PathBuf,
-    pub file: PathBuf,
+    pub path: PathBuf,
     pub overwrite: bool,
 }
 
@@ -269,25 +268,23 @@ impl FileDest {
     pub async fn new(props: FileProps<'_>) -> Result<Self> {
         let (root, filename, overwrite) = props;
 
-        let root = root.to_owned();
         let overwrite = overwrite.to_owned();
 
         if !root.exists() {
             fs::create_dir_all(&root).await?;
         }
 
-        let mut file = root.clone();
-        file.push(filename);
+        let mut path = root.to_path_buf();
+        path.push(filename);
 
-        let size = match file.exists() && !overwrite {
-            true => fs::File::open(&file).await?.metadata().await?.len(),
-            false => 0,
-        };
+        let mut size = 0;
+        if path.exists() && !overwrite {
+            size = fs::File::open(&path).await?.metadata().await?.len();
+        }
 
         Ok(Self {
             size,
-            root,
-            file,
+            path,
             overwrite,
         })
     }
@@ -298,7 +295,7 @@ impl FileDest {
             .truncate(self.overwrite)
             .write(self.overwrite)
             .create(true)
-            .open(&self.file)
+            .open(&self.path)
             .await
             .context(SystemError::FsOpen)
     }
