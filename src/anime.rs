@@ -249,7 +249,7 @@ impl Anime {
                 msg.push_str(" ✔")
             }
 
-            choices.push(tui::Choice::new(ep.to_string(), msg))
+            choices.push(tui::Choice::new(ep.clone(), msg))
         }
 
         choices
