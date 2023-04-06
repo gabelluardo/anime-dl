@@ -14,11 +14,12 @@ use nom::{
 use crate::errors::UserError;
 
 pub fn parse_name(input: &str) -> Result<String> {
-    let url = reqwest::Url::parse(input).context(UserError::Parsing(input.to_string()))?;
+    let url = reqwest::Url::parse(input)?;
     url.path_segments()
         .and_then(|s| s.last())
-        .map(|s| s.split('_').collect::<Vec<_>>()[0].to_string())
-        .context(UserError::Parsing(input.to_string()))
+        .and_then(|s| s.split('_').next())
+        .map(|s| s.to_string())
+        .context(UserError::Parsing(input.to_owned()))
 }
 
 pub fn parse_filename(input: &str) -> Result<String> {
@@ -122,6 +123,50 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_parse_name() {
+        let url = "https://www.domain.tld/sub/anotherSub/AnimeName/AnimeName_Ep_15_SUB_ITA.mp4";
+        let res = parse_name(url).unwrap();
+        assert_eq!(res, "AnimeName")
+    }
+
+    #[test]
+    fn test_parse_filename() {
+        let url = "https://www.domain.tld/sub/anotherSub/AnimeName/AnimeName_Ep_15_SUB_ITA.mp4";
+        let res = parse_filename(url).unwrap();
+        assert_eq!(res, "AnimeName_Ep_15_SUB_ITA.mp4")
+    }
+
+    #[test]
+    fn test_parse_aw_cookie() {
+        let s = r#"<html><script src="/cdn-cgi/apps/head/WvfaYe5SS22u5exoBw70ThuTjHg.js"></script><body><script>document.cookie="AWCookieVerify=295db002e27e3ac26934485002b41564 ; </script></body></html>"#;
+        let res = parse_aw_cookie(s).unwrap();
+        assert_eq!(res, "AWCookieVerify=295db002e27e3ac26934485002b41564; ");
+
+        let s = r#"<html><script src="/cdn-cgi/apps/head/WvfaYe5SS22u5exoBw70ThuTjHg.js"></script><body><script>document.cookie=" ; </script></body></html>"#;
+        let res = parse_aw_cookie(s).unwrap();
+        assert_eq!(res, "; ")
+    }
+
+    #[test]
+    fn test_recase_string() {
+        let str = "AnimeName";
+        let res = recase_string(str, ' ', false);
+        assert_eq!(res, "Anime Name");
+
+        let str = "AnimeName";
+        let res = recase_string(str, ' ', true);
+        assert_eq!(res, "anime name");
+
+        let str = "AnimeName";
+        let res = recase_string(str, '_', true);
+        assert_eq!(res, "anime_name");
+
+        let str = "AnimeName";
+        let res = recase_string(str, '_', false);
+        assert_eq!(res, "Anime_Name")
+    }
+
+    #[test]
     fn test_get_path() {
         let url = "https://www.domain.tld/sub/anotherSub/AnimeName/AnimeName_Ep_15_SUB_ITA.mp4";
         let mut args = crate::cli::Args::default();
@@ -150,24 +195,10 @@ mod tests {
     }
 
     #[test]
-    fn test_is_url() {
+    fn test_is_web_url() {
         let url = "https://www.domain.tld/sub/anotherSub/AnimeName/AnimeName_Ep_15_SUB_ITA.mp4";
         let not_url = "ciao ciao ciao";
-
         assert!(is_web_url(url));
         assert!(!is_web_url(not_url));
-    }
-
-    #[test]
-    fn test_extract_cookie() {
-        let s = r#"<html><script src="/cdn-cgi/apps/head/WvfaYe5SS22u5exoBw70ThuTjHg.js"></script><body><script>document.cookie="AWCookieVerify=295db002e27e3ac26934485002b41564 ; </script></body></html>"#;
-        let res = parse_aw_cookie(s).unwrap();
-
-        assert_eq!(res, "AWCookieVerify=295db002e27e3ac26934485002b41564; ");
-
-        let s = r#"<html><script src="/cdn-cgi/apps/head/WvfaYe5SS22u5exoBw70ThuTjHg.js"></script><body><script>document.cookie=" ; </script></body></html>"#;
-        let res = parse_aw_cookie(s).unwrap();
-
-        assert_eq!(res, "; ")
     }
 }
