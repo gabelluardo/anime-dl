@@ -9,7 +9,9 @@ use tokio::fs;
 #[cfg(feature = "anilist")]
 use crate::anilist::AniList;
 use crate::errors::SystemError;
-use crate::utils::{self, tui, Range};
+use crate::range::Range;
+use crate::tui;
+use crate::utils;
 
 #[derive(Clone, Default, Debug, PartialEq, Eq)]
 pub struct InfoNum {
@@ -21,9 +23,9 @@ pub struct InfoNum {
 pub struct AnimeInfo {
     pub id: Option<u32>,
     pub name: String,
-    pub url: String,
     pub origin: String,
     pub num: Option<InfoNum>,
+    pub url: String,
 }
 
 impl AnimeInfo {
@@ -75,10 +77,10 @@ impl AnimeInfo {
 pub struct AnimeBuilder {
     auto: bool,
     client_id: Option<u32>,
+    info: AnimeInfo,
     path: PathBuf,
     range: Range<u32>,
     referrer: String,
-    info: AnimeInfo,
 }
 
 impl AnimeBuilder {

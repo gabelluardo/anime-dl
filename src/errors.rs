@@ -5,19 +5,14 @@ use thiserror::Error;
 pub enum RemoteError {
     #[error("Unable to download {0}")]
     Download(String),
-
     #[error("Unable get data from source\nFrom: {0}")]
     Network(#[from] reqwest::Error),
-
     #[error("Unable to find a proxy")]
     Proxy,
-
     #[error("No url found")]
     UrlNotFound,
-
     #[error("No episode found")]
     EpisodeNotFound,
-
     #[error("No anime found")]
     AnimeNotFound,
 }
@@ -26,16 +21,12 @@ pub enum RemoteError {
 pub enum UserError {
     #[error("Invalid input")]
     InvalidInput,
-
     #[error("Invalid range")]
     InvalidRange,
-
     #[error("Invalid token\nFrom: {0}")]
     InvalidToken(#[from] InvalidHeaderValue),
-
     #[error("Unable to parse `{0}`")]
     Parsing(String),
-
     #[error("No match found")]
     Choices,
 }
@@ -44,22 +35,16 @@ pub enum UserError {
 pub enum SystemError {
     #[error("`mpv` or `vlc` required for streaming")]
     MediaPlayer,
-
     #[error("{0} already exists")]
     Overwrite(String),
-
     #[error("{0}")]
     Io(#[from] std::io::Error),
-
     #[error("Unable to open file")]
     FsOpen,
-
     #[error("Unable to remove file")]
     FsRemove,
-
     #[error("Unable to write file")]
     FsWrite,
-
     #[error("Unable to load configuration")]
     FsLoad,
 }

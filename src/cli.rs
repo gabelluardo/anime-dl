@@ -2,7 +2,7 @@ use std::num::ParseIntError;
 use std::path::PathBuf;
 use std::str::FromStr;
 
-use crate::utils::Range;
+use crate::range::Range;
 
 #[derive(clap::ValueEnum, Debug, Clone, Default)]
 #[allow(clippy::upper_case_acronyms)]
@@ -16,7 +16,6 @@ fn parse_dim_buff(src: &str) -> Result<usize, ParseIntError> {
     if num == 0 {
         num = 1
     }
-
     Ok(num)
 }
 

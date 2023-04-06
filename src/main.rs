@@ -3,7 +3,7 @@
 extern crate lazy_static;
 
 #[macro_use]
-mod utils;
+mod macros;
 
 #[cfg(feature = "anilist")]
 mod anilist;
@@ -12,7 +12,10 @@ mod anime;
 mod app;
 mod cli;
 mod errors;
+mod range;
 mod scraper;
+mod tui;
+mod utils;
 
 use app::App;
 use owo_colors::OwoColorize;
