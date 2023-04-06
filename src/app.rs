@@ -6,7 +6,7 @@ use futures::stream::StreamExt;
 use owo_colors::OwoColorize;
 use reqwest::header::{CONTENT_LENGTH, RANGE, REFERER};
 use reqwest::Client;
-use tokio::{io::AsyncWriteExt, process::Command, task};
+use tokio::{io::AsyncWriteExt, process::Command};
 use tokio_stream as stream;
 use which::which;
 
@@ -122,7 +122,6 @@ impl App {
                 pool.push(future);
             }
         }
-        task::spawn_blocking(move || bars.join().unwrap());
         stream::iter(pool)
             .buffer_unordered(args.dim_buff)
             .collect::<Vec<_>>()

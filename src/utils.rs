@@ -100,8 +100,7 @@ impl Bars {
     }
 
     fn instance_style() -> ProgressStyle {
-        let style = ProgressStyle::default_bar().template("{spinner:.green} [{elapsed:.magenta}] [{bar:20.cyan/blue}] {binary_bytes_per_sec} {bytes:.cyan}/{total_bytes:.blue} ({eta:.magenta}) {msg:.green}");
-        style.progress_chars("#>-")
+        ProgressStyle::default_bar().progress_chars("#>-").template("{spinner:.green} [{elapsed:.magenta}] [{bar:20.cyan/blue}] {binary_bytes_per_sec} {bytes:.cyan}/{total_bytes:.blue} ({eta:.magenta}) {msg:.green}").unwrap_or(ProgressStyle::default_bar())
     }
 
     fn instance_multi_bars() -> MultiProgress {
