@@ -10,25 +10,19 @@ use crate::tui;
 
 struct Config(PathBuf);
 
-impl Default for Config {
+impl Config {
     #[cfg(not(windows))]
-    fn default() -> Self {
-        let mut path = PathBuf::from(std::env::var("HOME").unwrap());
+    fn new() -> Self {
+        let mut path = PathBuf::from(std::env::var("HOME").unwrap_or_default());
         path.push(".config/anime-dl/.anime-dl.cache");
         Self(path)
     }
 
     #[cfg(windows)]
-    fn default() -> Self {
-        let mut path = PathBuf::from(std::env::var("HOMEPATH").unwrap());
+    fn new() -> Self {
+        let mut path = PathBuf::from(std::env::var("HOMEPATH").unwrap_or_default());
         path.push(r"AppData\Roaming\anime-dl\.anime-dl.cache");
         Self(path)
-    }
-}
-
-impl Config {
-    fn new() -> Self {
-        Self::default()
     }
 
     fn clean(&self) -> Result<()> {
@@ -97,7 +91,7 @@ impl AniList {
     }
 
     pub fn clean_cache() -> Result<()> {
-        Config::default().clean()
+        Config::new().clean()
     }
 
     pub async fn last_viewed(&self, anime_id: Option<u32>) -> Result<Option<u32>> {
