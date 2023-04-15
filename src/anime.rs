@@ -10,7 +10,7 @@ use tokio::fs;
 use crate::anilist::AniList;
 use crate::errors::SystemError;
 use crate::range::Range;
-use crate::tui;
+use crate::tui::Choice;
 use crate::utils;
 
 #[derive(Clone, Default, Debug, PartialEq, Eq)]
@@ -230,7 +230,7 @@ impl Anime {
         AnimeBuilder::default()
     }
 
-    pub fn choices(&self) -> Vec<tui::Choice> {
+    pub fn choices(&self) -> Vec<Choice> {
         let mut choices = vec![];
         let mut start_range = 0;
 
@@ -250,8 +250,7 @@ impl Anime {
             if Some(num) <= self.last_viewed {
                 msg.push_str(" ✔")
             }
-
-            choices.push(tui::Choice::new(ep.clone(), msg))
+            choices.push(Choice::new(ep, &msg))
         }
 
         choices

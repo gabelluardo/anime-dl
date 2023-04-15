@@ -12,12 +12,15 @@ pub struct Choice {
 }
 
 impl Choice {
-    pub fn new(link: String, name: String) -> Self {
-        Self { link, name }
+    pub fn new(link: &str, name: &str) -> Self {
+        Self {
+            link: link.to_owned(),
+            name: name.to_owned(),
+        }
     }
 }
 
-fn parse_input(line: String, choices: &[Choice]) -> Vec<String> {
+fn parse_input(line: &str, choices: &[Choice]) -> Vec<String> {
     let line = line
         .replace(&[',', '.'][..], " ")
         .chars()
@@ -72,18 +75,10 @@ pub fn get_choice(choices: &[Choice], query: Option<String>) -> Result<Vec<Strin
             rl.set_color_mode(ColorMode::Enabled);
             let prompt = "~❯ ".red().to_string();
             let urls = match rl.readline(&prompt) {
-                Ok(line) => {
-                    if line.contains('q') {
-                        bail!(Quit)
-                    }
-                    parse_input(line, choices)
-                }
-                Err(ReadlineError::Interrupted | ReadlineError::Eof) => {
-                    bail!(Quit)
-                }
-                Err(_) => {
-                    bail!(UserError::InvalidInput);
-                }
+                Err(ReadlineError::Interrupted | ReadlineError::Eof) => bail!(Quit),
+                Err(_) => bail!(UserError::InvalidInput),
+                Ok(line) if line.contains('q') => bail!(Quit),
+                Ok(line) => parse_input(&line, choices),
             };
             println!();
             if urls.is_empty() {
@@ -121,100 +116,47 @@ mod tests {
     #[test]
     fn test_parse_input() {
         let choices = vec![
-            Choice {
-                link: "link1".to_string(),
-                name: "choice1".to_string(),
-            },
-            Choice {
-                link: "link2".to_string(),
-                name: "choice2".to_string(),
-            },
-            Choice {
-                link: "link3".to_string(),
-                name: "choice3".to_string(),
-            },
-            Choice {
-                link: "link4".to_string(),
-                name: "choice4".to_string(),
-            },
-            Choice {
-                link: "link5".to_string(),
-                name: "choice5".to_string(),
-            },
-            Choice {
-                link: "link6".to_string(),
-                name: "choice6".to_string(),
-            },
+            Choice::new("link1", "choice1"),
+            Choice::new("link2", "choice2"),
+            Choice::new("link3", "choice3"),
+            Choice::new("link4", "choice4"),
+            Choice::new("link5", "choice5"),
+            Choice::new("link6", "choice6"),
         ];
 
-        let line = "1,2,3".to_string();
+        let line = "1,2,3";
         assert_eq!(
-            parse_input(line, &choices),
-            vec![
-                "link1".to_string(),
-                "link2".to_string(),
-                "link3".to_string(),
-            ]
+            parse_input(&line, &choices),
+            vec!["link1", "link2", "link3",]
         );
 
-        let line = "1-5".to_string();
+        let line = "1-5";
         assert_eq!(
-            parse_input(line, &choices),
-            vec![
-                "link1".to_string(),
-                "link2".to_string(),
-                "link3".to_string(),
-                "link4".to_string(),
-                "link5".to_string(),
-            ]
+            parse_input(&line, &choices),
+            vec!["link1", "link2", "link3", "link4", "link5",]
         );
 
-        let line = "1-3, 6".to_string();
+        let line = "1-3, 6";
         assert_eq!(
-            parse_input(line, &choices),
-            vec![
-                "link1".to_string(),
-                "link2".to_string(),
-                "link3".to_string(),
-                "link6".to_string(),
-            ]
+            parse_input(&line, &choices),
+            vec!["link1", "link2", "link3", "link6",]
         );
 
-        let line = "1-".to_string();
+        let line = "1-";
         assert_eq!(
-            parse_input(line, &choices),
-            vec![
-                "link1".to_string(),
-                "link2".to_string(),
-                "link3".to_string(),
-                "link4".to_string(),
-                "link5".to_string(),
-                "link6".to_string(),
-            ]
+            parse_input(&line, &choices),
+            vec!["link1", "link2", "link3", "link4", "link5", "link6",]
         );
-        let line = "".to_string();
+        let line = "";
         assert_eq!(
-            parse_input(line, &choices),
-            vec![
-                "link1".to_string(),
-                "link2".to_string(),
-                "link3".to_string(),
-                "link4".to_string(),
-                "link5".to_string(),
-                "link6".to_string(),
-            ]
+            parse_input(&line, &choices),
+            vec!["link1", "link2", "link3", "link4", "link5", "link6",]
         );
 
-        let line = "1-2, 4-6".to_string();
+        let line = "1-2, 4-6";
         assert_eq!(
-            parse_input(line, &choices),
-            vec![
-                "link1".to_string(),
-                "link2".to_string(),
-                "link4".to_string(),
-                "link5".to_string(),
-                "link6".to_string(),
-            ]
+            parse_input(&line, &choices),
+            vec!["link1", "link2", "link4", "link5", "link6",]
         );
     }
 }

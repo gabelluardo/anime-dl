@@ -57,12 +57,11 @@ impl Archive {
             let elem = page.select(&div).next().context("Request blocked, retry")?;
             elem.select(&a)
                 .map(|a| {
-                    let link = a.value().attr("href").expect("No link found").to_string();
+                    let link = a.value().attr("href").expect("No link found");
                     let name = a
                         .first_child()
                         .and_then(|a| a.value().as_text())
-                        .expect("No name found")
-                        .to_string();
+                        .expect("No name found");
                     tui::Choice::new(link, name)
                 })
                 .collect::<Vec<_>>()

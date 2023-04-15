@@ -1,9 +1,6 @@
-pre-commit:
+pre-commit: test-all
     cargo fmt --all
     cargo clippy -- -D warnings
-
-commit m: test-all pre-commit
-    git commit --no-verify -am "{{m}}"
 
 amend: test-all pre-commit
     git commit --amend --no-verify

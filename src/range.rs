@@ -67,7 +67,7 @@ where
             .split(&[',', '-', '.'][..])
             .collect::<Vec<_>>();
         match (range_str.first(), range_str.last()) {
-            (Some(f), Some(l)) => match (f.parse::<T>(), l.parse::<T>()) {
+            (Some(&f), Some(&l)) => match (f.parse::<T>(), l.parse::<T>()) {
                 (Ok(s), Ok(e)) => Ok(Self(s..=e)),
                 (Ok(s), Err(_)) => Ok(Self(s..=s)),
                 _ => bail!(UserError::InvalidRange),
