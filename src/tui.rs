@@ -91,15 +91,12 @@ pub fn get_choice(choices: &[Choice], query: Option<String>) -> Result<Vec<Strin
 
 #[cfg(feature = "anilist")]
 pub fn get_token(url: &str) -> Result<String> {
-    let action = "Authenticate to:".green();
-    let input = format!("{} {}", "::".red(), "Paste token here:".bold());
-    println!(
-        "{}\n\n\
-        {action} {}\n\n\
-        {input}",
-        "Anilist Oauth".cyan().bold(),
-        url.magenta().bold()
-    );
+    let oauth = "Anilist Oauth".cyan().bold().to_string();
+    let action = "Authenticate to:".green().to_string();
+    let url = url.magenta().bold().to_string();
+    let input = ":: ".red().to_string() + &"Paste token here:".bold().to_string();
+    let text = oauth + "\n\n" + &action + " " + &url + "\n\n" + &input;
+    println!("{text}");
     let mut rl = DefaultEditor::new().context(UserError::InvalidInput)?;
     let prompt = "~❯ ".red().to_string();
     let line = rl
