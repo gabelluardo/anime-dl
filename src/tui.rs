@@ -22,7 +22,7 @@ impl Choice {
 
 fn parse_input(line: &str, choices: &[Choice]) -> Vec<String> {
     let line = line
-        .replace(&[',', '.'], " ")
+        .replace([',', '.'], " ")
         .chars()
         .filter(|c| c.is_ascii_digit() || c.is_ascii_whitespace() || *c == '-')
         .collect::<String>();
@@ -122,36 +122,36 @@ mod tests {
 
         let line = "1,2,3";
         assert_eq!(
-            parse_input(&line, &choices),
+            parse_input(line, &choices),
             vec!["link1", "link2", "link3",]
         );
 
         let line = "1-5";
         assert_eq!(
-            parse_input(&line, &choices),
+            parse_input(line, &choices),
             vec!["link1", "link2", "link3", "link4", "link5",]
         );
 
         let line = "1-3, 6";
         assert_eq!(
-            parse_input(&line, &choices),
+            parse_input(line, &choices),
             vec!["link1", "link2", "link3", "link6",]
         );
 
         let line = "1-";
         assert_eq!(
-            parse_input(&line, &choices),
+            parse_input(line, &choices),
             vec!["link1", "link2", "link3", "link4", "link5", "link6",]
         );
         let line = "";
         assert_eq!(
-            parse_input(&line, &choices),
+            parse_input(line, &choices),
             vec!["link1", "link2", "link3", "link4", "link5", "link6",]
         );
 
         let line = "1-2, 4-6";
         assert_eq!(
-            parse_input(&line, &choices),
+            parse_input(line, &choices),
             vec!["link1", "link2", "link4", "link5", "link6",]
         );
     }

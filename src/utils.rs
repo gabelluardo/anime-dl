@@ -169,10 +169,12 @@ mod tests {
     #[test]
     fn test_get_path() {
         let url = "https://www.domain.tld/sub/anotherSub/AnimeName/AnimeName_Ep_15_SUB_ITA.mp4";
-        let mut args = crate::cli::Args::default();
+        let mut args = crate::cli::Args {
+            auto_dir: true,
+            dir: PathBuf::from("root"),
+            ..Default::default()
+        };
 
-        args.auto_dir = true;
-        args.dir = PathBuf::from("root");
         assert_eq!(
             get_path(&args, url).unwrap(),
             PathBuf::from("root/anime_name")
