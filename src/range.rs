@@ -64,7 +64,7 @@ where
     fn from_str(s: &str) -> Result<Self, <Self as FromStr>::Err> {
         let range_str = s
             .trim_matches(|p| p == '(' || p == ')')
-            .split(&[',', '-', '.'][..])
+            .split(&[',', '-', '.'])
             .collect::<Vec<_>>();
         match (range_str.first(), range_str.last()) {
             (Some(&f), Some(&l)) => match (f.parse::<T>(), l.parse::<T>()) {

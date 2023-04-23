@@ -71,7 +71,6 @@ impl AniList {
             config.save(&token)?;
             Ok(token)
         }
-
         let client_id = client_id.unwrap_or(4047);
         let config = Config::new();
         let oauth_url = format!(

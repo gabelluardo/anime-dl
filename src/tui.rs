@@ -22,7 +22,7 @@ impl Choice {
 
 fn parse_input(line: &str, choices: &[Choice]) -> Vec<String> {
     let line = line
-        .replace(&[',', '.'][..], " ")
+        .replace(&[',', '.'], " ")
         .chars()
         .filter(|c| c.is_ascii_digit() || c.is_ascii_whitespace() || *c == '-')
         .collect::<String>();
@@ -65,9 +65,8 @@ pub fn get_choice(choices: &[Choice], query: Option<String>) -> Result<Vec<Strin
             for (i, c) in choices.iter().enumerate() {
                 println!("[{}] {}", (i + 1).magenta(), c.name.green());
             }
-            println!();
             println!(
-                "{} {}",
+                "\n{} {}",
                 "::".red(),
                 "Make your selection (eg: 1 2 3 or 1-3) [default=All, <q> for exit]".bold()
             );
