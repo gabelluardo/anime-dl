@@ -15,7 +15,7 @@ use crate::anilist::AniList;
 use crate::anime::{Anime, AnimeInfo, FileDest, InfoNum};
 use crate::cli::Args;
 use crate::errors::{RemoteError, SystemError};
-use crate::scraper::{Scraper, ScraperCollector};
+use crate::scraper::{Scraper, ScraperItems};
 use crate::tui;
 use crate::utils;
 
@@ -49,7 +49,7 @@ impl App {
         }
     }
 
-    async fn download(args: Args, items: ScraperCollector) -> Result<()> {
+    async fn download(args: Args, items: ScraperItems) -> Result<()> {
         let referer = &items.referrer;
         let bars = utils::Bars::new();
         let mut pool = vec![];
@@ -130,7 +130,7 @@ impl App {
         Ok(())
     }
 
-    async fn streaming(args: Args, items: ScraperCollector) -> Result<()> {
+    async fn streaming(args: Args, items: ScraperItems) -> Result<()> {
         let referrer = &items.referrer;
         let (cmd, cmd_referrer) = match which("mpv") {
             Ok(c) => (c, format!("--referrer={referrer}")),

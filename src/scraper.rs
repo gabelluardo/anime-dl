@@ -17,12 +17,12 @@ use crate::tui;
 use crate::utils;
 
 #[derive(Debug, Default, Clone)]
-pub struct ScraperCollector {
+pub struct ScraperItems {
     pub items: Vec<AnimeInfo>,
     pub referrer: String,
 }
 
-impl Deref for ScraperCollector {
+impl Deref for ScraperItems {
     type Target = Vec<AnimeInfo>;
 
     fn deref(&self) -> &Self::Target {
@@ -30,15 +30,15 @@ impl Deref for ScraperCollector {
     }
 }
 
-impl DerefMut for ScraperCollector {
+impl DerefMut for ScraperItems {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.items
     }
 }
 
-impl FromIterator<AnimeInfo> for ScraperCollector {
+impl FromIterator<AnimeInfo> for ScraperItems {
     fn from_iter<I: IntoIterator<Item = AnimeInfo>>(iter: I) -> Self {
-        let mut c = ScraperCollector::default();
+        let mut c = ScraperItems::default();
         c.extend(iter);
         c
     }
@@ -47,15 +47,47 @@ impl FromIterator<AnimeInfo> for ScraperCollector {
 struct Archive;
 
 impl Archive {
-    async fn animeworld(param: (&str, Arc<Client>, Arc<Mutex<ScraperCollector>>)) -> Result<()> {
+    async fn animeworld(param: (&str, Arc<Client>, Arc<Mutex<ScraperItems>>)) -> Result<()> {
+        async fn inner(client: Arc<Client>, url: String) -> Result<AnimeInfo> {
+            let page = client.parse_url(&url).await?;
+            let a = Selector::parse(r#"a[id="alternativeDownloadLink"]"#).unwrap();
+            let mut url = page.select(&a).last().and_then(|a| a.value().attr("href"));
+            // try again with other links
+            if url.is_none() || url == Some("") {
+                let a = Selector::parse(r#"a[id="downloadLink"]"#).unwrap();
+                url = page.select(&a).last().and_then(|a| a.value().attr("href"))
+            }
+            if url.is_none() || url == Some("") {
+                let a = Selector::parse(r#"a[id="customDownloadButton"]"#).unwrap();
+                url = page.select(&a).last().and_then(|a| a.value().attr("href"))
+            }
+            url.map(|u| u.replace("download-file.php?id=", ""));
+            let btn = Selector::parse(r#"a[id="anilist-button"]"#).unwrap();
+            let id = page
+                .select(&btn)
+                .last()
+                .and_then(|a| a.value().attr("href"))
+                .and_then(|u| {
+                    Url::parse(u)
+                        .unwrap()
+                        .path_segments()
+                        .and_then(|s| s.last())
+                        .and_then(|s| s.parse::<u32>().ok())
+                });
+            AnimeInfo::new(url.unwrap_or_default(), id)
+        }
+
         let (query, client, buf) = param;
-        let search_url = format!("https://www.animeworld.tv/search?keyword={query}");
-        let page = client.parse_url(&search_url).await?;
-        let results = {
-            let div = Selector::parse("div.film-list").unwrap();
-            let a = Selector::parse("a.name").unwrap();
-            let elem = page.select(&div).next().context("Request blocked, retry")?;
-            elem.select(&a)
+        let search_results = {
+            let search_url = format!("https://www.animeworld.tv/search?keyword={query}");
+            let search_page = client.parse_url(&search_url).await?;
+            let anime_list: Selector = Selector::parse("div.film-list").unwrap();
+            let name = Selector::parse("a.name").unwrap();
+            let elem = search_page
+                .select(&anime_list)
+                .next()
+                .context("Request blocked, retry")?;
+            elem.select(&name)
                 .map(|a| {
                     let link = a.value().attr("href").expect("No link found");
                     let name = a
@@ -66,62 +98,19 @@ impl Archive {
                 })
                 .collect::<Vec<_>>()
         };
-        if results.is_empty() {
+        if search_results.is_empty() {
             bail!(RemoteError::AnimeNotFound)
         }
-        let choices = tui::get_choice(&results, Some(query.replace('+', " ")))?;
-        let choices = choices
-            .iter()
-            .map(|c| format!("https://www.animeworld.tv{c}"))
-            .collect::<Vec<_>>();
-        let pages = choices
-            .iter()
-            .map(|u| client.parse_url(u))
-            .collect::<Vec<_>>();
-        let res = join_all(pages)
+        let selected = tui::get_choice(&search_results, Some(query.replace('+', " ")))?;
+        let mut req = vec![];
+        for c in selected {
+            let url = format!("https://www.animeworld.tv{c}");
+            req.push(inner(client.clone(), url))
+        }
+        let res = join_all(req)
             .await
             .into_iter()
-            .filter_map(|p| p.ok())
-            .map(|page| {
-                let a = Selector::parse(r#"a[id="alternativeDownloadLink"]"#).unwrap();
-                let mut url = page
-                    .select(&a)
-                    .last()
-                    .and_then(|a| a.value().attr("href"))
-                    .map(|u| u.to_string());
-                // try again with another links
-                if url.is_none() || url == Some("".to_string()) {
-                    let a = Selector::parse(r#"a[id="downloadLink"]"#).unwrap();
-                    url = page
-                        .select(&a)
-                        .last()
-                        .and_then(|a| a.value().attr("href"))
-                        .map(|u| u.replace("download-file.php?id=", ""));
-                }
-                if url.is_none() || url == Some("".to_string()) {
-                    let a = Selector::parse(r#"a[id="customDownloadButton"]"#).unwrap();
-                    url = page
-                        .select(&a)
-                        .last()
-                        .and_then(|a| a.value().attr("href"))
-                        .map(|u| u.replace("download-file.php?id=", ""));
-                }
-                let btn = Selector::parse(r#"a[id="anilist-button"]"#).unwrap();
-                let id = page
-                    .select(&btn)
-                    .last()
-                    .and_then(|a| a.value().attr("href"))
-                    .and_then(|u| {
-                        Url::parse(u)
-                            .unwrap()
-                            .path_segments()
-                            .and_then(|s| s.last())
-                            .and_then(|s| s.parse::<u32>().ok())
-                    });
-                let url = url.unwrap_or_default();
-                AnimeInfo::new(&url, id).unwrap_or_default()
-            })
-            .filter(|info| !info.url.is_empty())
+            .filter_map(|a| a.ok())
             .collect::<Vec<_>>();
         if res.is_empty() {
             bail!(RemoteError::UrlNotFound)
@@ -134,7 +123,7 @@ impl Archive {
         Ok(())
     }
 
-    async fn _placeholder(_param: (&str, Arc<Client>, Arc<Mutex<ScraperCollector>>)) -> Result<()> {
+    async fn _placeholder(_param: (&str, Arc<Client>, Arc<Mutex<ScraperItems>>)) -> Result<()> {
         unimplemented!()
     }
 }
@@ -161,7 +150,7 @@ impl Scraper {
 
     async fn choice_archive(
         &self,
-        param: (&str, Arc<Client>, Arc<Mutex<ScraperCollector>>),
+        param: (&str, Arc<Client>, Arc<Mutex<ScraperItems>>),
     ) -> Result<()> {
         match self.site {
             Site::AW => Archive::animeworld(param).await,
@@ -169,7 +158,7 @@ impl Scraper {
         }
     }
 
-    pub async fn run(self) -> Result<ScraperCollector> {
+    pub async fn run(self) -> Result<ScraperItems> {
         let query = self
             .query
             .split(',')
@@ -181,7 +170,7 @@ impl Scraper {
         }
         let ctest = Client::find_ctest().await?;
         let client = Arc::new(Client::new(proxy, &ctest));
-        let sc = Arc::new(Mutex::new(ScraperCollector::default()));
+        let sc = Arc::new(Mutex::new(ScraperItems::default()));
         let tasks = query
             .iter()
             .map(|q| self.choice_archive((q, client.clone(), sc.clone())))
@@ -296,9 +285,9 @@ mod tests {
 
     #[tokio::test]
     #[ignore]
-    async fn test_animeworld() {
+    async fn test_remote_animeworld() {
         let file = "SeishunButaYarouWaBunnyGirlSenpaiNoYumeWoMinai_Ep_01_SUB_ITA.mp4";
-        let anime = Arc::new(Mutex::new(ScraperCollector::default()));
+        let anime = Arc::new(Mutex::new(ScraperItems::default()));
         let client = Arc::new(Client::default());
 
         let param = ("bunny girl", client, anime.clone());
@@ -312,7 +301,7 @@ mod tests {
 
     #[tokio::test]
     #[ignore]
-    async fn test_scraper() {
+    async fn test_remote_scraper() {
         let file = "SeishunButaYarouWaBunnyGirlSenpaiNoYumeWoMinai_Ep_01_SUB_ITA.mp4";
         let anime = Scraper::new("bunny girl")
             .with_proxy(true)
@@ -327,7 +316,7 @@ mod tests {
 
     #[tokio::test]
     #[ignore]
-    async fn test_scraper_multi() {
+    async fn test_remote_scraper_multi() {
         let mut files = vec![
             "SeishunButaYarouWaBunnyGirlSenpaiNoYumeWoMinai_Ep_01_SUB_ITA.mp4",
             "TsurezureChildren_Ep_01_SUB_ITA.mp4",

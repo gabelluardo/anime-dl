@@ -2,6 +2,9 @@ pre-commit: test-all
     cargo fmt --all
     cargo clippy -- -D warnings
 
+fix: 
+    cargo clippy --fix --allow-dirty
+
 amend: test-all pre-commit
     git commit --amend --no-verify
 
