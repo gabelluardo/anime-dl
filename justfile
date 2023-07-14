@@ -12,13 +12,13 @@ install:
     cargo install --path . --target x86_64-unknown-linux-musl
 
 test:
-    cargo test
+    cargo nextest run
 
 test-ignored:
-    cargo test -- --ignored
+    cargo nextest run --run-ignored=ignored-only
 
 test-all:
-    cargo test -- --include-ignored
+    cargo nextest run --run-ignored=all
 
 coverage:
     cargo tarpaulin \

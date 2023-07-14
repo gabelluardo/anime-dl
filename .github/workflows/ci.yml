@@ -29,7 +29,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Setup Rust toolchain
         uses: actions-rs/toolchain@v1
@@ -45,18 +45,6 @@ jobs:
         run: |
           ci/ubuntu-install-packages
 
-      - name: Build
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --target ${{ matrix.target }}
-
-      - name: Test
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --target ${{ matrix.target }}
-
       - name: cargo fmt
         uses: actions-rs/cargo@v1
         with:
@@ -68,3 +56,20 @@ jobs:
         with:
           command: clippy
           args: --target ${{ matrix.target }} -- -D warnings
+
+
+      - name: Install latest nextest release
+        uses: taiki-e/install-action@nextest
+
+      - name: Build
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --target ${{ matrix.target }}
+
+      - name: Test
+        uses: actions-rs/cargo@v1
+        with:
+          command: nextest
+          args: run --target ${{ matrix.target }}
+
