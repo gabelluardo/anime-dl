@@ -33,6 +33,7 @@ default = ["anilist"]
 anilist = ["graphql_client", "serde"]
 
 [dependencies]
+async-trait = "^0.1"
 anyhow = "^1.0"
 futures = "^0.3"
 indicatif = "^0.17"
