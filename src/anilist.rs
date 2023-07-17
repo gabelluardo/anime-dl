@@ -65,49 +65,60 @@ pub struct ProgressQuery;
 pub struct AniList(Client);
 
 impl AniList {
-    pub fn new(client_id: Option<u32>) -> Result<Self> {
-        fn oauth_token(oauth_url: &str, config: &Config) -> Result<String> {
-            let token = tui::get_token(oauth_url)?;
-            config.save(&token)?;
-            Ok(token)
-        }
+    pub fn new(client_id: Option<u32>) -> Self {
         let client_id = client_id.unwrap_or(4047);
         let config = Config::new();
         let oauth_url = format!(
             "https://anilist.co/api/v2/oauth/authorize?response_type=token&client_id={client_id}"
         );
-        let token = config
-            .load()
-            .unwrap_or_else(|_| oauth_token(&oauth_url, &config).unwrap_or_default());
-        let mut headers = header::HeaderMap::new();
-        let auth = HeaderValue::from_str(&format!("Bearer {token}"))?;
-        let application = HeaderValue::from_static("application/json");
-        headers.insert(header::AUTHORIZATION, auth);
-        headers.insert(header::ACCEPT, application.clone());
-        headers.insert(header::CONTENT_TYPE, application);
-        let client = Self(Client::builder().default_headers(headers).build()?);
-        Ok(client)
+        let token = match config.load() {
+            Ok(t) => Some(t),
+            _ => oauth_token(&oauth_url, &config),
+        };
+
+        let mut client = Client::new();
+        if let Some(token) = token {
+            let mut headers = header::HeaderMap::new();
+            headers.insert(
+                header::AUTHORIZATION,
+                HeaderValue::from_str(&format!("Bearer {token}")).unwrap(),
+            );
+            headers.insert(header::ACCEPT, HeaderValue::from_static("application/json"));
+            headers.insert(
+                header::CONTENT_TYPE,
+                HeaderValue::from_static("application/json"),
+            );
+
+            client = Client::builder().default_headers(headers).build().unwrap();
+        }
+
+        Self(client)
     }
 
     pub fn clean_cache() -> Result<()> {
         Config::new().clean()
     }
 
-    pub async fn last_viewed(&self, anime_id: Option<u32>) -> Result<Option<u32>> {
+    pub async fn last_viewed(&self, anime_id: Option<u32>) -> Option<u32> {
         let endpoint = "https://graphql.anilist.co";
         let q = ProgressQuery::build_query(progress_query::Variables {
             id: anime_id.map(|u| u as i64),
         });
-        let res = self.0.post(endpoint).json(&q).send().await?;
-        let response_body: Response<progress_query::ResponseData> = res.json().await?;
-        let data = response_body
+        let res = self.0.post(endpoint).json(&q).send().await.ok()?;
+        let response_body: Response<progress_query::ResponseData> = res.json().await.ok()?;
+        response_body
             .data
             .and_then(|d| d.media)
             .and_then(|m| m.media_list_entry)
             .and_then(|l| l.progress)
-            .map(|p| p as u32);
-        Ok(data)
+            .map(|p| p as u32)
     }
+}
+
+fn oauth_token(oauth_url: &str, config: &Config) -> Option<String> {
+    let token = tui::get_token(oauth_url).ok()?;
+    config.save(&token).ok()?;
+    Some(token)
 }
 
 #[cfg(test)]

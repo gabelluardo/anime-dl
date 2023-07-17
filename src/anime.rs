@@ -1,14 +1,12 @@
 use std::path::{Path, PathBuf};
 
-use anyhow::{bail, Context, Result};
+use anyhow::{bail, Result};
 use nom::Slice;
 use reqwest::header::REFERER;
 use reqwest::Client;
-use tokio::fs;
 
 #[cfg(feature = "anilist")]
 use crate::anilist::AniList;
-use crate::errors::SystemError;
 use crate::range::Range;
 use crate::tui::Choice;
 use crate::utils;
@@ -29,8 +27,9 @@ pub struct AnimeInfo {
 }
 
 impl AnimeInfo {
-    pub fn new(input: &str, id: Option<u32>) -> Result<Self> {
-        let name = to_title_case!(utils::parse_name(input)?);
+    pub fn new(input: &str, id: Option<u32>) -> Self {
+        let name = to_title_case!(utils::parse_name(input).unwrap());
+
         // find episode number position in input
         let (mut opt_start, mut opt_end) = (None, None);
         for (i, c) in input.char_indices() {
@@ -58,13 +57,14 @@ impl AnimeInfo {
             }
             _ => (input.to_string(), None),
         };
-        Ok(AnimeInfo {
+
+        AnimeInfo {
             id,
             name,
             url,
             num: info_num,
             origin: input.to_string(),
-        })
+        }
     }
 }
 
@@ -196,13 +196,12 @@ impl AnimeBuilder {
 
     #[cfg(feature = "anilist")]
     async fn last_viewed(&self) -> Option<u32> {
-        let anilist = AniList::new(self.client_id).unwrap_or_default();
-        anilist.last_viewed(self.info.id).await.unwrap_or_default()
+        AniList::new(self.client_id).last_viewed(self.info.id).await
     }
 
     #[cfg(not(feature = "anilist"))]
-    async fn last_viewed(&self) -> Result<Option<u32>> {
-        Ok(None)
+    async fn last_viewed(&self) -> Option<u32> {
+        None
     }
 }
 
@@ -225,10 +224,9 @@ impl Anime {
         for (i, ep) in self.episodes.iter().enumerate() {
             // find first episode number
             if start_range == 0 {
-                if let Ok(info) = AnimeInfo::new(ep, None) {
-                    if let Some(InfoNum { value, .. }) = info.num {
-                        start_range = value;
-                    }
+                let info = AnimeInfo::new(ep, None);
+                if let Some(InfoNum { value, .. }) = info.num {
+                    start_range = value;
                 }
             }
             let num = start_range + i as u32;
@@ -242,45 +240,6 @@ impl Anime {
     }
 }
 
-pub struct FileDest {
-    pub size: u64,
-    pub path: PathBuf,
-    pub overwrite: bool,
-}
-
-type FileProps<'a> = (&'a Path, &'a str, bool);
-
-impl FileDest {
-    pub async fn new(props: FileProps<'_>) -> Result<Self> {
-        let (root, filename, overwrite) = props;
-        if !root.exists() {
-            fs::create_dir_all(&root).await?;
-        }
-        let mut path = root.to_path_buf();
-        path.push(filename);
-        let mut size = 0;
-        if path.exists() && !overwrite {
-            size = fs::File::open(&path).await?.metadata().await?.len();
-        }
-        Ok(Self {
-            size,
-            path,
-            overwrite,
-        })
-    }
-
-    pub async fn open(&self) -> Result<fs::File> {
-        fs::OpenOptions::new()
-            .append(!self.overwrite)
-            .truncate(self.overwrite)
-            .write(self.overwrite)
-            .create(true)
-            .open(&self.path)
-            .await
-            .context(SystemError::FsOpen)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -289,7 +248,7 @@ mod tests {
     fn test_extract_info() {
         let input = "https://www.domain.tld/sub/anotherSub/AnimeName/AnimeName_Ep_15_SUB_ITA.mp4";
         let url = "https://www.domain.tld/sub/anotherSub/AnimeName/AnimeName_Ep_{}_SUB_ITA.mp4";
-        let res = AnimeInfo::new(input, None).unwrap();
+        let res = AnimeInfo::new(input, None);
         let num = res.num.unwrap();
         assert_eq!(res.name, "Anime Name");
         assert_eq!(res.url, url);
@@ -300,7 +259,7 @@ mod tests {
 
         let input = "https://www.domain.tld/sub/anotherSub/AnimeName/AnimeName_Ep_016_SUB_ITA.mp4";
         let url = "https://www.domain.tld/sub/anotherSub/AnimeName/AnimeName_Ep_{}_SUB_ITA.mp4";
-        let res = AnimeInfo::new(input, Some(14)).unwrap();
+        let res = AnimeInfo::new(input, Some(14));
         let num = res.num.unwrap();
         assert_eq!(res.name, "Anime Name");
         assert_eq!(res.url, url);

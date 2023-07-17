@@ -13,6 +13,7 @@ mod app;
 mod archive;
 mod cli;
 mod errors;
+mod file;
 mod range;
 mod scraper;
 mod tui;
