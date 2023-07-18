@@ -48,7 +48,7 @@ which = "^4.4.0"
 
 clap = { version = "^4.3", features = ["derive", "env"] }
 reqwest = { default-features = false, version = "^0.11", features = ["json", "rustls-tls"] }
-tokio = { default-features = false, version = "^1.27.0", features = ["fs", "macros", "process", "rt-multi-thread"] }
+tokio = { default-features = false, version = "^1.29.1", features = ["fs", "macros", "process", "rt-multi-thread"] }
 
 # Optional deps...
 
