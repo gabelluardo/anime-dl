@@ -23,12 +23,11 @@ pub fn parse_name(input: &str) -> Result<String> {
 }
 
 pub fn parse_filename(input: &str) -> Result<String> {
-    let filename = reqwest::Url::parse(input)?
+    reqwest::Url::parse(input)?
         .path_segments()
         .and_then(|segments| segments.last())
         .map(|s| s.to_string())
-        .context(UserError::Parsing(input.to_string()))?;
-    Ok(filename)
+        .context(UserError::Parsing(input.to_string()))
 }
 
 pub fn parse_aw_cookie<'a>(input: &'a str) -> Result<String> {

@@ -12,9 +12,10 @@ use which::which;
 
 #[cfg(feature = "anilist")]
 use crate::anilist::AniList;
-use crate::anime::{Anime, AnimeInfo, FileDest, InfoNum};
+use crate::anime::{Anime, AnimeInfo};
 use crate::cli::Args;
 use crate::errors::{RemoteError, SystemError};
+use crate::file::FileDest;
 use crate::scraper::{Scraper, ScraperItems};
 use crate::tui;
 use crate::utils;
@@ -33,7 +34,7 @@ impl App {
         let items = if utils::is_web_url(&args.entries[0]) {
             args.entries
                 .iter()
-                .map(|s| AnimeInfo::new(s, None).unwrap_or_default())
+                .map(|s| AnimeInfo::new(s, None))
                 .collect::<_>()
         } else {
             Scraper::new(&args.entries.join(" "))
@@ -92,15 +93,14 @@ impl App {
                     if file.size >= source_size {
                         bail!(SystemError::Overwrite(filename));
                     }
-                    let msg = if let Ok(info) = AnimeInfo::new(&url, None) {
-                        let num = info
-                            .num
-                            .map(|InfoNum { value, .. }| zfill!(value, 2) + " ")
-                            .unwrap_or_default();
-                        "Ep. ".to_string() + &num + &info.name
+
+                    let info = AnimeInfo::new(&url, None);
+                    let msg = if let Some(inum) = info.num {
+                        "Ep. ".to_string() + &zfill!(inum.value, 2) + " " + &info.name
                     } else {
-                        to_title_case!(filename.split('_').next().unwrap_or_default())
+                        info.name.to_string()
                     };
+
                     pb.set_position(file.size);
                     pb.set_length(source_size);
                     pb.set_message(msg.clone());

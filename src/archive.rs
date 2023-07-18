@@ -55,7 +55,7 @@ impl Archive for AnimeWorld {
                         .and_then(|s| s.parse::<u32>().ok())
                 });
 
-            AnimeInfo::new(&url, id)
+            Ok(AnimeInfo::new(&url, id))
         }
 
         let (query, client, vec) = param;
