@@ -59,7 +59,7 @@ impl Config {
     schema_path = "assets/anilist_schema.graphql",
     query_path = "assets/progress_query.graphql"
 )]
-pub struct ProgressQuery;
+struct ProgressQuery;
 
 #[derive(Default, Debug)]
 pub struct AniList(Client);
@@ -100,12 +100,14 @@ impl AniList {
     }
 
     pub async fn last_viewed(&self, anime_id: Option<u32>) -> Option<u32> {
-        let endpoint = "https://graphql.anilist.co";
-        let q = ProgressQuery::build_query(progress_query::Variables {
+        let url = "https://graphql.anilist.co";
+        let variables = progress_query::Variables {
             id: anime_id.map(|u| u as i64),
-        });
-        let res = self.0.post(endpoint).json(&q).send().await.ok()?;
+        };
+        let query = ProgressQuery::build_query(variables);
+        let res = self.0.post(url).json(&query).send().await.ok()?;
         let response_body: Response<progress_query::ResponseData> = res.json().await.ok()?;
+
         response_body
             .data
             .and_then(|d| d.media)
@@ -118,6 +120,7 @@ impl AniList {
 fn oauth_token(oauth_url: &str, config: &Config) -> Option<String> {
     let token = tui::get_token(oauth_url).ok()?;
     config.save(&token).ok()?;
+
     Some(token)
 }
 

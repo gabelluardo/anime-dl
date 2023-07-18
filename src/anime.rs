@@ -246,26 +246,38 @@ mod tests {
 
     #[test]
     fn test_extract_info() {
-        let input = "https://www.domain.tld/sub/anotherSub/AnimeName/AnimeName_Ep_15_SUB_ITA.mp4";
+        let origin = "https://www.domain.tld/sub/anotherSub/AnimeName/AnimeName_Ep_15_SUB_ITA.mp4";
         let url = "https://www.domain.tld/sub/anotherSub/AnimeName/AnimeName_Ep_{}_SUB_ITA.mp4";
-        let res = AnimeInfo::new(input, None);
-        let num = res.num.unwrap();
-        assert_eq!(res.name, "Anime Name");
-        assert_eq!(res.url, url);
-        assert_eq!(res.origin, input);
-        assert_eq!(res.id, None);
-        assert_eq!(num.value, 15);
-        assert_eq!(num.alignment, 2);
+        let res = AnimeInfo::new(origin, None);
+        assert_eq!(
+            res,
+            AnimeInfo {
+                name: "Anime Name".to_string(),
+                url: url.to_string(),
+                origin: origin.to_string(),
+                id: None,
+                num: Some(InfoNum {
+                    value: 15,
+                    alignment: 2
+                })
+            }
+        );
 
-        let input = "https://www.domain.tld/sub/anotherSub/AnimeName/AnimeName_Ep_016_SUB_ITA.mp4";
+        let origin = "https://www.domain.tld/sub/anotherSub/AnimeName/AnimeName_Ep_016_SUB_ITA.mp4";
         let url = "https://www.domain.tld/sub/anotherSub/AnimeName/AnimeName_Ep_{}_SUB_ITA.mp4";
-        let res = AnimeInfo::new(input, Some(14));
-        let num = res.num.unwrap();
-        assert_eq!(res.name, "Anime Name");
-        assert_eq!(res.url, url);
-        assert_eq!(res.origin, input);
-        assert_eq!(res.id, Some(14));
-        assert_eq!(num.value, 16);
-        assert_eq!(num.alignment, 3);
+        let res = AnimeInfo::new(origin, Some(14));
+        assert_eq!(
+            res,
+            AnimeInfo {
+                name: "Anime Name".to_string(),
+                url: url.to_string(),
+                origin: origin.to_string(),
+                id: Some(14),
+                num: Some(InfoNum {
+                    value: 16,
+                    alignment: 3
+                })
+            }
+        );
     }
 }
