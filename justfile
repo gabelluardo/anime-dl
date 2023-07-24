@@ -2,6 +2,9 @@ pre-commit: test-all
     cargo fmt --all
     cargo clippy -- -D warnings
 
+commit message: pre-commit
+    git commit -am "{{message}}" 
+
 fix: 
     cargo clippy --fix --allow-dirty
 
