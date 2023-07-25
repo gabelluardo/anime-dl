@@ -125,12 +125,13 @@ impl AnimeBuilder {
             last_viewed,
             info: self.info,
             path: self.path,
+            range: self.range,
         })
     }
 
     async fn episodes(&mut self) -> Result<Vec<String>> {
         let url = &self.info.url;
-        let InfoNum { alignment, .. } = self.info.num.unwrap();
+        let InfoNum { alignment, value } = self.info.num.unwrap();
 
         if let Some((start, end)) = self.info.episodes {
             self.range = Range::new(start, end);
@@ -142,10 +143,13 @@ impl AnimeBuilder {
             bail!("Unable to download")
         }
 
+        // for when the range starts with episode 0
+        let first = if value > 0 { value - 1 } else { value };
+
         let episodes = self
             .range
             .expand()
-            .map(|i| gen_url!(url, i, alignment))
+            .map(|i| gen_url!(url, i + first, alignment))
             .collect::<Vec<_>>();
         Ok(episodes)
     }
@@ -218,6 +222,7 @@ pub struct Anime {
     pub episodes: Vec<String>,
     pub path: PathBuf,
     pub info: AnimeInfo,
+    pub range: Range<u32>,
 }
 
 impl Anime {
@@ -227,16 +232,8 @@ impl Anime {
 
     pub fn choices(&self) -> Vec<Choice> {
         let mut choices = vec![];
-        let mut start_range = 0;
         for (i, ep) in self.episodes.iter().enumerate() {
-            // find first episode number
-            if start_range == 0 {
-                let info = AnimeInfo::new(ep, None, None);
-                if let Some(InfoNum { value, .. }) = info.num {
-                    start_range = value;
-                }
-            }
-            let num = start_range + i as u32;
+            let num = self.range.start() + i as u32;
             let mut msg = self.info.name.to_string() + " - ep " + &zfill!(num, 2);
             if Some(num) <= self.last_viewed {
                 msg.push_str(" ✔")
