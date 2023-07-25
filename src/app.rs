@@ -34,7 +34,7 @@ impl App {
         let items = if utils::is_web_url(&args.entries[0]) {
             args.entries
                 .iter()
-                .map(|s| AnimeInfo::new(s, None))
+                .map(|s| AnimeInfo::new(s, None, None))
                 .collect::<_>()
         } else {
             Scraper::new(&args.entries.join(" "))
@@ -94,7 +94,7 @@ impl App {
                         bail!(SystemError::Overwrite(filename));
                     }
 
-                    let info = AnimeInfo::new(&url, None);
+                    let info = AnimeInfo::new(&url, None, None);
                     let msg = if let Some(inum) = info.num {
                         "Ep. ".to_string() + &zfill!(inum.value, 2) + " " + &info.name
                     } else {

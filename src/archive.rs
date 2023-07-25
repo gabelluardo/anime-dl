@@ -1,9 +1,9 @@
 use std::sync::Arc;
 
 use anyhow::{bail, Context, Result};
-use futures::future::join_all;
+
 use reqwest::Url;
-use scraper::Selector;
+use scraper::{Html, Selector};
 use tokio::sync::Mutex;
 
 use crate::anime::AnimeInfo;
@@ -25,45 +25,12 @@ impl Archive for AnimeWorld {
     }
 
     async fn run(param: (&str, Arc<Client>, Arc<Mutex<Vec<AnimeInfo>>>)) -> Result<()> {
-        async fn inner(client: Arc<Client>, page_url: String) -> Result<AnimeInfo> {
-            let page = client.parse_url(&page_url).await?;
-            let a = Selector::parse(r#"a[id="alternativeDownloadLink"]"#).unwrap();
-            let mut url = page.select(&a).last().and_then(|a| a.value().attr("href"));
-            if url.is_none() || url == Some("") {
-                let a = Selector::parse(r#"a[id="downloadLink"]"#).unwrap();
-                url = page.select(&a).last().and_then(|a| a.value().attr("href"))
-            }
-            if url.is_none() || url == Some("") {
-                let a = Selector::parse(r#"a[id="customDownloadButton"]"#).unwrap();
-                url = page.select(&a).last().and_then(|a| a.value().attr("href"))
-            }
-            let url = match url {
-                Some(u) => u.replace("download-file.php?id=", ""),
-                _ => bail!(RemoteError::UrlNotFound),
-            };
-
-            let btn = Selector::parse(r#"a[id="anilist-button"]"#).unwrap();
-            let id = page
-                .select(&btn)
-                .last()
-                .and_then(|a| a.value().attr("href"))
-                .and_then(|u| {
-                    Url::parse(u)
-                        .unwrap()
-                        .path_segments()
-                        .and_then(|s| s.last())
-                        .and_then(|s| s.parse::<u32>().ok())
-                });
-
-            Ok(AnimeInfo::new(&url, id))
-        }
-
         let (query, client, vec) = param;
         let search_results = {
             let referrer = Self::referrer().unwrap();
             let search_url = format!("{referrer}/search?keyword={query}");
             let search_page = client.parse_url(&search_url).await?;
-            let anime_list: Selector = Selector::parse("div.film-list").unwrap();
+            let anime_list = Selector::parse("div.film-list").unwrap();
             let name = Selector::parse("a.name").unwrap();
 
             let elem = search_page
@@ -86,15 +53,15 @@ impl Archive for AnimeWorld {
         }
         let selected = tui::get_choice(&search_results, Some(query.replace('+', " ")))?;
 
-        let mut tasks = vec![];
+        let mut res: Vec<AnimeInfo> = vec![];
         for c in selected.iter() {
-            tasks.push(inner(client.clone(), Self::referrer().unwrap() + c))
+            let page = client.parse_url(&(Self::referrer().unwrap() + c)).await?;
+            match Self::parser(page) {
+                Ok(info) => res.push(info),
+                _ => continue,
+            }
         }
-        let res = join_all(tasks)
-            .await
-            .into_iter()
-            .filter_map(|a| a.ok())
-            .collect::<Vec<_>>();
+
         if res.is_empty() {
             bail!(RemoteError::UrlNotFound)
         }
@@ -103,6 +70,86 @@ impl Archive for AnimeWorld {
         lock.extend(res);
 
         Ok(())
+    }
+}
+
+impl AnimeWorld {
+    fn parser(page: Html) -> Result<AnimeInfo> {
+        let url = Self::parse_url(&page)?;
+        let id = Self::parse_id(&page);
+        let episodes = Self::parse_episodes(&page);
+
+        Ok(AnimeInfo::new(&url, id, episodes))
+    }
+
+    fn parse_url(page: &Html) -> Result<String> {
+        let a = Selector::parse(r#"a[id="alternativeDownloadLink"]"#).unwrap();
+        let mut url = page.select(&a).last().and_then(|a| a.value().attr("href"));
+        if url.is_none() || url == Some("") {
+            let a = Selector::parse(r#"a[id="downloadLink"]"#).unwrap();
+            url = page.select(&a).last().and_then(|a| a.value().attr("href"))
+        }
+        if url.is_none() || url == Some("") {
+            let a = Selector::parse(r#"a[id="customDownloadButton"]"#).unwrap();
+            url = page.select(&a).last().and_then(|a| a.value().attr("href"))
+        }
+        let url = match url {
+            Some(u) => u.replace("download-file.php?id=", ""),
+            _ => bail!(RemoteError::UrlNotFound),
+        };
+
+        Ok(url)
+    }
+
+    fn parse_id(page: &Html) -> Option<u32> {
+        let btn = Selector::parse(r#"a[id="anilist-button"]"#).unwrap();
+        page.select(&btn)
+            .last()
+            .and_then(|a| a.value().attr("href"))
+            .and_then(|u| {
+                Url::parse(u)
+                    .unwrap()
+                    .path_segments()
+                    .and_then(|s| s.last())
+                    .and_then(|s| s.parse::<u32>().ok())
+            })
+    }
+
+    fn parse_episodes(page: &Html) -> Option<(u32, u32)> {
+        let range = Selector::parse("div.range").unwrap();
+        let span = Selector::parse("span.rangetitle").unwrap();
+        match page.select(&range).next() {
+            Some(range) if range.select(&span).next().is_some() => {
+                let mut list = range.select(&span);
+
+                let start = list
+                    .next()?
+                    .inner_html()
+                    .split_ascii_whitespace()
+                    .next()?
+                    .parse::<u32>()
+                    .ok()?;
+                let end = list
+                    .last()?
+                    .inner_html()
+                    .split_ascii_whitespace()
+                    .last()?
+                    .parse::<u32>()
+                    .ok()?;
+
+                Some((start, end))
+            }
+            _ => {
+                let ul = Selector::parse("ul.episodes").unwrap();
+                let a = Selector::parse("a").unwrap();
+                let mut list = page.select(&ul).next().unwrap().select(&a);
+
+                let start = list.next()?.inner_html().parse::<u32>().ok()?;
+                let end = list.last()?.inner_html().parse::<u32>().ok()?;
+
+                Some((start, end))
+            }
+        }
     }
 }
 
@@ -130,6 +177,116 @@ mod test {
             .and_then(|segments| segments.last())
             .unwrap()
             .to_owned()
+    }
+
+    #[test]
+    fn test_pase_episodes_animeworld() {
+        let html = r#"
+            <ul class="episodes range acrive: data-range-id="0" style="display: block;">
+                <li class="episode">
+                    <a data-episode-id="id" data-id="id" data-episode-num="1" data-num="1" data-base="1" data-comment="1" href="/play/anime_name/id">1</a>
+                </li>
+                <li class="episode">
+                    <a data-episode-id="id" data-id="id" data-episode-num="2" data-num="2" data-base="2" data-comment="2" href="/play/anime_name/id">2</a>
+                </li>
+                <li class="episode">
+                    <a data-episode-id="id" data-id="id" data-episode-num="3" data-num="3" data-base="3" data-comment="3" href="/play/anime_name/id">3</a>
+                </li>
+                <li class="episode">
+                    <a data-episode-id="id" data-id="id" data-episode-num="4" data-num="4" data-base="4" data-comment="4" href="/play/anime_name/id">4</a>
+                </li>
+                <li class="episode">
+                    <a data-episode-id="id" data-id="id" data-episode-num="5" data-num="5" data-base="5" data-comment="5" href="/play/anime_name/id">5</a>
+                </li>
+                <li class="episode">
+                    <a data-episode-id="id" data-id="id" data-episode-num="6" data-num="6" data-base="6" data-comment="6" href="/play/anime_name/id">6</a>
+                </li>
+                <li class="episode">
+                    <a data-episode-id="id" data-id="id" data-episode-num="7" data-num="7" data-base="7" data-comment="7" href="/play/anime_name/id">7</a>
+                </li>
+                <li class="episode">
+                    <a data-episode-id="id" data-id="id" data-episode-num="8" data-num="8" data-base="8" data-comment="8" href="/play/anime_name/id">8</a>
+                </li>
+                <li class="episode">
+                    <a data-episode-id="id" data-id="id" data-episode-num="9" data-num="9" data-base="9" data-comment="9" href="/play/anime_name/id">9</a>
+                </li>
+                <li class="episode">
+                    <a data-episode-id="id" data-id="id" data-episode-num="10" data-num="10" data-base="10" data-comment="10" href="/play/anime_name/id">10</a>
+                </li>
+                <li class="episode">
+                    <a data-episode-id="id" data-id="id" data-episode-num="11" data-num="11" data-base="11" data-comment="11" href="/play/anime_name/id">11</a>
+                </li>
+                <li class="episode">
+                    <a data-episode-id="id" data-id="id" data-episode-num="12" data-num="12" data-base="12" data-comment="12" href="/play/anime_name/id">12</a>
+                </li>
+            </ul>"#;
+        let fragment = Html::parse_fragment(html);
+        let episodes = AnimeWorld::parse_episodes(&fragment).unwrap();
+
+        assert_eq!(episodes, (1, 12));
+
+        let html = r#"
+            <div class="range">
+                <span data-range-id="0" class="rangetitle active">1 - 55</span>           
+                <span data-range-id="1" class="rangetitle">56 - 111</span>           
+                <span data-range-id="2" class="rangetitle">112 - 162</span>           
+                <span data-range-id="3" class="rangetitle">163 - 212</span>           
+                <span data-range-id="4" class="rangetitle">213 - 262</span>           
+                <span data-range-id="5" class="rangetitle">263 - 312</span>           
+                <span data-range-id="6" class="rangetitle">313 - 362</span>           
+                <span data-range-id="7" class="rangetitle">363 - 412</span>           
+                <span data-range-id="8" class="rangetitle">413 - 462</span>           
+                <span data-range-id="9" class="rangetitle">463 - 500</span>           
+            </div>"#;
+        let fragment = Html::parse_fragment(html);
+        let episodes = AnimeWorld::parse_episodes(&fragment).unwrap();
+
+        assert_eq!(episodes, (1, 500));
+
+        let html = r#"
+            <div class="range"></div>
+            <ul class="episodes range acrive: data-range-id="0" style="display: block;">
+                <li class="episode">
+                    <a data-episode-id="id" data-id="id" data-episode-num="1" data-num="1" data-base="1" data-comment="1" href="/play/anime_name/id">1</a>
+                </li>
+                <li class="episode">
+                    <a data-episode-id="id" data-id="id" data-episode-num="2" data-num="2" data-base="2" data-comment="2" href="/play/anime_name/id">2</a>
+                </li>
+                <li class="episode">
+                    <a data-episode-id="id" data-id="id" data-episode-num="3" data-num="3" data-base="3" data-comment="3" href="/play/anime_name/id">3</a>
+                </li>
+                <li class="episode">
+                    <a data-episode-id="id" data-id="id" data-episode-num="4" data-num="4" data-base="4" data-comment="4" href="/play/anime_name/id">4</a>
+                </li>
+                <li class="episode">
+                    <a data-episode-id="id" data-id="id" data-episode-num="5" data-num="5" data-base="5" data-comment="5" href="/play/anime_name/id">5</a>
+                </li>
+                <li class="episode">
+                    <a data-episode-id="id" data-id="id" data-episode-num="6" data-num="6" data-base="6" data-comment="6" href="/play/anime_name/id">6</a>
+                </li>
+                <li class="episode">
+                    <a data-episode-id="id" data-id="id" data-episode-num="7" data-num="7" data-base="7" data-comment="7" href="/play/anime_name/id">7</a>
+                </li>
+                <li class="episode">
+                    <a data-episode-id="id" data-id="id" data-episode-num="8" data-num="8" data-base="8" data-comment="8" href="/play/anime_name/id">8</a>
+                </li>
+                <li class="episode">
+                    <a data-episode-id="id" data-id="id" data-episode-num="9" data-num="9" data-base="9" data-comment="9" href="/play/anime_name/id">9</a>
+                </li>
+                <li class="episode">
+                    <a data-episode-id="id" data-id="id" data-episode-num="10" data-num="10" data-base="10" data-comment="10" href="/play/anime_name/id">10</a>
+                </li>
+                <li class="episode">
+                    <a data-episode-id="id" data-id="id" data-episode-num="11" data-num="11" data-base="11" data-comment="11" href="/play/anime_name/id">11</a>
+                </li>
+                <li class="episode">
+                    <a data-episode-id="id" data-id="id" data-episode-num="12" data-num="12" data-base="12" data-comment="12" href="/play/anime_name/id">12</a>
+                </li>
+            </ul>"#;
+        let fragment = Html::parse_fragment(html);
+        let episodes = AnimeWorld::parse_episodes(&fragment).unwrap();
+
+        assert_eq!(episodes, (1, 12));
     }
 
     #[tokio::test]
