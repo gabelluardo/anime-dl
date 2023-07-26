@@ -85,7 +85,7 @@ impl Scraper {
         let vec = Arc::new(Mutex::new(Vec::new()));
         let tasks = query
             .iter()
-            .map(|q| scraper_fun((q, client.clone(), vec.clone())))
+            .map(|q| scraper_fun(q, client.clone(), vec.clone()))
             .map(|f| async move {
                 if let Err(err) = f.await {
                     if !err.is::<Quit>() {

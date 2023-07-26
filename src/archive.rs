@@ -14,7 +14,7 @@ use crate::tui;
 #[async_trait::async_trait]
 pub trait Archive {
     fn referrer() -> Option<String>;
-    async fn run(param: (&str, Arc<Client>, Arc<Mutex<Vec<AnimeInfo>>>)) -> Result<()>;
+    async fn run(query: &str, client: Arc<Client>, vec: Arc<Mutex<Vec<AnimeInfo>>>) -> Result<()>;
 }
 
 pub struct AnimeWorld;
@@ -24,8 +24,7 @@ impl Archive for AnimeWorld {
         Some(String::from("https://www.animeworld.tv"))
     }
 
-    async fn run(param: (&str, Arc<Client>, Arc<Mutex<Vec<AnimeInfo>>>)) -> Result<()> {
-        let (query, client, vec) = param;
+    async fn run(query: &str, client: Arc<Client>, vec: Arc<Mutex<Vec<AnimeInfo>>>) -> Result<()> {
         let search_results = {
             let referrer = Self::referrer().unwrap();
             let search_url = format!("{referrer}/search?keyword={query}");
@@ -44,6 +43,7 @@ impl Archive for AnimeWorld {
                         .first_child()
                         .and_then(|a| a.value().as_text())
                         .expect("No name found");
+
                     tui::Choice::new(link, name)
                 })
                 .collect::<Vec<_>>()
@@ -54,8 +54,8 @@ impl Archive for AnimeWorld {
         let selected = tui::get_choice(&search_results, Some(query.replace('+', " ")))?;
 
         let mut res: Vec<AnimeInfo> = vec![];
-        for c in selected.iter() {
-            let page = client.parse_url(&(Self::referrer().unwrap() + c)).await?;
+        for c in selected {
+            let page = client.parse_url(&(Self::referrer().unwrap() + &c)).await?;
             match Self::parser(page) {
                 Ok(info) => res.push(info),
                 _ => continue,
@@ -160,7 +160,11 @@ impl Archive for Placeholder {
         unimplemented!()
     }
 
-    async fn run(_param: (&str, Arc<Client>, Arc<Mutex<Vec<AnimeInfo>>>)) -> Result<()> {
+    async fn run(
+        _query: &str,
+        _client: Arc<Client>,
+        _vec: Arc<Mutex<Vec<AnimeInfo>>>,
+    ) -> Result<()> {
         unimplemented!()
     }
 }
@@ -296,8 +300,9 @@ mod test {
         let anime = Arc::new(Mutex::new(Vec::new()));
         let client = Arc::new(Client::default());
 
-        let param = ("bunny girl", client, anime.clone());
-        AnimeWorld::run(param).await.unwrap();
+        AnimeWorld::run("bunny girl", client, anime.clone())
+            .await
+            .unwrap();
 
         let anime = anime.lock().await.clone();
         let info = get_url(&anime.first().unwrap().origin);
