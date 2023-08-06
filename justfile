@@ -8,7 +8,7 @@ commit message: pre-commit
 fix: 
     cargo clippy --fix --allow-dirty
 
-amend: test-all pre-commit
+amend: pre-commit
     git commit --amend --no-verify
 
 install:

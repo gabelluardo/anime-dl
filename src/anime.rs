@@ -24,10 +24,11 @@ pub struct AnimeInfo {
     pub origin: String,
     pub num: Option<InfoNum>,
     pub url: String,
+    pub episodes: Option<(u32, u32)>,
 }
 
 impl AnimeInfo {
-    pub fn new(input: &str, id: Option<u32>) -> Self {
+    pub fn new(input: &str, id: Option<u32>, episodes: Option<(u32, u32)>) -> Self {
         let name = to_title_case!(utils::parse_name(input).unwrap());
 
         // find episode number position in input
@@ -62,6 +63,7 @@ impl AnimeInfo {
             id,
             name,
             url,
+            episodes,
             num: info_num,
             origin: input.to_string(),
         }
@@ -123,22 +125,31 @@ impl AnimeBuilder {
             last_viewed,
             info: self.info,
             path: self.path,
+            range: self.range,
         })
     }
 
     async fn episodes(&mut self) -> Result<Vec<String>> {
         let url = &self.info.url;
-        let InfoNum { alignment, .. } = self.info.num.unwrap();
-        if self.auto {
+        let InfoNum { alignment, value } = self.info.num.unwrap();
+
+        if let Some((start, end)) = self.info.episodes {
+            self.range = Range::new(start, end);
+        } else if self.auto {
             self.range = self.fill_range(url, alignment).await?;
         }
+
         if self.range.is_empty() {
             bail!("Unable to download")
         }
+
+        // for when the range starts with episode 0
+        let first = if value > 0 { value - 1 } else { value };
+
         let episodes = self
             .range
             .expand()
-            .map(|i| gen_url!(url, i, alignment))
+            .map(|i| gen_url!(url, i + first, alignment))
             .collect::<Vec<_>>();
         Ok(episodes)
     }
@@ -211,6 +222,7 @@ pub struct Anime {
     pub episodes: Vec<String>,
     pub path: PathBuf,
     pub info: AnimeInfo,
+    pub range: Range<u32>,
 }
 
 impl Anime {
@@ -220,16 +232,8 @@ impl Anime {
 
     pub fn choices(&self) -> Vec<Choice> {
         let mut choices = vec![];
-        let mut start_range = 0;
         for (i, ep) in self.episodes.iter().enumerate() {
-            // find first episode number
-            if start_range == 0 {
-                let info = AnimeInfo::new(ep, None);
-                if let Some(InfoNum { value, .. }) = info.num {
-                    start_range = value;
-                }
-            }
-            let num = start_range + i as u32;
+            let num = self.range.start() + i as u32;
             let mut msg = self.info.name.to_string() + " - ep " + &zfill!(num, 2);
             if Some(num) <= self.last_viewed {
                 msg.push_str(" ✔")
@@ -248,7 +252,7 @@ mod tests {
     fn test_extract_info() {
         let origin = "https://www.domain.tld/sub/anotherSub/AnimeName/AnimeName_Ep_15_SUB_ITA.mp4";
         let url = "https://www.domain.tld/sub/anotherSub/AnimeName/AnimeName_Ep_{}_SUB_ITA.mp4";
-        let res = AnimeInfo::new(origin, None);
+        let res = AnimeInfo::new(origin, None, None);
         assert_eq!(
             res,
             AnimeInfo {
@@ -256,6 +260,7 @@ mod tests {
                 url: url.to_string(),
                 origin: origin.to_string(),
                 id: None,
+                episodes: None,
                 num: Some(InfoNum {
                     value: 15,
                     alignment: 2
@@ -265,7 +270,7 @@ mod tests {
 
         let origin = "https://www.domain.tld/sub/anotherSub/AnimeName/AnimeName_Ep_016_SUB_ITA.mp4";
         let url = "https://www.domain.tld/sub/anotherSub/AnimeName/AnimeName_Ep_{}_SUB_ITA.mp4";
-        let res = AnimeInfo::new(origin, Some(14));
+        let res = AnimeInfo::new(origin, Some(14), None);
         assert_eq!(
             res,
             AnimeInfo {
@@ -273,6 +278,7 @@ mod tests {
                 url: url.to_string(),
                 origin: origin.to_string(),
                 id: Some(14),
+                episodes: None,
                 num: Some(InfoNum {
                     value: 16,
                     alignment: 3
