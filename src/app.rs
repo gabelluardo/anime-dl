@@ -57,10 +57,9 @@ impl App {
         for info in items.iter() {
             let path = utils::get_path(&args, &info.url)?;
             let mut anime = Anime::builder()
-                .auto(args.auto_episode || args.interactive)
                 .client_id(args.anilist_id)
                 .info(info)
-                .range(args.range.as_ref().unwrap_or_default())
+                .range(&args.range.as_ref().cloned().unwrap_or_default())
                 .referer(referer)
                 .path(&path)
                 .build()
@@ -126,6 +125,7 @@ impl App {
                 pool.push(future);
             }
         }
+
         stream::iter(pool)
             .buffer_unordered(args.dim_buff)
             .collect::<Vec<_>>()
@@ -144,12 +144,12 @@ impl App {
                 format!("--http-referrer={referrer}"),
             ),
         };
+
         for item in items.iter() {
             let anime = Anime::builder()
-                .auto(true)
                 .client_id(args.anilist_id)
                 .info(item)
-                .range(args.range.as_ref().unwrap_or_default())
+                .range(&args.range.as_ref().cloned().unwrap_or_default())
                 .referer(referrer)
                 .build()
                 .await?;
@@ -166,6 +166,7 @@ impl App {
                 .spawn()
                 .context(SystemError::MediaPlayer)?;
         }
+
         Ok(())
     }
 }

@@ -45,14 +45,7 @@ pub struct Args {
     pub dim_buff: usize,
 
     /// Episodes to download (es. `1-4` or `1,2,3,4`) [default: 1]
-    #[clap(
-        short = 'r',
-        long = "range",
-        name = "range",
-        required_unless_present("auto_episode"),
-        required_unless_present("interactive"),
-        required_unless_present("stream")
-    )]
+    #[clap(short = 'r', long = "range", name = "range")]
     pub range: Option<Range<u32>>,
 
     /// Search anime in remote archive
@@ -63,10 +56,6 @@ pub struct Args {
     #[clap(short = 'D', long = "default-dir")]
     pub auto_dir: bool,
 
-    /// Find automatically last episode
-    #[clap(short = 'c', long = "continue")]
-    pub auto_episode: bool,
-
     /// Override existent files
     #[clap(short, long)]
     pub force: bool,
@@ -76,11 +65,11 @@ pub struct Args {
     pub anilist_id: Option<u32>,
 
     /// Stream episode in a media player
-    #[clap(short, long)]
+    #[clap(short, long, conflicts_with = "range")]
     pub stream: bool,
 
     /// Interactive mode
-    #[clap(short, long)]
+    #[clap(short, long, conflicts_with = "range")]
     pub interactive: bool,
 
     /// Disable automatic proxy (useful for slow connections)
