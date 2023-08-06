@@ -44,7 +44,7 @@ impl Archive for AnimeWorld {
                         .and_then(|a| a.value().as_text())
                         .expect("No name found");
 
-                    tui::Choice::new(link, name)
+                    tui::Choice::new(link, name, None)
                 })
                 .collect::<Vec<_>>()
         };

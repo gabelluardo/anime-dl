@@ -118,11 +118,11 @@ impl AnimeBuilder {
             vec![self.info.url.clone()]
         };
 
-        let last_viewed = self.last_viewed().await;
+        let last_watched = self.last_watched().await;
 
         Ok(Anime {
             episodes,
-            last_viewed,
+            last_watched,
             info: self.info,
             path: self.path,
             range: self.range,
@@ -206,19 +206,21 @@ impl AnimeBuilder {
     }
 
     #[cfg(feature = "anilist")]
-    async fn last_viewed(&self) -> Option<u32> {
-        AniList::new(self.client_id).last_viewed(self.info.id).await
+    async fn last_watched(&self) -> Option<u32> {
+        AniList::new(self.client_id)
+            .last_watched(self.info.id)
+            .await
     }
 
     #[cfg(not(feature = "anilist"))]
-    async fn last_viewed(&self) -> Option<u32> {
+    async fn last_watched(&self) -> Option<u32> {
         None
     }
 }
 
 #[derive(Default, Debug)]
 pub struct Anime {
-    pub last_viewed: Option<u32>,
+    pub last_watched: Option<u32>,
     pub episodes: Vec<String>,
     pub path: PathBuf,
     pub info: AnimeInfo,
@@ -234,11 +236,9 @@ impl Anime {
         let mut choices = vec![];
         for (i, ep) in self.episodes.iter().enumerate() {
             let num = self.range.start() + i as u32;
-            let mut msg = self.info.name.to_string() + " - ep " + &zfill!(num, 2);
-            if Some(num) <= self.last_viewed {
-                msg.push_str(" ✔")
-            }
-            choices.push(Choice::new(ep, &msg))
+            let watched = Some(num) <= self.last_watched;
+            let name = self.info.name.to_string();
+            choices.push(Choice::new(ep, &name, Some(watched)))
         }
         choices
     }

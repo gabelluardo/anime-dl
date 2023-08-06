@@ -4,16 +4,26 @@ use crate::range::Range;
 use anyhow::{bail, Context, Result};
 use owo_colors::OwoColorize;
 use rustyline::{config::Configurer, error::ReadlineError, ColorMode, DefaultEditor};
+use tabled::{
+    settings::{
+        object::{Columns, Rows, Segment},
+        themes::Colorization,
+        Alignment, Color, Modify,
+    },
+    {builder::Builder, settings::Style},
+};
 
 #[derive(Clone)]
 pub struct Choice {
     link: String,
     name: String,
+    watched: Option<bool>,
 }
 
 impl Choice {
-    pub fn new(link: &str, name: &str) -> Self {
+    pub fn new(link: &str, name: &str, watched: Option<bool>) -> Self {
         Self {
+            watched,
             link: link.to_owned(),
             name: name.to_owned(),
         }
@@ -21,6 +31,7 @@ impl Choice {
 }
 
 fn parse_input(line: &str, choices: &[Choice]) -> Vec<String> {
+    let mut selected = vec![];
     let line = line
         .replace([',', '.'], " ")
         .chars()
@@ -30,7 +41,6 @@ fn parse_input(line: &str, choices: &[Choice]) -> Vec<String> {
         .split_ascii_whitespace()
         .map(|s| s.trim())
         .collect::<Vec<_>>();
-    let mut selected = vec![];
     for s in sel {
         if let Ok(num) = s.parse::<usize>() {
             selected.push(num);
@@ -40,15 +50,13 @@ fn parse_input(line: &str, choices: &[Choice]) -> Vec<String> {
     }
     selected.sort_unstable();
     selected.dedup();
+
     match selected.len() {
-        0 => choices
-            .iter()
-            .map(|c| c.link.to_string())
-            .collect::<Vec<_>>(),
+        0 => choices.iter().map(|c| c.link.clone()).collect::<Vec<_>>(),
         _ => selected
             .iter()
             .filter_map(|i| choices.get(i - 1))
-            .map(|c| c.link.to_string())
+            .map(|c| c.link.clone())
             .collect::<Vec<_>>(),
     }
 }
@@ -56,20 +64,52 @@ fn parse_input(line: &str, choices: &[Choice]) -> Vec<String> {
 pub fn get_choice(choices: &[Choice], query: Option<String>) -> Result<Vec<String>> {
     match choices.len() {
         0 => bail!(UserError::Choices),
-        1 => Ok(vec![choices[0].link.to_string()]),
+        1 => Ok(vec![choices[0].link.clone()]),
         _ => {
             let len = choices.len();
+            let is_anime_list = choices[0].watched.is_none();
             let name = query.map(|n| format!(" for `{n}`")).unwrap_or_default();
             let results = format!("{len} results found{name}");
             println!("{}\n", results.cyan().bold());
-            for (i, c) in choices.iter().enumerate() {
-                println!("[{}] {}", (i + 1).magenta(), c.name.green());
+
+            let mut builder = Builder::default();
+            if is_anime_list {
+                builder.set_header(["Index", "Name"]);
+            } else {
+                builder.set_header(["Episode", "Seen"]);
             }
+
+            for (i, c) in choices.iter().enumerate() {
+                let index = (i + 1).to_string();
+
+                if is_anime_list {
+                    builder.push_record([index, c.name.clone()]);
+                } else {
+                    let check = if c.watched.unwrap() { "✔" } else { "✗" };
+
+                    builder.push_record([index, check.to_string()]);
+                }
+            }
+
+            let mut table = builder.build();
+            table
+                .with(Style::rounded())
+                .with(Colorization::columns([Color::FG_MAGENTA, Color::FG_GREEN]))
+                .with(Modify::new(Rows::first()).with(Color::FG_WHITE));
+
+            if is_anime_list {
+                table.with(Modify::new(Columns::first()).with(Alignment::center()));
+            } else {
+                table.with(Modify::new(Segment::all()).with(Alignment::center()));
+            }
+
+            println!("{}", table);
             println!(
                 "\n{} {}",
                 "::".red(),
-                "Make your selection (eg: 1 2 3 or 1-3) [default=All, <q> for exit]".bold()
+                "Make your selection (eg: 1 2 3 or 1-3) [<enter> for all, <q> for exit]".bold()
             );
+
             let mut rl = DefaultEditor::new().context(UserError::InvalidInput)?;
             rl.set_color_mode(ColorMode::Enabled);
             let prompt = "~❯ ".red().to_string();
@@ -80,9 +120,11 @@ pub fn get_choice(choices: &[Choice], query: Option<String>) -> Result<Vec<Strin
                 Ok(line) => parse_input(&line, choices),
             };
             println!();
+
             if urls.is_empty() {
                 bail!(RemoteError::EpisodeNotFound);
             }
+
             Ok(urls)
         }
     }
@@ -96,12 +138,14 @@ pub fn get_token(url: &str) -> Result<String> {
     let input = ":: ".red().to_string() + &"Paste token here:".bold().to_string();
     let text = oauth + "\n\n" + &action + " " + &url + "\n\n" + &input;
     println!("{text}");
+
     let mut rl = DefaultEditor::new().context(UserError::InvalidInput)?;
     let prompt = "~❯ ".red().to_string();
     let line = rl
         .readline(&prompt)
         .map(|s| s.trim().to_string())
         .context(UserError::InvalidInput)?;
+
     Ok(line)
 }
 
@@ -112,12 +156,12 @@ mod tests {
     #[test]
     fn test_parse_input() {
         let choices = vec![
-            Choice::new("link1", "choice1"),
-            Choice::new("link2", "choice2"),
-            Choice::new("link3", "choice3"),
-            Choice::new("link4", "choice4"),
-            Choice::new("link5", "choice5"),
-            Choice::new("link6", "choice6"),
+            Choice::new("link1", "choice1", None),
+            Choice::new("link2", "choice2", None),
+            Choice::new("link3", "choice3", None),
+            Choice::new("link4", "choice4", None),
+            Choice::new("link5", "choice5", Some(true)),
+            Choice::new("link6", "choice6", Some(true)),
         ];
 
         let line = "1,2,3";
