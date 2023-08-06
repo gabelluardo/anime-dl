@@ -35,15 +35,10 @@ where
     }
 }
 
+#[allow(clippy::reversed_empty_ranges)]
 impl Default for Range<u32> {
     fn default() -> Self {
-        Self(1..=1)
-    }
-}
-
-impl Default for &Range<u32> {
-    fn default() -> Self {
-        &Range(1..=1)
+        Self(1..=0)
     }
 }
 
@@ -95,7 +90,7 @@ mod tests {
         assert!(range1.expand().eq(range2.expand()));
 
         let range3 = Range::default();
-        assert_eq!((*range3.start(), *range3.end()), (1, 1));
+        assert_eq!((*range3.start(), *range3.end()), (1, 0));
 
         let range4 = Range::<i32>::from_str("1-5").unwrap();
         assert_eq!((*range4.start(), *range4.end()), (1, 5));
