@@ -72,7 +72,6 @@ impl AnimeInfo {
 
 #[derive(Default, Debug)]
 pub struct AnimeBuilder {
-    auto: bool,
     client_id: Option<u32>,
     info: AnimeInfo,
     path: PathBuf,
@@ -81,11 +80,6 @@ pub struct AnimeBuilder {
 }
 
 impl AnimeBuilder {
-    pub fn auto(mut self, auto: bool) -> Self {
-        self.auto = auto;
-        self
-    }
-
     pub fn client_id(mut self, client_id: Option<u32>) -> Self {
         self.client_id = client_id;
         self
@@ -133,10 +127,12 @@ impl AnimeBuilder {
         let url = &self.info.url;
         let InfoNum { alignment, value } = self.info.num.unwrap();
 
-        if let Some((start, end)) = self.info.episodes {
-            self.range = Range::new(start, end);
-        } else if self.auto {
-            self.range = self.fill_range(url, alignment).await?;
+        if self.range.is_empty() {
+            if let Some((start, end)) = self.info.episodes {
+                self.range = Range::new(start, end);
+            } else {
+                self.range = self.fill_range(url, alignment).await?;
+            }
         }
 
         if self.range.is_empty() {

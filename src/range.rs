@@ -37,13 +37,8 @@ where
 
 impl Default for Range<u32> {
     fn default() -> Self {
-        Self(1..=1)
-    }
-}
-
-impl Default for &Range<u32> {
-    fn default() -> Self {
-        &Range(1..=1)
+        // empty range
+        Self(1..=0)
     }
 }
 

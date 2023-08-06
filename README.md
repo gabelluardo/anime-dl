@@ -26,7 +26,7 @@ cargo install --git https://github.com/gabelluardo/anime-dl
 I usually use this:
 
 ``` sh
-adl -cD <entries>
+adl -D <entries>
 ```
 
 to store every anime in a properly named directory.  
@@ -41,27 +41,26 @@ adl -sS <archive> <entries>
 
 Anyway, the helper is this: 
 
-``` 
-USAGE:
-    adl [OPTIONS] [ENTRIES]...
+```
+Usage: adl [OPTIONS] [ENTRIES]...
 
-ARGS:
-    <ENTRIES>...    Source urls or scraper's queries
+Arguments:
+  [ENTRIES]...  Source urls or scraper's queries
 
-OPTIONS:
-    -a, --anilist-id <ANILIST_ID>    Override app id environment variable [env: ANIMEDL_ID]
-    -c, --continue                   Find automatically last episode
-        --clean                      Delete app cache
-    -d, --dir <DIR>                  Root paths where store files [default: .]
-    -D, --default-dir                Save files in a folder with a default name
-    -f, --force                      Override existent files
-    -h, --help                       Print help information
-    -i, --interactive                Interactive mode
-    -m, --max-concurrent <max>       Maximum number of simultaneous downloads allowed [default: 24]
-    -p, --no-proxy                   Disable automatic proxy (useful for slow connections)
-    -r, --range <range>              Episodes to download (es. `1-4` or `1,2,3,4`) [default: 1]
-    -s, --stream                     Stream episode in a media player
-    -S, --site <site>                Search anime in remote archive [possible values: aw]
+Options:
+  -d, --dir <DIR>                Root path where store files [default: .]
+  -m, --max-concurrent <max>     Maximum number of simultaneous downloads allowed [default: 24]
+  -r, --range <range>            Episodes to download (es. `1-4` or `1,2,3,4`) [default: 1]
+  -S, --site <site>              Search anime in remote archive [possible values: aw]
+  -D, --default-dir              Save files in a folder with a default name
+  -f, --force                    Override existent files
+  -a, --anilist-id <ANILIST_ID>  Override app id environment variable [env: ANIMEDL_ID]
+  -s, --stream                   Stream episode in a media player
+  -i, --interactive              Interactive mode
+  -p, --no-proxy                 Disable automatic proxy (useful for slow connections)
+      --clean                    Delete app cache
+  -h, --help                     Print help
+  -V, --version                  Print version
 ```
 
 For parsing urls from a file (es. `urls`):
@@ -73,7 +72,7 @@ adl [FLAGS] [OPTIONS] $(cat urls)
 **⚠️ Streaming requires [mpv](https://mpv.io/) or [vlc](https://www.videolan.org/vlc/) ⚠️**
 
 ``` sh
-adl -sc <entries>
+adl -s <entries>
 ```
 
 ### Anilist 
