@@ -170,7 +170,7 @@ impl Archive for Placeholder {
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     use super::*;
     use reqwest::Url;
 
@@ -183,9 +183,12 @@ mod test {
             .to_owned()
     }
 
-    #[test]
-    fn test_pase_episodes_animeworld() {
-        let html = r#"
+    mod animeworld {
+        use super::*;
+
+        #[test]
+        fn test_parse_episodes() {
+            let html = r#"
             <ul class="episodes range acrive: data-range-id="0" style="display: block;">
                 <li class="episode">
                     <a data-episode-id="id" data-id="id" data-episode-num="1" data-num="1" data-base="1" data-comment="1" href="/play/anime_name/id">1</a>
@@ -224,12 +227,12 @@ mod test {
                     <a data-episode-id="id" data-id="id" data-episode-num="12" data-num="12" data-base="12" data-comment="12" href="/play/anime_name/id">12</a>
                 </li>
             </ul>"#;
-        let fragment = Html::parse_fragment(html);
-        let episodes = AnimeWorld::parse_episodes(&fragment).unwrap();
+            let fragment = Html::parse_fragment(html);
+            let episodes = AnimeWorld::parse_episodes(&fragment).unwrap();
 
-        assert_eq!(episodes, (1, 12));
+            assert_eq!(episodes, (1, 12));
 
-        let html = r#"
+            let html = r#"
             <div class="range">
                 <span data-range-id="0" class="rangetitle active">1 - 55</span>           
                 <span data-range-id="1" class="rangetitle">56 - 111</span>           
@@ -242,12 +245,12 @@ mod test {
                 <span data-range-id="8" class="rangetitle">413 - 462</span>           
                 <span data-range-id="9" class="rangetitle">463 - 500</span>           
             </div>"#;
-        let fragment = Html::parse_fragment(html);
-        let episodes = AnimeWorld::parse_episodes(&fragment).unwrap();
+            let fragment = Html::parse_fragment(html);
+            let episodes = AnimeWorld::parse_episodes(&fragment).unwrap();
 
-        assert_eq!(episodes, (1, 500));
+            assert_eq!(episodes, (1, 500));
 
-        let html = r#"
+            let html = r#"
             <div class="range"></div>
             <ul class="episodes range acrive: data-range-id="0" style="display: block;">
                 <li class="episode">
@@ -287,26 +290,27 @@ mod test {
                     <a data-episode-id="id" data-id="id" data-episode-num="12" data-num="12" data-base="12" data-comment="12" href="/play/anime_name/id">12</a>
                 </li>
             </ul>"#;
-        let fragment = Html::parse_fragment(html);
-        let episodes = AnimeWorld::parse_episodes(&fragment).unwrap();
+            let fragment = Html::parse_fragment(html);
+            let episodes = AnimeWorld::parse_episodes(&fragment).unwrap();
 
-        assert_eq!(episodes, (1, 12));
-    }
+            assert_eq!(episodes, (1, 12));
+        }
 
-    #[tokio::test]
-    #[ignore]
-    async fn test_remote_animeworld() {
-        let file = "SeishunButaYarouWaBunnyGirlSenpaiNoYumeWoMinai_Ep_01_SUB_ITA.mp4";
-        let anime = Arc::new(Mutex::new(Vec::new()));
-        let client = Arc::new(Client::default());
+        #[tokio::test]
+        #[ignore]
+        async fn test_remote() {
+            let file = "SeishunButaYarouWaBunnyGirlSenpaiNoYumeWoMinai_Ep_01_SUB_ITA.mp4";
+            let anime = Arc::new(Mutex::new(Vec::new()));
+            let client = Arc::new(Client::default());
 
-        AnimeWorld::run("bunny girl", client, anime.clone())
-            .await
-            .unwrap();
+            AnimeWorld::run("bunny girl", client, anime.clone())
+                .await
+                .unwrap();
 
-        let anime = anime.lock().await.clone();
-        let info = get_url(&anime.first().unwrap().origin);
+            let anime = anime.lock().await.clone();
+            let info = get_url(&anime.first().unwrap().origin);
 
-        assert_eq!(file, info)
+            assert_eq!(file, info)
+        }
     }
 }
