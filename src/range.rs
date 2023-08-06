@@ -35,9 +35,9 @@ where
     }
 }
 
+#[allow(clippy::reversed_empty_ranges)]
 impl Default for Range<u32> {
     fn default() -> Self {
-        // empty range
         Self(1..=0)
     }
 }
