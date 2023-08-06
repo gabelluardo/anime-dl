@@ -8,7 +8,6 @@ use reqwest::Client;
 #[cfg(feature = "anilist")]
 use crate::anilist::AniList;
 use crate::range::Range;
-use crate::tui::Choice;
 use crate::utils;
 
 #[derive(Clone, Copy, Default, Debug, PartialEq, Eq)]
@@ -151,6 +150,7 @@ impl AnimeBuilder {
             .expand()
             .map(|i| gen_url!(url, i + first, alignment))
             .collect::<Vec<_>>();
+
         Ok(episodes)
     }
 
@@ -159,6 +159,7 @@ impl AnimeBuilder {
         let mut err;
         let mut last;
         let mut counter = 2;
+
         // finds a possible least upper bound
         loop {
             err = counter;
@@ -174,6 +175,7 @@ impl AnimeBuilder {
                 Err(_) => break,
             }
         }
+
         // finds the real upper bound with a binary search
         while err != last + 1 {
             counter = (err + last) / 2;
@@ -188,6 +190,7 @@ impl AnimeBuilder {
                 Err(_) => err = counter,
             }
         }
+
         // Check if there is a 0 episode
         let first = match self.range.start() {
             1 => match client
@@ -202,6 +205,7 @@ impl AnimeBuilder {
             },
             _ => *self.range.start(),
         };
+
         Ok(Range::new(first, last))
     }
 
@@ -230,17 +234,6 @@ pub struct Anime {
 impl Anime {
     pub fn builder() -> AnimeBuilder {
         AnimeBuilder::default()
-    }
-
-    pub fn choices(&self) -> Vec<Choice> {
-        let mut choices = vec![];
-        for (i, ep) in self.episodes.iter().enumerate() {
-            let num = self.range.start() + i as u32;
-            let watched = Some(num) <= self.last_watched;
-            let name = self.info.name.to_string();
-            choices.push(Choice::new(ep, &name, Some(watched)))
-        }
-        choices
     }
 }
 

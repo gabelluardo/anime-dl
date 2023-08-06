@@ -66,7 +66,11 @@ impl App {
                 .build()
                 .await?;
             if args.interactive {
-                anime.episodes = unroll!(tui::get_choice(&anime.choices(), None))
+                anime.episodes = unroll!(tui::episodes_choice(
+                    &anime.episodes,
+                    anime.range.start().to_owned(),
+                    anime.last_watched
+                ))
             }
             for url in anime.episodes.into_iter() {
                 let root = path.clone();
@@ -149,7 +153,11 @@ impl App {
                 .referer(referrer)
                 .build()
                 .await?;
-            let urls = unroll!(tui::get_choice(&anime.choices(), None));
+            let urls = unroll!(tui::episodes_choice(
+                &anime.episodes,
+                anime.range.start().to_owned(),
+                anime.last_watched
+            ));
             Command::new(&cmd)
                 .arg(&cmd_referrer)
                 .args(urls)

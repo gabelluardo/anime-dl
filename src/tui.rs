@@ -17,20 +17,18 @@ use tabled::{
 pub struct Choice {
     link: String,
     name: String,
-    watched: Option<bool>,
 }
 
 impl Choice {
-    pub fn new(link: &str, name: &str, watched: Option<bool>) -> Self {
+    pub fn new(link: &str, name: &str) -> Self {
         Self {
-            watched,
             link: link.to_owned(),
             name: name.to_owned(),
         }
     }
 }
 
-fn parse_input(line: &str, choices: &[Choice]) -> Vec<String> {
+fn parse_input(line: &str, urls: &[String], index_start: usize) -> Vec<String> {
     let mut selected = vec![];
     let line = line
         .replace([',', '.'], " ")
@@ -41,67 +39,104 @@ fn parse_input(line: &str, choices: &[Choice]) -> Vec<String> {
         .split_ascii_whitespace()
         .map(|s| s.trim())
         .collect::<Vec<_>>();
+
     for s in sel {
         if let Ok(num) = s.parse::<usize>() {
             selected.push(num);
-        } else if let Ok(range) = Range::<usize>::parse_and_fill(s, choices.len()) {
+        } else if let Ok(range) = Range::<usize>::parse_and_fill(s, urls.len()) {
             selected.extend(range.expand())
         }
     }
+
     selected.sort_unstable();
     selected.dedup();
 
-    match selected.len() {
-        0 => choices.iter().map(|c| c.link.clone()).collect::<Vec<_>>(),
-        _ => selected
+    if selected.is_empty() {
+        urls.to_vec()
+    } else {
+        selected
             .iter()
-            .filter_map(|i| choices.get(i - 1))
-            .map(|c| c.link.clone())
-            .collect::<Vec<_>>(),
+            .filter_map(|i| urls.get(i - index_start).cloned())
+            .collect::<Vec<_>>()
     }
 }
 
-pub fn get_choice(choices: &[Choice], query: Option<String>) -> Result<Vec<String>> {
-    match choices.len() {
+pub fn series_choice(series: &[Choice], query: String) -> Result<Vec<String>> {
+    match series.len() {
         0 => bail!(UserError::Choices),
-        1 => Ok(vec![choices[0].link.clone()]),
+        1 => Ok(vec![series[0].link.to_owned()]),
         _ => {
-            let len = choices.len();
-            let is_anime_list = choices[0].watched.is_none();
-            let name = query.map(|n| format!(" for `{n}`")).unwrap_or_default();
-            let results = format!("{len} results found{name}");
+            let len = series.len();
+            let index_start = 1;
+            let results = format!("{len} results found for `{query}`");
             println!("{}\n", results.cyan().bold());
 
             let mut builder = Builder::default();
-            if is_anime_list {
-                builder.set_header(["Index", "Name"]);
-            } else {
-                builder.set_header(["Episode", "Seen"]);
-            }
-
-            for (i, c) in choices.iter().enumerate() {
-                let index = (i + 1).to_string();
-
-                if is_anime_list {
-                    builder.push_record([index, c.name.clone()]);
-                } else {
-                    let check = if c.watched.unwrap() { "✔" } else { "✗" };
-
-                    builder.push_record([index, check.to_string()]);
-                }
-            }
+            builder.set_header(["Index", "Name"]);
+            series.iter().enumerate().for_each(|(i, c)| {
+                builder.push_record([(i + index_start).to_string(), c.name.clone()]);
+            });
 
             let mut table = builder.build();
             table
                 .with(Style::rounded())
                 .with(Colorization::columns([Color::FG_MAGENTA, Color::FG_GREEN]))
-                .with(Modify::new(Rows::first()).with(Color::FG_WHITE));
+                .with(Modify::new(Rows::first()).with(Color::FG_WHITE))
+                .with(Modify::new(Columns::first()).with(Alignment::center()));
 
-            if is_anime_list {
-                table.with(Modify::new(Columns::first()).with(Alignment::center()));
-            } else {
-                table.with(Modify::new(Segment::all()).with(Alignment::center()));
+            println!("{}", table);
+            println!(
+                "\n{} {}",
+                "::".red(),
+                "Make your selection (eg: 1 2 3 or 1-3) [<enter> for all, <q> for exit]".bold()
+            );
+
+            let urls = series.iter().map(|c| c.link.clone()).collect::<Vec<_>>();
+            let mut rl = DefaultEditor::new().context(UserError::InvalidInput)?;
+            rl.set_color_mode(ColorMode::Enabled);
+            let prompt = "~❯ ".red().to_string();
+            let res = match rl.readline(&prompt) {
+                Err(ReadlineError::Interrupted | ReadlineError::Eof) => bail!(Quit),
+                Err(_) => bail!(UserError::InvalidInput),
+                Ok(line) if line.contains('q') => bail!(Quit),
+                Ok(line) => parse_input(&line, &urls, index_start),
+            };
+            println!();
+
+            if res.is_empty() {
+                bail!(RemoteError::EpisodeNotFound);
             }
+
+            Ok(res)
+        }
+    }
+}
+
+pub fn episodes_choice(
+    episodes: &[String],
+    start_range: u32,
+    last_watched: Option<u32>,
+) -> Result<Vec<String>> {
+    match episodes.len() {
+        0 => bail!(UserError::Choices),
+        1 => Ok(vec![episodes[0].to_owned()]),
+        _ => {
+            let mut builder = Builder::default();
+            builder.set_header(["Episode", "Seen"]);
+            episodes.iter().enumerate().for_each(|(i, _)| {
+                let index = start_range + i as u32;
+                let watched = Some(index) <= last_watched;
+                let check = if watched { "✔" } else { "✗" };
+
+                builder.push_record([index.to_string(), check.to_string()]);
+            });
+
+            let mut table = builder.build();
+            table
+                .with(Style::rounded())
+                .with(Colorization::columns([Color::FG_MAGENTA, Color::FG_GREEN]))
+                .with(Modify::new(Rows::first()).with(Color::FG_WHITE))
+                .with(Modify::new(Segment::all()).with(Alignment::center()));
 
             println!("{}", table);
             println!(
@@ -113,19 +148,19 @@ pub fn get_choice(choices: &[Choice], query: Option<String>) -> Result<Vec<Strin
             let mut rl = DefaultEditor::new().context(UserError::InvalidInput)?;
             rl.set_color_mode(ColorMode::Enabled);
             let prompt = "~❯ ".red().to_string();
-            let urls = match rl.readline(&prompt) {
+            let res = match rl.readline(&prompt) {
                 Err(ReadlineError::Interrupted | ReadlineError::Eof) => bail!(Quit),
                 Err(_) => bail!(UserError::InvalidInput),
                 Ok(line) if line.contains('q') => bail!(Quit),
-                Ok(line) => parse_input(&line, choices),
+                Ok(line) => parse_input(&line, episodes, start_range as usize),
             };
             println!();
 
-            if urls.is_empty() {
+            if res.is_empty() {
                 bail!(RemoteError::EpisodeNotFound);
             }
 
-            Ok(urls)
+            Ok(res)
         }
     }
 }
@@ -155,47 +190,47 @@ mod tests {
 
     #[test]
     fn test_parse_input() {
-        let choices = vec![
-            Choice::new("link1", "choice1", None),
-            Choice::new("link2", "choice2", None),
-            Choice::new("link3", "choice3", None),
-            Choice::new("link4", "choice4", None),
-            Choice::new("link5", "choice5", Some(true)),
-            Choice::new("link6", "choice6", Some(true)),
+        let urls = vec![
+            "link1".to_string(),
+            "link2".to_string(),
+            "link3".to_string(),
+            "link4".to_string(),
+            "link5".to_string(),
+            "link6".to_string(),
         ];
 
         let line = "1,2,3";
         assert_eq!(
-            parse_input(line, &choices),
+            parse_input(line, &urls, 1),
             vec!["link1", "link2", "link3",]
         );
 
         let line = "1-5";
         assert_eq!(
-            parse_input(line, &choices),
+            parse_input(line, &urls, 1),
             vec!["link1", "link2", "link3", "link4", "link5",]
         );
 
         let line = "1-3, 6";
         assert_eq!(
-            parse_input(line, &choices),
+            parse_input(line, &urls, 1),
             vec!["link1", "link2", "link3", "link6",]
         );
 
         let line = "1-";
         assert_eq!(
-            parse_input(line, &choices),
+            parse_input(line, &urls, 1),
             vec!["link1", "link2", "link3", "link4", "link5", "link6",]
         );
         let line = "";
         assert_eq!(
-            parse_input(line, &choices),
+            parse_input(line, &urls, 1),
             vec!["link1", "link2", "link3", "link4", "link5", "link6",]
         );
 
         let line = "1-2, 4-6";
         assert_eq!(
-            parse_input(line, &choices),
+            parse_input(line, &urls, 1),
             vec!["link1", "link2", "link4", "link5", "link6",]
         );
     }
