@@ -114,13 +114,16 @@ pub fn series_choice(series: &[Choice], query: String) -> Result<Vec<String>> {
 
 pub fn episodes_choice(
     episodes: &[String],
-    start_range: u32,
     last_watched: Option<u32>,
+    name: &str,
+    start_range: u32,
 ) -> Result<Vec<String>> {
     match episodes.len() {
         0 => bail!(UserError::Choices),
         1 => Ok(vec![episodes[0].to_owned()]),
         _ => {
+            println!(" {}", name.cyan().bold());
+
             let mut builder = Builder::default();
             builder.set_header(["Episode", "Seen"]);
             episodes.iter().enumerate().for_each(|(i, _)| {

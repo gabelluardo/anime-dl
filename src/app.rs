@@ -67,8 +67,9 @@ impl App {
             if args.interactive {
                 anime.episodes = unroll!(tui::episodes_choice(
                     &anime.episodes,
+                    anime.last_watched,
+                    &anime.info.name,
                     anime.range.start().to_owned(),
-                    anime.last_watched
                 ))
             }
             for url in anime.episodes.into_iter() {
@@ -155,8 +156,9 @@ impl App {
                 .await?;
             let urls = unroll!(tui::episodes_choice(
                 &anime.episodes,
+                anime.last_watched,
+                &anime.info.name,
                 anime.range.start().to_owned(),
-                anime.last_watched
             ));
             Command::new(&cmd)
                 .arg(&cmd_referrer)
