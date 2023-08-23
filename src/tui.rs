@@ -98,7 +98,7 @@ pub fn series_choice(series: &[Choice], query: String) -> Result<Vec<String>> {
             let res = match rl.readline(&prompt) {
                 Err(ReadlineError::Interrupted | ReadlineError::Eof) => bail!(Quit),
                 Err(_) => bail!(UserError::InvalidInput),
-                Ok(line) if line.contains('q') => bail!(Quit),
+                Ok(line) if line.to_lowercase().contains('q') => bail!(Quit),
                 Ok(line) => parse_input(&line, &urls, index_start),
             };
             println!();
@@ -124,6 +124,7 @@ pub fn episodes_choice(
         _ => {
             println!(" {}", name.cyan().bold());
 
+            let mut next_to_watch = None;
             let mut builder = Builder::default();
             builder.set_header(["Episode", "Seen"]);
             episodes.iter().enumerate().for_each(|(i, _)| {
@@ -131,15 +132,27 @@ pub fn episodes_choice(
                 let watched = Some(index) <= last_watched;
                 let check = if watched { "✔" } else { "✗" };
 
+                if next_to_watch.is_none() && !watched {
+                    next_to_watch = Some(index as usize)
+                }
+
                 builder.push_record([index.to_string(), check.to_string()]);
             });
 
             let mut table = builder.build();
+
             table
                 .with(Style::rounded())
                 .with(Colorization::columns([Color::FG_MAGENTA, Color::FG_GREEN]))
                 .with(Modify::new(Rows::first()).with(Color::FG_WHITE))
                 .with(Modify::new(Segment::all()).with(Alignment::center()));
+
+            if let Some(index) = next_to_watch {
+                table.with(Colorization::exact(
+                    [Color::FG_BLACK | Color::BG_WHITE],
+                    Rows::single(index),
+                ));
+            }
 
             println!("{}", table);
             println!(
@@ -154,7 +167,7 @@ pub fn episodes_choice(
             let res = match rl.readline(&prompt) {
                 Err(ReadlineError::Interrupted | ReadlineError::Eof) => bail!(Quit),
                 Err(_) => bail!(UserError::InvalidInput),
-                Ok(line) if line.contains('q') => bail!(Quit),
+                Ok(line) if line.to_lowercase().contains('q') => bail!(Quit),
                 Ok(line) => parse_input(&line, episodes, start_range as usize),
             };
             println!();
