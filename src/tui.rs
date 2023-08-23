@@ -98,7 +98,7 @@ pub fn series_choice(series: &[Choice], query: String) -> Result<Vec<String>> {
             let res = match rl.readline(&prompt) {
                 Err(ReadlineError::Interrupted | ReadlineError::Eof) => bail!(Quit),
                 Err(_) => bail!(UserError::InvalidInput),
-                Ok(line) if line.to_lowercase().contains('q') => bail!(Quit),
+                Ok(line) if line.contains(['q', 'Q']) => bail!(Quit),
                 Ok(line) => parse_input(&line, &urls, index_start),
             };
             println!();
@@ -167,7 +167,7 @@ pub fn episodes_choice(
             let res = match rl.readline(&prompt) {
                 Err(ReadlineError::Interrupted | ReadlineError::Eof) => bail!(Quit),
                 Err(_) => bail!(UserError::InvalidInput),
-                Ok(line) if line.to_lowercase().contains('q') => bail!(Quit),
+                Ok(line) if line.contains(['q', 'Q']) => bail!(Quit),
                 Ok(line) => parse_input(&line, episodes, start_range as usize),
             };
             println!();
