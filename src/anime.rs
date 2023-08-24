@@ -8,7 +8,6 @@ use reqwest::Client;
 #[cfg(feature = "anilist")]
 use crate::anilist::AniList;
 use crate::range::Range;
-use crate::tui::Choice;
 use crate::utils;
 
 #[derive(Clone, Copy, Default, Debug, PartialEq, Eq)]
@@ -112,11 +111,11 @@ impl AnimeBuilder {
             vec![self.info.url.clone()]
         };
 
-        let last_viewed = self.last_viewed().await;
+        let last_watched = self.last_watched().await;
 
         Ok(Anime {
             episodes,
-            last_viewed,
+            last_watched,
             info: self.info,
             path: self.path,
             range: self.range,
@@ -147,6 +146,7 @@ impl AnimeBuilder {
             .expand()
             .map(|i| gen_url!(url, i + first, alignment))
             .collect::<Vec<_>>();
+
         Ok(episodes)
     }
 
@@ -155,6 +155,7 @@ impl AnimeBuilder {
         let mut err;
         let mut last;
         let mut counter = 2;
+
         // finds a possible least upper bound
         loop {
             err = counter;
@@ -170,6 +171,7 @@ impl AnimeBuilder {
                 Err(_) => break,
             }
         }
+
         // finds the real upper bound with a binary search
         while err != last + 1 {
             counter = (err + last) / 2;
@@ -184,6 +186,7 @@ impl AnimeBuilder {
                 Err(_) => err = counter,
             }
         }
+
         // Check if there is a 0 episode
         let first = match self.range.start() {
             1 => match client
@@ -198,23 +201,26 @@ impl AnimeBuilder {
             },
             _ => *self.range.start(),
         };
+
         Ok(Range::new(first, last))
     }
 
     #[cfg(feature = "anilist")]
-    async fn last_viewed(&self) -> Option<u32> {
-        AniList::new(self.client_id).last_viewed(self.info.id).await
+    async fn last_watched(&self) -> Option<u32> {
+        AniList::new(self.client_id)
+            .last_watched(self.info.id)
+            .await
     }
 
     #[cfg(not(feature = "anilist"))]
-    async fn last_viewed(&self) -> Option<u32> {
+    async fn last_watched(&self) -> Option<u32> {
         None
     }
 }
 
 #[derive(Default, Debug)]
 pub struct Anime {
-    pub last_viewed: Option<u32>,
+    pub last_watched: Option<u32>,
     pub episodes: Vec<String>,
     pub path: PathBuf,
     pub info: AnimeInfo,
@@ -224,19 +230,6 @@ pub struct Anime {
 impl Anime {
     pub fn builder() -> AnimeBuilder {
         AnimeBuilder::default()
-    }
-
-    pub fn choices(&self) -> Vec<Choice> {
-        let mut choices = vec![];
-        for (i, ep) in self.episodes.iter().enumerate() {
-            let num = self.range.start() + i as u32;
-            let mut msg = self.info.name.to_string() + " - ep " + &zfill!(num, 2);
-            if Some(num) <= self.last_viewed {
-                msg.push_str(" ✔")
-            }
-            choices.push(Choice::new(ep, &msg))
-        }
-        choices
     }
 }
 

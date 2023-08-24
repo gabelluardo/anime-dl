@@ -99,7 +99,7 @@ impl AniList {
         Config::new().clean()
     }
 
-    pub async fn last_viewed(&self, anime_id: Option<u32>) -> Option<u32> {
+    pub async fn last_watched(&self, anime_id: Option<u32>) -> Option<u32> {
         let url = "https://graphql.anilist.co";
         let variables = progress_query::Variables {
             id: anime_id.map(|u| u as i64),

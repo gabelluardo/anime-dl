@@ -51,7 +51,7 @@ impl Archive for AnimeWorld {
         if search_results.is_empty() {
             bail!(RemoteError::AnimeNotFound)
         }
-        let selected = tui::get_choice(&search_results, Some(query.replace('+', " ")))?;
+        let selected = tui::series_choice(&search_results, query.replace('+', " "))?;
 
         let mut res: Vec<AnimeInfo> = vec![];
         for c in selected {
