@@ -1,3 +1,4 @@
+use crate::anime::Anime;
 use crate::errors::{Quit, RemoteError, UserError};
 use crate::range::Range;
 
@@ -112,24 +113,19 @@ pub fn series_choice(series: &[Choice], query: String) -> Result<Vec<String>> {
     }
 }
 
-pub fn episodes_choice(
-    episodes: &[String],
-    last_watched: Option<u32>,
-    name: &str,
-    start_range: u32,
-) -> Result<Vec<String>> {
-    match episodes.len() {
+pub fn episodes_choice(anime: &Anime) -> Result<Vec<String>> {
+    match anime.episodes.len() {
         0 => bail!(UserError::Choices),
-        1 => Ok(vec![episodes[0].to_owned()]),
+        1 => Ok(vec![anime.episodes[0].to_owned()]),
         _ => {
-            println!(" {}", name.cyan().bold());
+            println!(" {}", anime.info.name.cyan().bold());
 
             let mut next_to_watch = None;
             let mut builder = Builder::default();
             builder.set_header(["Episode", "Seen"]);
-            episodes.iter().enumerate().for_each(|(i, _)| {
-                let index = start_range + i as u32;
-                let watched = Some(index) <= last_watched;
+            anime.episodes.iter().enumerate().for_each(|(i, _)| {
+                let index = anime.start + i as u32;
+                let watched = Some(index) <= anime.last_watched;
                 let check = if watched { "✔" } else { "✗" };
 
                 if next_to_watch.is_none() && !watched {
@@ -168,7 +164,7 @@ pub fn episodes_choice(
                 Err(ReadlineError::Interrupted | ReadlineError::Eof) => bail!(Quit),
                 Err(_) => bail!(UserError::InvalidInput),
                 Ok(line) if line.contains(['q', 'Q']) => bail!(Quit),
-                Ok(line) => parse_input(&line, episodes, start_range as usize),
+                Ok(line) => parse_input(&line, &anime.episodes, anime.start as usize),
             };
             println!();
 

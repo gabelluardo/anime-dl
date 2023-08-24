@@ -12,7 +12,7 @@ use which::which;
 
 #[cfg(feature = "anilist")]
 use crate::anilist::AniList;
-use crate::anime::{Anime, AnimeInfo};
+use crate::anime::{self, Anime, AnimeInfo};
 use crate::cli::Args;
 use crate::errors::{RemoteError, SystemError};
 use crate::file::FileDest;
@@ -51,28 +51,29 @@ impl App {
     }
 
     async fn download(args: Args, items: ScraperItems) -> Result<()> {
-        let referer = &items.referrer;
+        let referrer = &items.referrer;
         let bars = utils::Bars::new();
         let mut pool = vec![];
+
         for info in items.iter() {
-            let path = utils::get_path(&args, &info.url)?;
-            let mut anime = Anime::builder()
-                .client_id(args.anilist_id)
-                .info(info)
-                .range(&args.range.as_ref().cloned().unwrap_or_default())
-                .referer(referer)
-                .path(&path)
-                .build()
-                .await?;
+            let last_watched = anime::last_watched(args.anilist_id, info.id).await;
+            let mut anime = Anime::new(info, last_watched);
+
+            // if no episode is found, try with the download url
+            // if anime.episodes.is_empty() {
+            //     let range = args.range.as_ref().cloned().unwrap_or_default();
+            //     if let Ok(episodes) = anime::find_episodes(info, referrer, &range).await {
+            //         anime.episodes = episodes;
+            //         anime.start = *range.start();
+            //     }
+            // }
+
             if args.interactive {
-                anime.episodes = unroll!(tui::episodes_choice(
-                    &anime.episodes,
-                    anime.last_watched,
-                    &anime.info.name,
-                    anime.range.start().to_owned(),
-                ))
+                anime.episodes = unroll!(tui::episodes_choice(&anime))
             }
-            for url in anime.episodes.into_iter() {
+
+            let path = utils::get_path(&args, &anime.info.url)?;
+            for url in anime.episodes {
                 let root = path.clone();
                 let overwrite = args.force;
                 let pb = bars.add_bar();
@@ -82,7 +83,7 @@ impl App {
                     let filename = utils::parse_filename(&url)?;
                     let source_size = client
                         .head(&url)
-                        .header(REFERER, referer)
+                        .header(REFERER, referrer)
                         .send()
                         .await?
                         .error_for_status()
@@ -111,7 +112,7 @@ impl App {
                     let mut source = client
                         .get(url)
                         .header(RANGE, format!("bytes={}-", file.size))
-                        .header(REFERER, referer)
+                        .header(REFERER, referrer)
                         .send()
                         .await?
                         .error_for_status()?;
@@ -146,20 +147,20 @@ impl App {
             ),
         };
 
-        for item in items.iter() {
-            let anime = Anime::builder()
-                .client_id(args.anilist_id)
-                .info(item)
-                .range(&args.range.as_ref().cloned().unwrap_or_default())
-                .referer(referrer)
-                .build()
-                .await?;
-            let urls = unroll!(tui::episodes_choice(
-                &anime.episodes,
-                anime.last_watched,
-                &anime.info.name,
-                anime.range.start().to_owned(),
-            ));
+        for info in items.iter() {
+            let last_watched = anime::last_watched(args.anilist_id, info.id).await;
+            let anime = Anime::new(info, last_watched);
+
+            // if no episode is found, try with the download url
+            // if anime.episodes.is_empty() {
+            //     let range = args.range.as_ref().cloned().unwrap_or_default();
+            //     if let Ok(episodes) = anime::find_episodes(info, referrer, &range).await {
+            //         anime.episodes = episodes;
+            //         anime.start = *range.start();
+            //     }
+            // }
+
+            let urls = unroll!(tui::episodes_choice(&anime));
             Command::new(&cmd)
                 .arg(&cmd_referrer)
                 .args(urls)

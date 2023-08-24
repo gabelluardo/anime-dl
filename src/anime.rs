@@ -1,6 +1,4 @@
-use std::path::{Path, PathBuf};
-
-use anyhow::{bail, Result};
+use anyhow::Result;
 use nom::Slice;
 use reqwest::header::REFERER;
 use reqwest::Client;
@@ -70,167 +68,115 @@ impl AnimeInfo {
 }
 
 #[derive(Default, Debug)]
-pub struct AnimeBuilder {
-    client_id: Option<u32>,
-    info: AnimeInfo,
-    path: PathBuf,
-    range: Range<u32>,
-    referrer: String,
-}
-
-impl AnimeBuilder {
-    pub fn client_id(mut self, client_id: Option<u32>) -> Self {
-        self.client_id = client_id;
-        self
-    }
-
-    pub fn info(mut self, info: &AnimeInfo) -> Self {
-        self.info = info.to_owned();
-        self
-    }
-
-    pub fn range(mut self, range: &Range<u32>) -> Self {
-        self.range = range.to_owned();
-        self
-    }
-
-    pub fn path(mut self, path: &Path) -> Self {
-        self.path = path.to_owned();
-        self
-    }
-
-    pub fn referer(mut self, referer: &str) -> Self {
-        self.referrer = referer.to_string();
-        self
-    }
-
-    pub async fn build(mut self) -> Result<Anime> {
-        let episodes = if self.info.num.is_some() {
-            self.episodes().await?
-        } else {
-            vec![self.info.url.clone()]
-        };
-
-        let last_watched = self.last_watched().await;
-
-        Ok(Anime {
-            episodes,
-            last_watched,
-            info: self.info,
-            path: self.path,
-            range: self.range,
-        })
-    }
-
-    async fn episodes(&mut self) -> Result<Vec<String>> {
-        let url = &self.info.url;
-        let InfoNum { alignment, value } = self.info.num.unwrap();
-
-        if self.range.is_empty() {
-            if let Some((start, end)) = self.info.episodes {
-                self.range = Range::new(start, end);
-            } else {
-                self.range = self.fill_range(url, alignment).await?;
-            }
-        }
-
-        if self.range.is_empty() {
-            bail!("Unable to download")
-        }
-
-        // for when the range starts with episode 0
-        let first = if value > 0 { value - 1 } else { value };
-
-        let episodes = self
-            .range
-            .expand()
-            .map(|i| gen_url!(url, i + first, alignment))
-            .collect::<Vec<_>>();
-
-        Ok(episodes)
-    }
-
-    async fn fill_range(&self, url: &str, alignment: usize) -> Result<Range<u32>> {
-        let client = Client::new();
-        let mut err;
-        let mut last;
-        let mut counter = 2;
-
-        // finds a possible least upper bound
-        loop {
-            err = counter;
-            last = counter / 2;
-            match client
-                .head(&gen_url!(url, counter, alignment))
-                .header(REFERER, &self.referrer)
-                .send()
-                .await?
-                .error_for_status()
-            {
-                Ok(_) => counter *= 2,
-                Err(_) => break,
-            }
-        }
-
-        // finds the real upper bound with a binary search
-        while err != last + 1 {
-            counter = (err + last) / 2;
-            match client
-                .head(&gen_url!(url, counter, alignment))
-                .header(REFERER, &self.referrer)
-                .send()
-                .await?
-                .error_for_status()
-            {
-                Ok(_) => last = counter,
-                Err(_) => err = counter,
-            }
-        }
-
-        // Check if there is a 0 episode
-        let first = match self.range.start() {
-            1 => match client
-                .head(&gen_url!(url, 0, alignment))
-                .header(REFERER, &self.referrer)
-                .send()
-                .await?
-                .error_for_status()
-            {
-                Ok(_) => 0,
-                Err(_) => 1,
-            },
-            _ => *self.range.start(),
-        };
-
-        Ok(Range::new(first, last))
-    }
-
-    #[cfg(feature = "anilist")]
-    async fn last_watched(&self) -> Option<u32> {
-        AniList::new(self.client_id)
-            .last_watched(self.info.id)
-            .await
-    }
-
-    #[cfg(not(feature = "anilist"))]
-    async fn last_watched(&self) -> Option<u32> {
-        None
-    }
-}
-
-#[derive(Default, Debug)]
 pub struct Anime {
-    pub last_watched: Option<u32>,
     pub episodes: Vec<String>,
-    pub path: PathBuf,
     pub info: AnimeInfo,
-    pub range: Range<u32>,
+    pub last_watched: Option<u32>,
+    pub start: u32,
 }
 
 impl Anime {
-    pub fn builder() -> AnimeBuilder {
-        AnimeBuilder::default()
+    pub fn new(info: &AnimeInfo, last_watched: Option<u32>) -> Self {
+        let episodes = match info {
+            AnimeInfo {
+                url,
+                num: Some(InfoNum { alignment, value }),
+                episodes: Some((start, end)),
+                ..
+            } => {
+                // for when the range starts with episode 0
+                let first = if *value > 0 { value - 1 } else { *value };
+
+                (*start..=*end)
+                    .map(|i| gen_url!(url, i + first, alignment))
+                    .collect()
+            }
+            _ => vec![info.url.to_owned()],
+        };
+
+        Anime {
+            episodes,
+            last_watched,
+            info: info.to_owned(),
+            start: info.num.unwrap_or_default().value,
+        }
     }
+}
+
+#[cfg(feature = "anilist")]
+pub async fn last_watched(client_id: Option<u32>, anime_id: Option<u32>) -> Option<u32> {
+    AniList::new(client_id).last_watched(anime_id).await
+}
+
+#[cfg(not(feature = "anilist"))]
+pub async fn last_watched(client_id: Option<u32>, anime_id: u32) -> Option<u32> {
+    None
+}
+
+pub async fn _find_episodes(
+    info: &AnimeInfo,
+    referrer: &str,
+    range: &Range<u32>,
+) -> Result<Vec<String>> {
+    let InfoNum { alignment, value } = info.num.unwrap();
+    let url = &info.url;
+    let client = Client::new();
+    let mut err;
+    let mut end;
+    let mut counter = 2;
+
+    // finds a possible least upper bound
+    loop {
+        err = counter;
+        end = counter / 2;
+        match client
+            .head(&gen_url!(url, counter, alignment))
+            .header(REFERER, referrer)
+            .send()
+            .await?
+            .error_for_status()
+        {
+            Ok(_) => counter *= 2,
+            Err(_) => break,
+        }
+    }
+
+    // finds the real upper bound with a binary search
+    while err != end + 1 {
+        counter = (err + end) / 2;
+        match client
+            .head(&gen_url!(url, counter, alignment))
+            .header(REFERER, referrer)
+            .send()
+            .await?
+            .error_for_status()
+        {
+            Ok(_) => end = counter,
+            Err(_) => err = counter,
+        }
+    }
+
+    // Check if there is a 0 episode
+    let start = match range.start() {
+        1 => match client
+            .head(&gen_url!(url, 0, alignment))
+            .header(REFERER, referrer)
+            .send()
+            .await?
+            .error_for_status()
+        {
+            Ok(_) => 0,
+            Err(_) => 1,
+        },
+        _ => *range.start(),
+    };
+
+    // for when the range starts with episode 0
+    let first = if value > 0 { value - 1 } else { value };
+
+    Ok((start..=end)
+        .map(|i| gen_url!(url, i + first, alignment))
+        .collect())
 }
 
 #[cfg(test)]
