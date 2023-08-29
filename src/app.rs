@@ -129,7 +129,7 @@ impl App {
         }
 
         stream::iter(pool)
-            .buffer_unordered(args.dim_buff)
+            .buffer_unordered(args.dim_buff.max(1))
             .collect::<Vec<_>>()
             .await;
 
