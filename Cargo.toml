@@ -44,7 +44,7 @@ rustyline = "^12.0"
 scraper = "^0.17"
 tabled = "0.14.0"
 thiserror = "^1.0"
-tokio-stream = "^0.1.12"
+tokio-stream = "^0.1.14"
 which = "^4.4.0"
 
 clap = { version = "^4.4", features = ["derive", "env"] }
