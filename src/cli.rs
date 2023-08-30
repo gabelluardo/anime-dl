@@ -26,7 +26,7 @@ pub struct Args {
         default_value = "24",
         short = 'm',
         long = "max-concurrent",
-        name = "max"
+        name = "MAX"
     )]
     pub dim_buff: usize,
 

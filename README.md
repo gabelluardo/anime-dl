@@ -36,9 +36,7 @@ Or for stream after scraped an archive:
 adl -sS <archive> <entries>
 ```
 
-[![asciicast](https://asciinema.org/a/392118.svg)](https://asciinema.org/a/392118)
-
-Anyway, the helper is this:
+[![asciicast](https://asciinema.org/a/wdjS4wxIvQrTR7IDLGFW38cM6.svg)](https://asciinema.org/a/wdjS4wxIvQrTR7IDLGFW38cM6)
 
 ```
 Usage: adl [OPTIONS] [ENTRIES]...
@@ -48,9 +46,9 @@ Arguments:
 
 Options:
   -d, --dir <DIR>                Root path where store files [default: .]
-  -m, --max-concurrent <max>     Maximum number of simultaneous downloads allowed [default: 24]
-  -r, --range <range>            Episodes to download (es. `1-4` or `1,2,3,4`) [default: 1]
-  -S, --site <site>              Search anime in remote archive [possible values: aw]
+  -m, --max-concurrent <MAX>     Maximum number of simultaneous downloads allowed [default: 24]
+  -r, --range <RANGE>            Episodes to download (es. `1-4` or `1,2,3,4`) [default: 1]
+  -S, --site <SITE>              Search anime in remote archive [possible values: aw]
   -D, --default-dir              Save files in a folder with a default name
   -f, --force                    Override existent files
   -a, --anilist-id <ANILIST_ID>  Override app id environment variable [env: ANIMEDL_ID]
@@ -86,4 +84,4 @@ Currently, there is only an **italian** language scraper, contribution for suppo
 
 ### License
 
-Made with <3 by @gabelluardo in [GPLv3](LICENSE)
+Made with 🫶 by **[@gabelluardo](https://github.com/gabelluardo)** in [GPLv3](LICENSE)
