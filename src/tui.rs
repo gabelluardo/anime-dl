@@ -203,12 +203,12 @@ mod tests {
     #[test]
     fn test_parse_input() {
         let urls = vec![
-            "link1".to_string(),
-            "link2".to_string(),
-            "link3".to_string(),
-            "link4".to_string(),
-            "link5".to_string(),
-            "link6".to_string(),
+            "link1".into(),
+            "link2".into(),
+            "link3".into(),
+            "link4".into(),
+            "link5".into(),
+            "link6".into(),
         ];
 
         let line = "1,2,3";

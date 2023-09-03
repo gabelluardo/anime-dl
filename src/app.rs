@@ -103,7 +103,7 @@ impl App {
                     let msg = if let Some(inum) = info.num {
                         "Ep. ".to_string() + &zfill!(inum.value, 2) + " " + &info.name
                     } else {
-                        info.name.to_string()
+                        info.name
                     };
 
                     pb.set_position(file.size);

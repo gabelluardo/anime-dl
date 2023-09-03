@@ -53,7 +53,7 @@ impl AnimeInfo {
                 });
                 (url, info_num)
             }
-            _ => (input.to_string(), None),
+            _ => (input.into(), None),
         };
 
         AnimeInfo {
@@ -62,7 +62,7 @@ impl AnimeInfo {
             url,
             episodes,
             num: info_num,
-            origin: input.to_string(),
+            origin: input.into(),
         }
     }
 }
@@ -191,9 +191,9 @@ mod tests {
         assert_eq!(
             res,
             AnimeInfo {
-                name: "Anime Name".to_string(),
-                url: url.to_string(),
-                origin: origin.to_string(),
+                name: "Anime Name".into(),
+                url: url.into(),
+                origin: origin.into(),
                 id: None,
                 episodes: None,
                 num: Some(InfoNum {
@@ -209,9 +209,9 @@ mod tests {
         assert_eq!(
             res,
             AnimeInfo {
-                name: "Anime Name".to_string(),
-                url: url.to_string(),
-                origin: origin.to_string(),
+                name: "Anime Name".into(),
+                url: url.into(),
+                origin: origin.into(),
                 id: Some(14),
                 episodes: None,
                 num: Some(InfoNum {

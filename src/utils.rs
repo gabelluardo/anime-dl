@@ -18,16 +18,16 @@ pub fn parse_name(input: &str) -> Result<String> {
     url.path_segments()
         .and_then(|s| s.last())
         .and_then(|s| s.split('_').next())
-        .map(|s| s.to_string())
-        .context(UserError::Parsing(input.to_owned()))
+        .map(|s| s.into())
+        .context(UserError::Parsing(input.into()))
 }
 
 pub fn parse_filename(input: &str) -> Result<String> {
     reqwest::Url::parse(input)?
         .path_segments()
         .and_then(|segments| segments.last())
-        .map(|s| s.to_string())
-        .context(UserError::Parsing(input.to_string()))
+        .map(|s| s.into())
+        .context(UserError::Parsing(input.into()))
 }
 
 pub fn parse_aw_cookie<'a>(input: &'a str) -> Result<String> {

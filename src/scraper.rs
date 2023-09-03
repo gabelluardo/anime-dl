@@ -54,7 +54,7 @@ pub struct Scraper {
 impl Scraper {
     pub fn new(query: &str) -> Self {
         Self {
-            query: query.to_string(),
+            query: query.into(),
             ..Self::default()
         }
     }
@@ -190,7 +190,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_client() {
-        let local_proxy = Some("127.0.0.1".to_string());
+        let local_proxy = Some("127.0.0.1".into());
 
         Client::new(local_proxy, "");
         Client::new(None, "");
