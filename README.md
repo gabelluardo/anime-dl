@@ -66,7 +66,8 @@ For parsing urls from a file (es. `urls`):
 adl [FLAGS] [OPTIONS] $(cat urls)
 ```
 
-**⚠️ Streaming requires [mpv](https://mpv.io/) or [vlc](https://www.videolan.org/vlc/) ⚠️**
+> [!WARNING]
+> Streaming requires [mpv](https://mpv.io/) or [vlc](https://www.videolan.org/vlc/)
 
 ```sh
 adl -s <entries>
@@ -74,9 +75,10 @@ adl -s <entries>
 
 ### Anilist
 
-For [Anilist](https://anilist.co) integration create an enviroment variable
-`ANIMEDL_ID` with the ID of your [developer api client](https://anilist.co/settings/developer),
-or use the default of the app: `4047`
+> [!NOTE]
+> For [Anilist](https://anilist.co) integration create an enviroment variable
+> `ANIMEDL_ID` with the ID of your [developer api client](https://anilist.co/settings/developer),
+> or use the default of the app: `4047`
 
 ### Contribution
 
