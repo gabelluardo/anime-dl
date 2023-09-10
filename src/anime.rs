@@ -83,14 +83,9 @@ impl Anime {
                 num: Some(InfoNum { alignment, value }),
                 episodes: Some((start, end)),
                 ..
-            } => {
-                // for when the range starts with episode 0
-                let first = if *value > 0 { value - 1 } else { *value };
-
-                (*start..=*end)
-                    .map(|i| gen_url!(url, i + first, alignment))
-                    .collect()
-            }
+            } => (*start..=*end)
+                .map(|i| gen_url!(url, i + value.checked_sub(1).unwrap_or(*value), alignment))
+                .collect(),
             _ => vec![info.url.to_owned()],
         };
 
@@ -171,11 +166,8 @@ pub async fn _find_episodes(
         _ => *range.start(),
     };
 
-    // for when the range starts with episode 0
-    let first = if value > 0 { value - 1 } else { value };
-
     Ok((start..=end)
-        .map(|i| gen_url!(url, i + first, alignment))
+        .map(|i| gen_url!(url, i + value.checked_sub(1).unwrap_or(value), alignment))
         .collect())
 }
 

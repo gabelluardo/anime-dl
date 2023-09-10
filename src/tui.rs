@@ -129,7 +129,7 @@ pub fn episodes_choice(anime: &Anime) -> Result<Vec<String>> {
                 let check = if watched { "✔" } else { "✗" };
 
                 if next_to_watch.is_none() && !watched {
-                    next_to_watch = Some(index as usize)
+                    next_to_watch = Some(builder.count_rows() + 1)
                 }
 
                 builder.push_record([index.to_string(), check.to_string()]);
