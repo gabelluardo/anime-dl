@@ -82,7 +82,7 @@ adl -s <entries>
 
 ### Contribution
 
-Currently, there is only an **italian** language scraper, contribution for support other languages are welcome (see [#83](https://github.com/gabelluardo/anime-dl/issues/83)).
+Currently, there is only an **italian** language scraper, contributions for support other languages are welcome (see [#83](https://github.com/gabelluardo/anime-dl/issues/83)).
 
 ### License
 
