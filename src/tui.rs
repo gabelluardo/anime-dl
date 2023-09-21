@@ -98,7 +98,7 @@ pub fn watching_choice(series: &[String]) -> Result<Vec<String>> {
                 Err(ReadlineError::Interrupted | ReadlineError::Eof) => bail!(Quit),
                 Err(_) => bail!(UserError::InvalidInput),
                 Ok(line) if line.contains(['q', 'Q']) => bail!(Quit),
-                Ok(line) => parse_input(&line, &series, index_start),
+                Ok(line) => parse_input(&line, series, index_start),
             };
             println!();
 

@@ -17,7 +17,7 @@ use crate::cli::Args;
 use crate::errors::{RemoteError, SystemError};
 use crate::file::FileDest;
 use crate::scraper::{Scraper, ScraperItems};
-use crate::tui::{self};
+use crate::tui;
 use crate::utils;
 
 pub struct App;
