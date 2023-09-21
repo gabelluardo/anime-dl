@@ -50,7 +50,7 @@ pub struct Args {
     #[clap(short, long, env = "ANIMEDL_ID", hide_env_values = true)]
     pub anilist_id: Option<u32>,
 
-    /// Retrive anilist watching list        
+    /// Retrive anime from anilist watching list        
     #[cfg(feature = "anilist")]
     #[clap(short, long)]
     pub watching: bool,
