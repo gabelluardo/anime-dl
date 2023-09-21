@@ -17,7 +17,7 @@ use crate::cli::Args;
 use crate::errors::{RemoteError, SystemError};
 use crate::file::FileDest;
 use crate::scraper::{Scraper, ScraperItems};
-use crate::tui;
+use crate::tui::{self};
 use crate::utils;
 
 pub struct App;
@@ -36,15 +36,22 @@ impl App {
 
             match anilist.get_watching_list().await {
                 Some(list) => {
-                    // todo: scelta dalla lista di solo uno
+                    let series = tui::watching_choice(&list)?;
+                    let query = series
+                        .iter()
+                        .map(|s| {
+                            s.split_ascii_whitespace()
+                                .take(2)
+                                .fold(String::new(), |acc, s| acc + " " + s)
+                        })
+                        .collect::<Vec<_>>();
 
-                    Scraper::new(&list.join(","))
+                    Scraper::new(&query.join(","))
                         .with_proxy(!args.no_proxy)
                         .run()
                         .await?
                 }
-                // todo: aggiungere errore
-                _ => todo!(),
+                _ => bail!(RemoteError::WatchingList),
             }
         } else if utils::is_web_url(&args.entries[0]) {
             args.entries

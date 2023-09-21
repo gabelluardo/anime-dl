@@ -62,6 +62,55 @@ fn parse_input(line: &str, urls: &[String], index_start: usize) -> Vec<String> {
     }
 }
 
+pub fn watching_choice(series: &[String]) -> Result<Vec<String>> {
+    match series.len() {
+        0 => bail!(UserError::Choices),
+        1 => Ok(series.to_vec()),
+        _ => {
+            let index_start = 1;
+            let str = "You are watching these series".cyan().bold().to_string();
+            println!("{str}\n",);
+
+            let mut builder = Builder::default();
+            builder.set_header(["Index", "Name"]);
+            series.iter().enumerate().for_each(|(i, c)| {
+                builder.push_record([(i + index_start).to_string(), c.clone()]);
+            });
+
+            let mut table = builder.build();
+            table
+                .with(Style::rounded())
+                .with(Colorization::columns([Color::FG_MAGENTA, Color::FG_GREEN]))
+                .with(Modify::new(Rows::first()).with(Color::FG_WHITE))
+                .with(Modify::new(Columns::first()).with(Alignment::center()));
+
+            println!("{}", table);
+            println!(
+                "\n{} {}",
+                "::".red(),
+                "Make your selection (eg: 1 2 3 or 1-3) [<enter> for all, <q> for exit]".bold()
+            );
+
+            let mut rl = DefaultEditor::new().context(UserError::InvalidInput)?;
+            rl.set_color_mode(ColorMode::Enabled);
+            let prompt = "~❯ ".red().to_string();
+            let res = match rl.readline(&prompt) {
+                Err(ReadlineError::Interrupted | ReadlineError::Eof) => bail!(Quit),
+                Err(_) => bail!(UserError::InvalidInput),
+                Ok(line) if line.contains(['q', 'Q']) => bail!(Quit),
+                Ok(line) => parse_input(&line, &series, index_start),
+            };
+            println!();
+
+            if res.is_empty() {
+                bail!(RemoteError::EpisodeNotFound);
+            }
+
+            Ok(res)
+        }
+    }
+}
+
 pub fn series_choice(series: &[Choice], query: String) -> Result<Vec<String>> {
     match series.len() {
         0 => bail!(UserError::Choices),
