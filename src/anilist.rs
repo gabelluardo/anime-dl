@@ -61,6 +61,21 @@ impl Config {
 )]
 struct ProgressQuery;
 
+#[derive(GraphQLQuery)]
+#[graphql(
+    schema_path = "assets/anilist_schema.graphql",
+    query_path = "assets/watching_query.graphql",
+    response_derives = "Clone"
+)]
+struct WatchingQuery;
+
+#[derive(GraphQLQuery)]
+#[graphql(
+    schema_path = "assets/anilist_schema.graphql",
+    query_path = "assets/user_query.graphql"
+)]
+struct UserQuery;
+
 #[derive(Default, Debug)]
 pub struct AniList(Client);
 
@@ -106,14 +121,50 @@ impl AniList {
         };
         let query = ProgressQuery::build_query(variables);
         let res = self.0.post(url).json(&query).send().await.ok()?;
-        let response_body: Response<progress_query::ResponseData> = res.json().await.ok()?;
+        let response_body = res
+            .json::<Response<progress_query::ResponseData>>()
+            .await
+            .ok()?;
 
         response_body
-            .data
-            .and_then(|d| d.media)
-            .and_then(|m| m.media_list_entry)
-            .and_then(|l| l.progress)
+            .data?
+            .media?
+            .media_list_entry?
+            .progress
             .map(|p| p as u32)
+    }
+
+    pub async fn get_watching_list(&self) -> Option<Vec<String>> {
+        let url = "https://graphql.anilist.co";
+        let query = UserQuery::build_query(user_query::Variables);
+        let res = self.0.post(url).json(&query).send().await.ok()?;
+        let response_body = res
+            .json::<Response<user_query::ResponseData>>()
+            .await
+            .ok()?;
+        let user_id = response_body.data?.viewer.map(|d| d.id);
+
+        let variables = watching_query::Variables { id: user_id };
+        let query = WatchingQuery::build_query(variables);
+
+        let res = self.0.post(url).json(&query).send().await.ok()?;
+        let response_body = res
+            .json::<Response<watching_query::ResponseData>>()
+            .await
+            .ok()?;
+
+        let list = response_body.data?.media_list_collection?.lists?[0]
+            .clone()?
+            .entries?
+            .into_iter()
+            .filter_map(|e| {
+                e.and_then(|m| m.media)
+                    .and_then(|m| m.title)
+                    .and_then(|t| t.romaji)
+            })
+            .collect::<Vec<_>>();
+
+        Some(list)
     }
 }
 
@@ -134,6 +185,16 @@ mod tests {
         static ref config_panic: Config = Config(PathBuf::from("/tmp/test2.cache"));
     }
 
+    #[tokio::test]
+    async fn test_watching_list() {
+        // todo: decidere se lascirare questo test
+
+        let al = AniList::new(Some(4047));
+
+        let list = al.get_watching_list().await;
+
+        dbg!(list);
+    }
     #[test]
     fn test_write_config() {
         let string = "asdfasdfasdf";

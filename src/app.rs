@@ -31,7 +31,22 @@ impl App {
             AniList::clean_cache()?
         }
 
-        let items = if utils::is_web_url(&args.entries[0]) {
+        let items = if args.watching {
+            let anilist = AniList::new(args.anilist_id);
+
+            match anilist.get_watching_list().await {
+                Some(list) => {
+                    // todo: scelta dalla lista di solo uno
+
+                    Scraper::new(&list.join(","))
+                        .with_proxy(!args.no_proxy)
+                        .run()
+                        .await?
+                }
+                // todo: aggiungere errore
+                _ => todo!(),
+            }
+        } else if utils::is_web_url(&args.entries[0]) {
             args.entries
                 .iter()
                 .map(|s| AnimeInfo::new(s, None, None))

@@ -1,0 +1,13 @@
+query WatchingQuery($id: Int) {
+  MediaListCollection(type: ANIME, status: CURRENT, userId: $id) {
+    lists {
+      entries {
+        media {
+          title {
+            romaji
+          }
+        }
+      }
+    }
+  }
+}
