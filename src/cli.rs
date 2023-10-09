@@ -46,7 +46,8 @@ pub struct Args {
     #[clap(short, long)]
     pub force: bool,
 
-    /// Override app id environment variable
+    /// Override app id environment variable    
+    #[cfg(feature = "anilist")]
     #[clap(short, long, env = "ANIMEDL_ID", hide_env_values = true)]
     pub anilist_id: Option<u32>,
 

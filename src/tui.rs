@@ -165,7 +165,7 @@ pub fn series_choice(series: &[Choice], query: String) -> Result<Vec<String>> {
 pub fn episodes_choice(anime: &Anime) -> Result<Vec<String>> {
     match anime.episodes.len() {
         0 => bail!(UserError::Choices),
-        1 => Ok(vec![anime.episodes[0].to_owned()]),
+        1 => Ok(vec![anime.info.origin.to_owned()]),
         _ => {
             println!(" {}", anime.info.name.cyan().bold());
 
