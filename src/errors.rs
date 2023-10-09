@@ -9,6 +9,8 @@ pub enum RemoteError {
     Network(#[from] reqwest::Error),
     #[error("Unable to find a proxy")]
     Proxy,
+    #[error("Unable to get data from watching list")]
+    WatchingList,
     #[error("No url found")]
     UrlNotFound,
     #[error("No episode found")]

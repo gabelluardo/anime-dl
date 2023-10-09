@@ -14,7 +14,7 @@ pub enum Site {
 /// Efficient cli app for downloading anime
 pub struct Args {
     /// Source urls or scraper's queries
-    #[clap(required_unless_present("clean"))]
+    #[clap(required_unless_present("clean"), required_unless_present("watching"))]
     pub entries: Vec<String>,
 
     /// Root path where store files
@@ -49,6 +49,11 @@ pub struct Args {
     /// Override app id environment variable
     #[clap(short, long, env = "ANIMEDL_ID", hide_env_values = true)]
     pub anilist_id: Option<u32>,
+
+    /// Retrive anime from anilist watching list        
+    #[cfg(feature = "anilist")]
+    #[clap(short, long)]
+    pub watching: bool,
 
     /// Stream episode in a media player
     #[clap(short, long, conflicts_with = "range")]

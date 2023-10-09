@@ -52,6 +52,7 @@ Options:
   -D, --default-dir              Save files in a folder with a default name
   -f, --force                    Override existent files
   -a, --anilist-id <ANILIST_ID>  Override app id environment variable [env: ANIMEDL_ID]
+  -w, --watching                 Retrive anime from anilist watching list
   -s, --stream                   Stream episode in a media player
   -i, --interactive              Interactive mode
   -p, --no-proxy                 Disable automatic proxy (useful for slow connections)

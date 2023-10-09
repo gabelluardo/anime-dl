@@ -31,7 +31,29 @@ impl App {
             AniList::clean_cache()?
         }
 
-        let items = if utils::is_web_url(&args.entries[0]) {
+        let items = if args.watching {
+            let anilist = AniList::new(args.anilist_id);
+
+            match anilist.get_watching_list().await {
+                Some(list) => {
+                    let series = tui::watching_choice(&list)?;
+                    let query = series
+                        .iter()
+                        .map(|s| {
+                            s.split_ascii_whitespace()
+                                .take(2)
+                                .fold(String::new(), |acc, s| acc + " " + s)
+                        })
+                        .collect::<Vec<_>>();
+
+                    Scraper::new(&query.join(","))
+                        .with_proxy(!args.no_proxy)
+                        .run()
+                        .await?
+                }
+                _ => bail!(RemoteError::WatchingList),
+            }
+        } else if utils::is_web_url(&args.entries[0]) {
             args.entries
                 .iter()
                 .map(|s| AnimeInfo::new(s, None, None))
