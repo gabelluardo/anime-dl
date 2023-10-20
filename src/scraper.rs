@@ -14,7 +14,7 @@ use crate::anime::AnimeInfo;
 use crate::archive::{AnimeWorld, Archive};
 use crate::cli::Site;
 use crate::errors::{Quit, RemoteError};
-use crate::utils;
+use crate::parser;
 
 #[derive(Debug, Default, Clone)]
 pub struct ScraperItems {
@@ -152,7 +152,7 @@ impl<'a> Client {
         let mut ctest = String::new();
         if let Some(url) = referrer {
             let text = reqwest::get(url).await?.text().await?;
-            ctest = utils::parse_aw_cookie(&text).unwrap_or_default();
+            ctest = parser::parse_aw_cookie(&text).unwrap_or_default();
             ctest.push_str(Self::COOKIE);
         }
 

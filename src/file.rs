@@ -19,12 +19,15 @@ impl FileDest {
         if !root.exists() {
             fs::create_dir_all(&root).await?;
         }
+
         let mut path = root.to_path_buf();
         path.push(filename);
+
         let mut size = 0;
         if path.exists() && !overwrite {
             size = fs::File::open(&path).await?.metadata().await?.len();
         }
+
         Ok(Self {
             size,
             path,

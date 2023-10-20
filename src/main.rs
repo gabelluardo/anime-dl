@@ -1,7 +1,3 @@
-#[cfg(test)]
-#[macro_use]
-extern crate lazy_static;
-
 #[macro_use]
 mod macros;
 
@@ -12,12 +8,13 @@ mod anime;
 mod app;
 mod archive;
 mod cli;
+mod config;
 mod errors;
 mod file;
+mod parser;
 mod range;
 mod scraper;
 mod tui;
-mod utils;
 
 use app::App;
 use owo_colors::OwoColorize;
