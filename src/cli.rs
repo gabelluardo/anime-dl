@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use crate::range::Range;
 
-#[derive(clap::ValueEnum, Debug, Clone, Default)]
+#[derive(clap::ValueEnum, Debug, Clone, Copy, Default)]
 #[allow(clippy::upper_case_acronyms)]
 pub enum Site {
     #[default]

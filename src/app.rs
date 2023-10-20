@@ -18,7 +18,7 @@ use crate::config::clean_config;
 use crate::errors::{RemoteError, SystemError};
 use crate::file::FileDest;
 use crate::parser;
-use crate::scraper::{Scraper, ScraperItems};
+use crate::scraper::{select_cookie, select_proxy, Scraper, SearchResult};
 use crate::tui;
 
 pub struct App;
@@ -47,9 +47,10 @@ impl App {
                         })
                         .collect::<Vec<_>>();
 
-                    Scraper::new(&query.join(","))
-                        .with_proxy(!args.no_proxy)
-                        .run()
+                    let proxy = select_proxy(args.no_proxy).await;
+                    let cookie = select_cookie(args.site.unwrap_or_default()).await?;
+                    Scraper::new(&cookie, proxy)
+                        .run(&query.join(","), args.site.unwrap_or_default())
                         .await?
                 }
                 _ => bail!(RemoteError::WatchingList),
@@ -58,11 +59,13 @@ impl App {
             args.entries
                 .iter()
                 .map(|s| AnimeInfo::new(s, None, None))
-                .collect::<_>()
+                .collect()
         } else {
-            Scraper::new(&args.entries.join(" "))
-                .with_proxy(!args.no_proxy)
-                .run()
+            let site = args.site.unwrap_or_default();
+            let proxy = select_proxy(args.no_proxy).await;
+            let cookie = select_cookie(site).await?;
+            Scraper::new(&cookie, proxy)
+                .run(&args.entries.join(" "), site)
                 .await?
         };
 
@@ -73,7 +76,7 @@ impl App {
         }
     }
 
-    async fn download(args: Args, items: ScraperItems) -> Result<()> {
+    async fn download(args: Args, items: SearchResult) -> Result<()> {
         let referrer = &items.referrer;
         let bars = tui::Bars::new();
         let mut pool = vec![];
@@ -159,7 +162,7 @@ impl App {
         Ok(())
     }
 
-    async fn streaming(args: Args, items: ScraperItems) -> Result<()> {
+    async fn streaming(args: Args, items: SearchResult) -> Result<()> {
         let referrer = &items.referrer;
         let (cmd, cmd_referrer) = match which("mpv") {
             Ok(c) => (c, format!("--referrer={referrer}")),
