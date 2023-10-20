@@ -56,19 +56,18 @@ pub fn clean_config() -> Result<()> {
 #[cfg(test)]
 #[cfg(not(windows))]
 fn default_path() -> PathBuf {
-    PathBuf::from("/tmp/test.config")
+    PathBuf::from("/tmp/adl/test/test.config")
 }
 
 #[cfg(test)]
 #[cfg(windows)]
 fn default_path() -> PathBuf {
     let mut path = PathBuf::from(std::env::var("TEMP").unwrap_or_default());
-    path.push(r"test.config");
+    path.push(r"adl\test\test.config");
     path
 }
 
 #[cfg(test)]
-#[allow(non_upper_case_globals)]
 mod tests {
     use super::*;
 
