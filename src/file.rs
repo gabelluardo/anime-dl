@@ -60,7 +60,7 @@ mod tests {
 
     #[cfg(windows)]
     fn root_path() -> PathBuf {
-        let path = PathBuf::from(std::env::var("TEMP").unwrap_or_default());
+        let mut path = PathBuf::from(std::env::var("TEMP").unwrap_or_default());
         path.push(r"adl\test\");
         path
     }

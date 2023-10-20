@@ -5,15 +5,14 @@ use anyhow::{Context, Result};
 
 use crate::errors::SystemError;
 
-#[cfg(not(windows))]
-#[cfg(not(test))]
+#[cfg(all(not(test), not(windows)))]
 fn default_path() -> PathBuf {
     let mut path = PathBuf::from(std::env::var("HOME").unwrap_or_default());
     path.push(".config/anime-dl/token");
     path
 }
 
-#[cfg(windows)]
+#[cfg(all(not(test), windows))]
 fn default_path() -> PathBuf {
     let mut path = PathBuf::from(std::env::var("HOMEPATH").unwrap_or_default());
     path.push(r"AppData\Roaming\anime-dl\token");
@@ -53,14 +52,12 @@ pub fn clean_config() -> Result<()> {
     fs::remove_file(path).context(SystemError::FsRemove)
 }
 
-#[cfg(test)]
-#[cfg(not(windows))]
+#[cfg(all(test, not(windows)))]
 fn default_path() -> PathBuf {
     PathBuf::from("/tmp/adl/test/test.config")
 }
 
-#[cfg(test)]
-#[cfg(windows)]
+#[cfg(all(test, windows))]
 fn default_path() -> PathBuf {
     let mut path = PathBuf::from(std::env::var("TEMP").unwrap_or_default());
     path.push(r"adl\test\test.config");
@@ -72,7 +69,6 @@ mod tests {
     use super::*;
 
     #[test]
-
     fn test_load_config() {
         let data = "data test config";
         let res = save_config(data);
