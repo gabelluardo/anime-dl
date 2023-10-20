@@ -32,7 +32,7 @@ pub struct AniList(Client);
 impl AniList {
     pub fn new(client_id: Option<u32>) -> Self {
         let client_id = client_id.unwrap_or(4047);
-        let opt_token = load_config().map_or_else(|_| oauth_token(client_id), |t| Some(t));
+        let opt_token = load_config().map_or_else(|_| oauth_token(client_id), Some);
 
         let mut client = Client::new();
         if let Some(token) = opt_token {

@@ -80,7 +80,7 @@ mod tests {
         assert_eq!(file.path, path);
 
         let mut dest = file.open().await.unwrap();
-        dest.write(b"0000").await.unwrap();
+        dest.write_all(b"0000").await.unwrap();
 
         let props = (root.as_path(), filename, false);
         let file = FileDest::new(props).await.unwrap();
