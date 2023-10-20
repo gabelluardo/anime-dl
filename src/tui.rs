@@ -206,7 +206,7 @@ pub fn episodes_choice(anime: &Anime) -> Result<Vec<String>> {
             println!(
                 "\n{} {}",
                 "::".red(),
-                "Make your selection (eg: 1 2 3 or 1-3) [<enter> for all, <q> for exit]".bold()
+                "Make your selection (eg: 1 2 3 or 1-3) [<enter> for all, <q> for exit, <u> for unwatched]".bold()
             );
 
             let mut rl = DefaultEditor::new().context(UserError::InvalidInput)?;
@@ -216,6 +216,13 @@ pub fn episodes_choice(anime: &Anime) -> Result<Vec<String>> {
                 Err(ReadlineError::Interrupted | ReadlineError::Eof) => bail!(Quit),
                 Err(_) => bail!(UserError::InvalidInput),
                 Ok(line) if line.contains(['q', 'Q']) => bail!(Quit),
+                Ok(line) if line.contains(['u', 'U']) => {
+                    if let Some(index) = next_to_watch {
+                        anime.episodes[index - 1..].to_vec()
+                    } else {
+                        bail!(UserError::InvalidInput)
+                    }
+                }
                 Ok(line) => parse_input(&line, &anime.episodes, anime.start as usize),
             };
             println!();
