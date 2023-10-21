@@ -5,6 +5,7 @@ use reqwest::Client;
 
 #[cfg(feature = "anilist")]
 use crate::anilist::AniList;
+
 use crate::range::Range;
 
 #[derive(Clone, Copy, Default, Debug, PartialEq, Eq)]
