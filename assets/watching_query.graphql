@@ -3,6 +3,7 @@ query WatchingQuery($id: Int) {
     lists {
       entries {
         media {
+          id
           title {
             romaji
           }

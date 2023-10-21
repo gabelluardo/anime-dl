@@ -18,7 +18,7 @@ use crate::config::clean_config;
 use crate::errors::{RemoteError, SystemError};
 use crate::file::FileDest;
 use crate::parser;
-use crate::scraper::{select_cookie, select_proxy, Scraper, SearchResult};
+use crate::scraper::{select_cookie, select_proxy, Scraper, Search, SearchResult};
 use crate::tui;
 
 pub struct App;
@@ -38,35 +38,56 @@ impl App {
             match anilist.get_watching_list().await {
                 Some(list) => {
                     let series = tui::watching_choice(&list)?;
-                    let query = series
-                        .iter()
-                        .map(|s| {
-                            s.split_ascii_whitespace()
+                    let search = series
+                        .into_iter()
+                        .map(|(s, id)| {
+                            let string = s
+                                .split_ascii_whitespace()
                                 .take(2)
-                                .fold(String::new(), |acc, s| acc + " " + s)
+                                .fold(String::new(), |acc, s| acc + "+" + s.trim());
+
+                            Search {
+                                string,
+                                id: Some(id as u32),
+                            }
                         })
                         .collect::<Vec<_>>();
 
+                    let site = args.site.unwrap_or_default();
                     let proxy = select_proxy(args.no_proxy).await;
-                    let cookie = select_cookie(args.site.unwrap_or_default()).await?;
-                    Scraper::new(&cookie, proxy)
-                        .run(&query.join(","), args.site.unwrap_or_default())
-                        .await?
+                    let cookie = select_cookie(site).await?;
+                    Scraper::new(&cookie, proxy).run(&search, site).await?
                 }
                 _ => bail!(RemoteError::WatchingList),
             }
         } else if parser::is_web_url(&args.entries[0]) {
             args.entries
                 .iter()
-                .map(|s| AnimeInfo::new(s, None, None))
+                .map(|s| {
+                    AnimeInfo::new(
+                        &to_title_case!(parser::parse_name(s).unwrap()),
+                        s,
+                        None,
+                        None,
+                    )
+                })
                 .collect()
         } else {
             let site = args.site.unwrap_or_default();
             let proxy = select_proxy(args.no_proxy).await;
             let cookie = select_cookie(site).await?;
-            Scraper::new(&cookie, proxy)
-                .run(&args.entries.join(" "), site)
-                .await?
+            let search = &args
+                .entries
+                .join(" ")
+                .split(',')
+                .map(|s| s.trim().replace(' ', "+"))
+                .map(|s| Search {
+                    string: s,
+                    id: None,
+                })
+                .collect::<Vec<_>>();
+
+            Scraper::new(&cookie, proxy).run(search, site).await?
         };
 
         if args.stream {
@@ -125,11 +146,11 @@ impl App {
                         bail!(SystemError::Overwrite(filename));
                     }
 
-                    let info = AnimeInfo::new(&url, None, None);
+                    // let info = AnimeInfo::new(&info.name, &url, None, None);
                     let msg = if let Some(inum) = info.num {
                         "Ep. ".to_string() + &zfill!(inum.value, 2) + " " + &info.name
                     } else {
-                        info.name
+                        info.name.clone()
                     };
 
                     pb.set_position(file.size);
@@ -148,6 +169,7 @@ impl App {
                         pb.inc(chunk.len() as u64);
                     }
                     pb.finish_with_message(msg + " 👍");
+
                     Ok(())
                 };
                 pool.push(future);

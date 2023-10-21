@@ -5,7 +5,6 @@ use reqwest::Client;
 
 #[cfg(feature = "anilist")]
 use crate::anilist::AniList;
-use crate::parser;
 use crate::range::Range;
 
 #[derive(Clone, Copy, Default, Debug, PartialEq, Eq)]
@@ -25,9 +24,7 @@ pub struct AnimeInfo {
 }
 
 impl AnimeInfo {
-    pub fn new(input: &str, id: Option<u32>, episodes: Option<(u32, u32)>) -> Self {
-        let name = to_title_case!(parser::parse_name(input).unwrap());
-
+    pub fn new(name: &str, input: &str, id: Option<u32>, episodes: Option<(u32, u32)>) -> Self {
         // find episode number position in input
         let (mut opt_start, mut opt_end) = (None, None);
         for (i, c) in input.char_indices() {
@@ -58,10 +55,10 @@ impl AnimeInfo {
 
         AnimeInfo {
             id,
-            name,
             url,
             episodes,
             num: info_num,
+            name: name.to_owned(),
             origin: input.into(),
         }
     }
@@ -179,7 +176,7 @@ mod tests {
     fn test_extract_info() {
         let origin = "https://www.domain.tld/sub/anotherSub/AnimeName/AnimeName_Ep_15_SUB_ITA.mp4";
         let url = "https://www.domain.tld/sub/anotherSub/AnimeName/AnimeName_Ep_{}_SUB_ITA.mp4";
-        let res = AnimeInfo::new(origin, None, None);
+        let res = AnimeInfo::new("Anime Name", origin, None, None);
         assert_eq!(
             res,
             AnimeInfo {
@@ -197,7 +194,7 @@ mod tests {
 
         let origin = "https://www.domain.tld/sub/anotherSub/AnimeName/AnimeName_Ep_016_SUB_ITA.mp4";
         let url = "https://www.domain.tld/sub/anotherSub/AnimeName/AnimeName_Ep_{}_SUB_ITA.mp4";
-        let res = AnimeInfo::new(origin, Some(14), None);
+        let res = AnimeInfo::new("Anime Name", origin, Some(14), None);
         assert_eq!(
             res,
             AnimeInfo {

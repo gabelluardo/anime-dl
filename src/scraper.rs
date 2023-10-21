@@ -15,6 +15,12 @@ use crate::cli::Site;
 use crate::errors::{Quit, RemoteError};
 use crate::parser;
 
+#[derive(Debug, Clone)]
+pub struct Search {
+    pub id: Option<u32>,
+    pub string: String,
+}
+
 #[derive(Debug, Default, Clone)]
 pub struct SearchResult {
     pub items: Vec<AnimeInfo>,
@@ -72,20 +78,15 @@ impl Scraper {
         }
     }
 
-    pub async fn run(self, query: &str, site: Site) -> Result<SearchResult> {
+    pub async fn run(self, search: &[Search], site: Site) -> Result<SearchResult> {
         let (scraper_fun, referrer) = match site {
             Site::AW => (AnimeWorld::run, AnimeWorld::referrer()),
         };
 
-        let query = query
-            .split(',')
-            .map(|s| s.trim().replace(' ', "+"))
-            .collect::<Vec<_>>();
-
         let vec = Arc::new(Mutex::new(Vec::new()));
-        let tasks = query
+        let tasks = search
             .iter()
-            .map(|q| scraper_fun(q, self.client.clone(), vec.clone()))
+            .map(|s| scraper_fun(s.clone(), self.client.clone(), vec.clone()))
             .map(|f| async move {
                 if let Err(err) = f.await {
                     if !err.is::<Quit>() {
@@ -159,9 +160,13 @@ mod tests {
         let site = Site::AW;
         let proxy = select_proxy(false).await;
         let cookie = select_cookie(site).await.unwrap();
+        let search = vec![Search {
+            string: "bunny girl".to_owned(),
+            id: None,
+        }];
 
         let anime = Scraper::new(&cookie, proxy)
-            .run("bunny girl", site)
+            .run(&search, site)
             .await
             .unwrap();
 
@@ -182,9 +187,23 @@ mod tests {
         let site = Site::AW;
         let proxy = select_proxy(false).await;
         let cookie = select_cookie(site).await.unwrap();
+        let search = vec![
+            Search {
+                string: "bunny girl".to_owned(),
+                id: None,
+            },
+            Search {
+                string: "tsuredure children".to_owned(),
+                id: None,
+            },
+            Search {
+                string: "promare".to_owned(),
+                id: None,
+            },
+        ];
 
         let anime = Scraper::new(&cookie, proxy)
-            .run("bunny girl, tsuredure children, promare", site)
+            .run(&search, site)
             .await
             .unwrap();
 

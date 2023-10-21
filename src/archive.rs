@@ -2,18 +2,25 @@ use std::sync::Arc;
 
 use anyhow::{bail, Context, Result};
 
+use futures::stream::StreamExt;
 use reqwest::{Client, Url};
 use scraper::{Html, Selector};
 use tokio::sync::Mutex;
+use tokio_stream as stream;
 
 use crate::anime::AnimeInfo;
 use crate::errors::RemoteError;
+use crate::scraper::Search;
 use crate::tui;
 
 #[async_trait::async_trait]
 pub trait Archive {
     fn referrer() -> Option<String>;
-    async fn run(query: &str, client: Arc<Client>, vec: Arc<Mutex<Vec<AnimeInfo>>>) -> Result<()>;
+    async fn run(
+        search: Search,
+        client: Arc<Client>,
+        vec: Arc<Mutex<Vec<AnimeInfo>>>,
+    ) -> Result<()>;
 }
 
 pub struct AnimeWorld;
@@ -23,7 +30,11 @@ impl Archive for AnimeWorld {
         Some(String::from("https://www.animeworld.tv"))
     }
 
-    async fn run(query: &str, client: Arc<Client>, vec: Arc<Mutex<Vec<AnimeInfo>>>) -> Result<()> {
+    async fn run(
+        search: Search,
+        client: Arc<Client>,
+        vec: Arc<Mutex<Vec<AnimeInfo>>>,
+    ) -> Result<()> {
         async fn parse_url(client: &Arc<Client>, url: &str) -> Result<Html> {
             let response = client.get(url).send().await?.error_for_status()?;
             let fragment = Html::parse_fragment(&response.text().await?);
@@ -31,8 +42,9 @@ impl Archive for AnimeWorld {
         }
 
         let search_results = {
+            let keyword = &search.string;
             let referrer = Self::referrer().unwrap();
-            let search_url = format!("{referrer}/search?keyword={query}");
+            let search_url = format!("{referrer}/search?keyword={keyword}");
             let search_page = parse_url(&client, &search_url).await?;
             let anime_list = Selector::parse("div.film-list").unwrap();
             let name = Selector::parse("a.name").unwrap();
@@ -42,37 +54,51 @@ impl Archive for AnimeWorld {
                 .next()
                 .context("Request blocked, retry")?;
             elem.select(&name)
-                .map(|a| {
-                    let link = a.value().attr("href").expect("No link found");
-                    let name = a
-                        .first_child()
-                        .and_then(|a| a.value().as_text())
-                        .expect("No name found");
-
-                    tui::Choice::new(link, name)
-                })
+                .map(|a| a.value().attr("href").expect("No link found").to_string())
                 .collect::<Vec<_>>()
         };
         if search_results.is_empty() {
             bail!(RemoteError::AnimeNotFound)
         }
-        let selected = tui::series_choice(&search_results, query.replace('+', " "))?;
 
-        let mut res: Vec<AnimeInfo> = vec![];
-        for c in selected {
-            let page = parse_url(&client, &(Self::referrer().unwrap() + &c)).await?;
-            match Self::parser(page) {
-                Ok(info) => res.push(info),
-                _ => continue,
+        let mut pool = vec![];
+        for url in search_results {
+            let client = client.clone();
+            let future = async move {
+                let page = parse_url(&client, &(Self::referrer().unwrap() + &url)).await?;
+
+                Self::parser(page)
+            };
+
+            pool.push(future);
+        }
+
+        let stream = stream::iter(pool)
+            .buffer_unordered(20)
+            .collect::<Vec<_>>()
+            .await;
+
+        let anime = stream
+            .into_iter()
+            .filter_map(|a| a.ok())
+            .collect::<Vec<_>>();
+
+        if search.id.is_some() {
+            if let Some(anime) = anime
+                .into_iter()
+                .find(|a| a.id == search.id && !a.name.contains("(ITA)"))
+            {
+                let mut lock = vec.lock().await;
+                lock.push(anime);
             }
+        } else {
+            let anime = tui::series_choice(&anime, &search.string)?;
+            if anime.is_empty() {
+                bail!(RemoteError::UrlNotFound)
+            }
+            let mut lock = vec.lock().await;
+            lock.extend(anime);
         }
-
-        if res.is_empty() {
-            bail!(RemoteError::UrlNotFound)
-        }
-
-        let mut lock = vec.lock().await;
-        lock.extend(res);
 
         Ok(())
     }
@@ -83,8 +109,18 @@ impl AnimeWorld {
         let url = Self::parse_url(&page)?;
         let id = Self::parse_id(&page);
         let episodes = Self::parse_episodes(&page);
+        let name = Self::parse_name(&page);
 
-        Ok(AnimeInfo::new(&url, id, episodes))
+        Ok(AnimeInfo::new(&name, &url, id, episodes))
+    }
+
+    fn parse_name(page: &Html) -> String {
+        let h1 = Selector::parse(r#"h1[id="anime-title"]"#).unwrap();
+        page.select(&h1)
+            .next()
+            .and_then(|e| e.first_child().and_then(|a| a.value().as_text()))
+            .expect("No name found")
+            .to_string()
     }
 
     fn parse_url(page: &Html) -> Result<String> {
@@ -166,7 +202,7 @@ impl Archive for Placeholder {
     }
 
     async fn run(
-        _query: &str,
+        _search: Search,
         _client: Arc<Client>,
         _vec: Arc<Mutex<Vec<AnimeInfo>>>,
     ) -> Result<()> {
@@ -307,8 +343,12 @@ mod tests {
             let file = "SeishunButaYarouWaBunnyGirlSenpaiNoYumeWoMinai_Ep_01_SUB_ITA.mp4";
             let anime = Arc::new(Mutex::new(Vec::new()));
             let client = Arc::new(Client::default());
+            let search = Search {
+                string: "bunny girl".to_string(),
+                id: None,
+            };
 
-            AnimeWorld::run("bunny girl", client, anime.clone())
+            AnimeWorld::run(search, client, anime.clone())
                 .await
                 .unwrap();
 

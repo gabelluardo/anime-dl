@@ -73,7 +73,7 @@ impl AniList {
             .map(|p| p as u32)
     }
 
-    pub async fn get_watching_list(&self) -> Option<Vec<String>> {
+    pub async fn get_watching_list(&self) -> Option<Vec<(String, i64)>> {
         let url = "https://graphql.anilist.co";
         let query = UserQuery::build_query(user_query::Variables);
         let res = self.0.post(url).json(&query).send().await.ok()?;
@@ -98,8 +98,8 @@ impl AniList {
             .into_iter()
             .filter_map(|e| {
                 e.and_then(|m| m.media)
-                    .and_then(|m| m.title)
-                    .and_then(|t| t.romaji)
+                    .and_then(|m| m.title.zip(Some(m.id)))
+                    .and_then(|(t, id)| t.romaji.zip(Some(id)))
             })
             .collect::<Vec<_>>();
 

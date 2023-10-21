@@ -13,26 +13,11 @@ use tabled::{
     {builder::Builder, settings::Style},
 };
 
-use crate::anime::Anime;
+use crate::anime::{Anime, AnimeInfo};
 use crate::errors::{Quit, RemoteError, UserError};
 use crate::range::Range;
 
-#[derive(Clone)]
-pub struct Choice {
-    link: String,
-    name: String,
-}
-
-impl Choice {
-    pub fn new(link: &str, name: &str) -> Self {
-        Self {
-            link: link.to_owned(),
-            name: name.to_owned(),
-        }
-    }
-}
-
-fn parse_input(line: &str, urls: &[String], index_start: usize) -> Vec<String> {
+fn parse_input<T: Clone>(line: &str, content: &[T], index_start: usize) -> Vec<T> {
     let mut selected = vec![];
     let line = line
         .replace([',', '.'], " ")
@@ -47,7 +32,7 @@ fn parse_input(line: &str, urls: &[String], index_start: usize) -> Vec<String> {
     for s in sel {
         if let Ok(num) = s.parse::<usize>() {
             selected.push(num);
-        } else if let Ok(range) = Range::<usize>::parse_and_fill(s, urls.len()) {
+        } else if let Ok(range) = Range::<usize>::parse_and_fill(s, content.len()) {
             selected.extend(range.expand())
         }
     }
@@ -56,16 +41,16 @@ fn parse_input(line: &str, urls: &[String], index_start: usize) -> Vec<String> {
     selected.dedup();
 
     if selected.is_empty() {
-        urls.to_vec()
+        content.to_vec()
     } else {
         selected
             .iter()
-            .filter_map(|i| urls.get(i - index_start).cloned())
+            .filter_map(|i| content.get(i - index_start).cloned())
             .collect::<Vec<_>>()
     }
 }
 
-pub fn watching_choice(series: &[String]) -> Result<Vec<String>> {
+pub fn watching_choice(series: &[(String, i64)]) -> Result<Vec<(String, i64)>> {
     match series.len() {
         0 => bail!(UserError::Choices),
         1 => Ok(series.to_vec()),
@@ -76,7 +61,7 @@ pub fn watching_choice(series: &[String]) -> Result<Vec<String>> {
 
             let mut builder = Builder::default();
             builder.set_header(["Index", "Name"]);
-            series.iter().enumerate().for_each(|(i, c)| {
+            series.iter().enumerate().for_each(|(i, (c, _))| {
                 builder.push_record([(i + index_start).to_string(), c.clone()]);
             });
 
@@ -106,7 +91,7 @@ pub fn watching_choice(series: &[String]) -> Result<Vec<String>> {
             println!();
 
             if res.is_empty() {
-                bail!(RemoteError::EpisodeNotFound);
+                bail!(RemoteError::AnimeNotFound);
             }
 
             Ok(res)
@@ -114,13 +99,14 @@ pub fn watching_choice(series: &[String]) -> Result<Vec<String>> {
     }
 }
 
-pub fn series_choice(series: &[Choice], query: String) -> Result<Vec<String>> {
+pub fn series_choice(series: &[AnimeInfo], search: &str) -> Result<Vec<AnimeInfo>> {
     match series.len() {
         0 => bail!(UserError::Choices),
-        1 => Ok(vec![series[0].link.to_owned()]),
+        1 => Ok(series[..1].to_vec()),
         _ => {
-            let len = series.len();
             let index_start = 1;
+            let len = series.len();
+            let query = search.replace('+', " ");
             let results = format!("{len} results found for `{query}`");
             println!("{}\n", results.cyan().bold());
 
@@ -144,7 +130,6 @@ pub fn series_choice(series: &[Choice], query: String) -> Result<Vec<String>> {
                 "Make your selection (eg: 1 2 3 or 1-3) [<enter> for all, <q> for exit]".bold()
             );
 
-            let urls = series.iter().map(|c| c.link.clone()).collect::<Vec<_>>();
             let mut rl = DefaultEditor::new().context(UserError::InvalidInput)?;
             rl.set_color_mode(ColorMode::Enabled);
             let prompt = "~❯ ".red().to_string();
@@ -152,12 +137,12 @@ pub fn series_choice(series: &[Choice], query: String) -> Result<Vec<String>> {
                 Err(ReadlineError::Interrupted | ReadlineError::Eof) => bail!(Quit),
                 Err(_) => bail!(UserError::InvalidInput),
                 Ok(line) if line.contains(['q', 'Q']) => bail!(Quit),
-                Ok(line) => parse_input(&line, &urls, index_start),
+                Ok(line) => parse_input(&line, series, index_start),
             };
             println!();
 
             if res.is_empty() {
-                bail!(RemoteError::EpisodeNotFound);
+                bail!(RemoteError::AnimeNotFound);
             }
 
             Ok(res)
@@ -177,7 +162,7 @@ pub fn episodes_choice(anime: &Anime) -> Result<Vec<String>> {
             builder.set_header(["Episode", "Seen"]);
             anime.episodes.iter().enumerate().for_each(|(i, _)| {
                 let index = anime.start + i as u32;
-                let watched = Some(index) <= anime.last_watched;
+                let watched = Some(i as u32) < anime.last_watched;
                 let check = if watched { "✔" } else { "✗" };
 
                 if next_to_watch.is_none() && !watched {
@@ -188,7 +173,6 @@ pub fn episodes_choice(anime: &Anime) -> Result<Vec<String>> {
             });
 
             let mut table = builder.build();
-
             table
                 .with(Style::rounded())
                 .with(Colorization::columns([Color::FG_MAGENTA, Color::FG_GREEN]))
@@ -290,7 +274,7 @@ mod tests {
 
     #[test]
     fn test_parse_input() {
-        let urls = vec![
+        let urls: Vec<String> = vec![
             "link1".into(),
             "link2".into(),
             "link3".into(),
