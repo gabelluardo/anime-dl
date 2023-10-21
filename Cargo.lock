@@ -39,7 +39,6 @@ dependencies = [
  "futures",
  "graphql_client",
  "indicatif",
- "lazy_static",
  "nom",
  "owo-colors",
  "rand",

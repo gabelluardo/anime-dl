@@ -30,14 +30,14 @@ macro_rules! zfill {
 /// Convert a string from CamelCase to Title Case
 macro_rules! to_title_case {
     ($str:expr) => {
-        crate::utils::recase_string(&$str, ' ', false)
+        crate::parser::recase_string(&$str, ' ', false)
     };
 }
 
 /// Convert a string from CamelCase to snake_case
 macro_rules! to_snake_case {
     ($str:expr) => {
-        crate::utils::recase_string(&$str, '_', true)
+        crate::parser::recase_string(&$str, '_', true)
     };
 }
 

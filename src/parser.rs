@@ -1,8 +1,6 @@
-use std::ops::Deref;
 use std::path::PathBuf;
 
 use anyhow::{Context, Result};
-pub use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use nom::{
     bytes::complete::take_until,
     character::complete::{alpha0, alphanumeric1, char},
@@ -42,6 +40,16 @@ pub fn parse_aw_cookie<'a>(input: &'a str) -> Result<String> {
     Ok(cookie)
 }
 
+pub fn parse_path(args: &crate::cli::Args, url: &str) -> Result<PathBuf> {
+    let mut path = args.dir.clone();
+    if args.auto_dir {
+        let name = parse_name(url)?;
+        let dir = to_snake_case!(name);
+        path.push(dir)
+    }
+    Ok(path)
+}
+
 pub fn recase_string(s: &str, separator: char, all_lowercase: bool) -> String {
     let mut v = String::new();
     let mut pos = None;
@@ -66,55 +74,8 @@ pub fn recase_string(s: &str, separator: char, all_lowercase: bool) -> String {
     v
 }
 
-pub fn get_path(args: &crate::cli::Args, url: &str) -> Result<PathBuf> {
-    let mut path = args.dir.clone();
-    if args.auto_dir {
-        let name = parse_name(url)?;
-        let dir = to_snake_case!(name);
-        path.push(dir)
-    }
-    Ok(path)
-}
-
 pub fn is_web_url(s: &str) -> bool {
     reqwest::Url::parse(s).is_ok()
-}
-
-pub struct Bars(MultiProgress);
-
-impl Deref for Bars {
-    type Target = MultiProgress;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl Bars {
-    pub fn new() -> Self {
-        Self(Self::instance_multi_bars())
-    }
-
-    pub fn add_bar(&self) -> ProgressBar {
-        self.add(Self::instance_bar())
-    }
-
-    fn instance_style() -> ProgressStyle {
-        ProgressStyle::default_bar().progress_chars("#>-").template("{spinner:.green} [{elapsed:.magenta}] [{bar:20.cyan/blue}] {binary_bytes_per_sec} {bytes:.cyan}/{total_bytes:.blue} ({eta:.magenta}) {msg:.green}").unwrap_or(ProgressStyle::default_bar())
-    }
-
-    fn instance_multi_bars() -> MultiProgress {
-        let multi = MultiProgress::new();
-        // NOTE: fix for flickering bar bug on windows (https://github.com/mitsuhiko/indicatif/issues/143)
-        multi.set_move_cursor(cfg!(windows));
-        multi
-    }
-
-    fn instance_bar() -> ProgressBar {
-        let pb = ProgressBar::new(0);
-        pb.set_style(Self::instance_style());
-        pb
-    }
 }
 
 #[cfg(test)]
@@ -175,24 +136,27 @@ mod tests {
         };
 
         assert_eq!(
-            get_path(&args, url).unwrap(),
+            parse_path(&args, url).unwrap(),
             PathBuf::from("root/anime_name")
         );
 
         args.auto_dir = true;
         args.dir = PathBuf::from("custom_root");
         assert_eq!(
-            get_path(&args, url).unwrap(),
+            parse_path(&args, url).unwrap(),
             PathBuf::from("custom_root/anime_name")
         );
 
         args.auto_dir = false;
         args.dir = PathBuf::from("root");
-        assert_eq!(get_path(&args, url).unwrap(), PathBuf::from("root"));
+        assert_eq!(parse_path(&args, url).unwrap(), PathBuf::from("root"));
 
         args.auto_dir = false;
         args.dir = PathBuf::from("custom_root");
-        assert_eq!(get_path(&args, url).unwrap(), PathBuf::from("custom_root"))
+        assert_eq!(
+            parse_path(&args, url).unwrap(),
+            PathBuf::from("custom_root")
+        )
     }
 
     #[test]

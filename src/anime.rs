@@ -5,8 +5,8 @@ use reqwest::Client;
 
 #[cfg(feature = "anilist")]
 use crate::anilist::AniList;
+use crate::parser;
 use crate::range::Range;
-use crate::utils;
 
 #[derive(Clone, Copy, Default, Debug, PartialEq, Eq)]
 pub struct InfoNum {
@@ -26,7 +26,7 @@ pub struct AnimeInfo {
 
 impl AnimeInfo {
     pub fn new(input: &str, id: Option<u32>, episodes: Option<(u32, u32)>) -> Self {
-        let name = to_title_case!(utils::parse_name(input).unwrap());
+        let name = to_title_case!(parser::parse_name(input).unwrap());
 
         // find episode number position in input
         let (mut opt_start, mut opt_end) = (None, None);
@@ -104,7 +104,7 @@ pub async fn last_watched(client_id: Option<u32>, anime_id: Option<u32>) -> Opti
 }
 
 #[cfg(not(feature = "anilist"))]
-pub async fn last_watched(client_id: Option<u32>, anime_id: u32) -> Option<u32> {
+pub async fn last_watched(_: Option<u32>, _: Option<u32>) -> Option<u32> {
     None
 }
 

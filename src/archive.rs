@@ -2,13 +2,12 @@ use std::sync::Arc;
 
 use anyhow::{bail, Context, Result};
 
-use reqwest::Url;
+use reqwest::{Client, Url};
 use scraper::{Html, Selector};
 use tokio::sync::Mutex;
 
 use crate::anime::AnimeInfo;
 use crate::errors::RemoteError;
-use crate::scraper::Client;
 use crate::tui;
 
 #[async_trait::async_trait]
@@ -25,10 +24,16 @@ impl Archive for AnimeWorld {
     }
 
     async fn run(query: &str, client: Arc<Client>, vec: Arc<Mutex<Vec<AnimeInfo>>>) -> Result<()> {
+        async fn parse_url(client: &Arc<Client>, url: &str) -> Result<Html> {
+            let response = client.get(url).send().await?.error_for_status()?;
+            let fragment = Html::parse_fragment(&response.text().await?);
+            Ok(fragment)
+        }
+
         let search_results = {
             let referrer = Self::referrer().unwrap();
             let search_url = format!("{referrer}/search?keyword={query}");
-            let search_page = client.parse_url(&search_url).await?;
+            let search_page = parse_url(&client, &search_url).await?;
             let anime_list = Selector::parse("div.film-list").unwrap();
             let name = Selector::parse("a.name").unwrap();
 
@@ -55,7 +60,7 @@ impl Archive for AnimeWorld {
 
         let mut res: Vec<AnimeInfo> = vec![];
         for c in selected {
-            let page = client.parse_url(&(Self::referrer().unwrap() + &c)).await?;
+            let page = parse_url(&client, &(Self::referrer().unwrap() + &c)).await?;
             match Self::parser(page) {
                 Ok(info) => res.push(info),
                 _ => continue,

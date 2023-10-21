@@ -14,11 +14,12 @@ use which::which;
 use crate::anilist::AniList;
 use crate::anime::{self, Anime, AnimeInfo};
 use crate::cli::Args;
+use crate::config::clean_config;
 use crate::errors::{RemoteError, SystemError};
 use crate::file::FileDest;
-use crate::scraper::{Scraper, ScraperItems};
+use crate::parser;
+use crate::scraper::{select_cookie, select_proxy, Scraper, SearchResult};
 use crate::tui;
-use crate::utils;
 
 pub struct App;
 
@@ -28,7 +29,7 @@ impl App {
 
         #[cfg(feature = "anilist")]
         if args.clean {
-            AniList::clean_cache()?
+            return clean_config();
         }
 
         let items = if args.watching {
@@ -46,22 +47,25 @@ impl App {
                         })
                         .collect::<Vec<_>>();
 
-                    Scraper::new(&query.join(","))
-                        .with_proxy(!args.no_proxy)
-                        .run()
+                    let proxy = select_proxy(args.no_proxy).await;
+                    let cookie = select_cookie(args.site.unwrap_or_default()).await?;
+                    Scraper::new(&cookie, proxy)
+                        .run(&query.join(","), args.site.unwrap_or_default())
                         .await?
                 }
                 _ => bail!(RemoteError::WatchingList),
             }
-        } else if utils::is_web_url(&args.entries[0]) {
+        } else if parser::is_web_url(&args.entries[0]) {
             args.entries
                 .iter()
                 .map(|s| AnimeInfo::new(s, None, None))
-                .collect::<_>()
+                .collect()
         } else {
-            Scraper::new(&args.entries.join(" "))
-                .with_proxy(!args.no_proxy)
-                .run()
+            let site = args.site.unwrap_or_default();
+            let proxy = select_proxy(args.no_proxy).await;
+            let cookie = select_cookie(site).await?;
+            Scraper::new(&cookie, proxy)
+                .run(&args.entries.join(" "), site)
                 .await?
         };
 
@@ -72,9 +76,9 @@ impl App {
         }
     }
 
-    async fn download(args: Args, items: ScraperItems) -> Result<()> {
+    async fn download(args: Args, items: SearchResult) -> Result<()> {
         let referrer = &items.referrer;
-        let bars = utils::Bars::new();
+        let bars = tui::Bars::new();
         let mut pool = vec![];
 
         for info in items.iter() {
@@ -94,7 +98,7 @@ impl App {
                 anime.episodes = unroll!(tui::episodes_choice(&anime))
             }
 
-            let path = utils::get_path(&args, &anime.info.url)?;
+            let path = parser::parse_path(&args, &anime.info.url)?;
             for url in anime.episodes {
                 let root = path.clone();
                 let overwrite = args.force;
@@ -102,7 +106,7 @@ impl App {
 
                 let future = async move {
                     let client = Client::new();
-                    let filename = utils::parse_filename(&url)?;
+                    let filename = parser::parse_filename(&url)?;
                     let source_size = client
                         .head(&url)
                         .header(REFERER, referrer)
@@ -158,7 +162,7 @@ impl App {
         Ok(())
     }
 
-    async fn streaming(args: Args, items: ScraperItems) -> Result<()> {
+    async fn streaming(args: Args, items: SearchResult) -> Result<()> {
         let referrer = &items.referrer;
         let (cmd, cmd_referrer) = match which("mpv") {
             Ok(c) => (c, format!("--referrer={referrer}")),
