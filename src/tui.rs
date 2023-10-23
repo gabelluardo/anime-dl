@@ -24,12 +24,8 @@ fn parse_input<T: Clone>(line: &str, content: &[T], index_start: usize) -> Vec<T
         .chars()
         .filter(|c| c.is_ascii_digit() || c.is_ascii_whitespace() || *c == '-')
         .collect::<String>();
-    let sel = line
-        .split_ascii_whitespace()
-        .map(|s| s.trim())
-        .collect::<Vec<_>>();
 
-    for s in sel {
+    for s in line.split_ascii_whitespace().map(|s| s.trim()) {
         if let Ok(num) = s.parse::<usize>() {
             selected.push(num);
         } else if let Ok(range) = Range::<usize>::parse_and_fill(s, content.len()) {
@@ -46,7 +42,7 @@ fn parse_input<T: Clone>(line: &str, content: &[T], index_start: usize) -> Vec<T
         selected
             .iter()
             .filter_map(|i| content.get(i - index_start).cloned())
-            .collect::<Vec<_>>()
+            .collect()
     }
 }
 
@@ -102,10 +98,9 @@ pub fn watching_choice(series: &[(String, i64)]) -> Result<Vec<(String, i64)>> {
 pub fn series_choice(series: &[AnimeInfo], search: &str) -> Result<Vec<AnimeInfo>> {
     match series.len() {
         0 => bail!(UserError::Choices),
-        1 => Ok(series[..1].to_vec()),
-        _ => {
+        1 => Ok(series.to_vec()),
+        len => {
             let index_start = 1;
-            let len = series.len();
             let query = search.replace('+', " ");
             let results = format!("{len} results found for `{query}`");
             println!("{}\n", results.cyan().bold());

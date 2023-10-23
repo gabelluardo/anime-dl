@@ -92,7 +92,7 @@ impl AniList {
             .await
             .ok()?;
 
-        let list = response_body.data?.media_list_collection?.lists?[0]
+        let mut list = response_body.data?.media_list_collection?.lists?[0]
             .clone()?
             .entries?
             .into_iter()
@@ -102,6 +102,7 @@ impl AniList {
                     .and_then(|(t, id)| t.romaji.zip(Some(id)))
             })
             .collect::<Vec<_>>();
+        list.sort_unstable_by(|(a, _), (b, _)| a.partial_cmp(b).unwrap());
 
         Some(list)
     }

@@ -38,25 +38,22 @@ impl App {
             match anilist.get_watching_list().await {
                 Some(list) => {
                     let series = tui::watching_choice(&list)?;
-                    let search = series
-                        .into_iter()
-                        .map(|(s, id)| {
-                            let string = s
-                                .split_ascii_whitespace()
-                                .take(2)
-                                .fold(String::new(), |acc, s| acc + "+" + s.trim());
+                    let search = series.iter().map(|(s, id)| {
+                        let string = s
+                            .split_ascii_whitespace()
+                            .take(2)
+                            .fold(String::new(), |acc, s| acc + "+" + s.trim());
 
-                            Search {
-                                string,
-                                id: Some(id as u32),
-                            }
-                        })
-                        .collect::<Vec<_>>();
+                        Search {
+                            string,
+                            id: Some(*id as u32),
+                        }
+                    });
 
                     let site = args.site.unwrap_or_default();
                     let proxy = select_proxy(args.no_proxy).await;
                     let cookie = select_cookie(site).await?;
-                    Scraper::new(&cookie, proxy).run(&search, site).await?
+                    Scraper::new(&cookie, proxy).run(search, site).await?
                 }
                 _ => bail!(RemoteError::WatchingList),
             }
@@ -76,16 +73,14 @@ impl App {
             let site = args.site.unwrap_or_default();
             let proxy = select_proxy(args.no_proxy).await;
             let cookie = select_cookie(site).await?;
-            let search = &args
-                .entries
-                .join(" ")
+            let input = &args.entries.join(" ");
+            let search = input
                 .split(',')
                 .map(|s| s.trim().replace(' ', "+"))
                 .map(|s| Search {
                     string: s,
                     id: None,
-                })
-                .collect::<Vec<_>>();
+                });
 
             Scraper::new(&cookie, proxy).run(search, site).await?
         };
@@ -105,15 +100,6 @@ impl App {
         for info in items.iter() {
             let last_watched = anime::last_watched(args.anilist_id, info.id).await;
             let mut anime = Anime::new(info, last_watched);
-
-            // if no episode is found, try with the download url
-            // if anime.episodes.is_empty() {
-            //     let range = args.range.as_ref().cloned().unwrap_or_default();
-            //     if let Ok(episodes) = anime::find_episodes(info, referrer, &range).await {
-            //         anime.episodes = episodes;
-            //         anime.start = *range.start();
-            //     }
-            // }
 
             if args.interactive {
                 anime.episodes = unroll!(tui::episodes_choice(&anime))
@@ -198,15 +184,6 @@ impl App {
         for info in items.iter() {
             let last_watched = anime::last_watched(args.anilist_id, info.id).await;
             let anime = Anime::new(info, last_watched);
-
-            // if no episode is found, try with the download url
-            // if anime.episodes.is_empty() {
-            //     let range = args.range.as_ref().cloned().unwrap_or_default();
-            //     if let Ok(episodes) = anime::find_episodes(info, referrer, &range).await {
-            //         anime.episodes = episodes;
-            //         anime.start = *range.start();
-            //     }
-            // }
 
             let urls = unroll!(tui::episodes_choice(&anime));
             Command::new(&cmd)

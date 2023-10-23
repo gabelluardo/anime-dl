@@ -24,6 +24,7 @@ pub trait Archive {
 }
 
 pub struct AnimeWorld;
+
 #[async_trait::async_trait]
 impl Archive for AnimeWorld {
     fn referrer() -> Option<String> {
@@ -41,7 +42,7 @@ impl Archive for AnimeWorld {
             Ok(fragment)
         }
 
-        let search_results = {
+        let mut search_results = {
             let keyword = &search.string;
             let referrer = Self::referrer().unwrap();
             let search_url = format!("{referrer}/search?keyword={keyword}");
@@ -60,12 +61,14 @@ impl Archive for AnimeWorld {
         if search_results.is_empty() {
             bail!(RemoteError::AnimeNotFound)
         }
+        search_results.sort_unstable();
 
         let mut pool = vec![];
         for url in search_results {
             let client = client.clone();
             let future = async move {
-                let page = parse_url(&client, &(Self::referrer().unwrap() + &url)).await?;
+                let url = Self::referrer().unwrap() + &url;
+                let page = parse_url(&client, &url).await?;
 
                 Self::parser(page)
             };
@@ -73,15 +76,8 @@ impl Archive for AnimeWorld {
             pool.push(future);
         }
 
-        let stream = stream::iter(pool)
-            .buffer_unordered(20)
-            .collect::<Vec<_>>()
-            .await;
-
-        let anime = stream
-            .into_iter()
-            .filter_map(|a| a.ok())
-            .collect::<Vec<_>>();
+        let stream = stream::iter(pool).buffered(20).collect::<Vec<_>>().await;
+        let anime = stream.into_iter().filter_map(|a| a.ok());
 
         if search.id.is_some() {
             if let Some(anime) = anime
@@ -92,12 +88,12 @@ impl Archive for AnimeWorld {
                 lock.push(anime);
             }
         } else {
-            let anime = tui::series_choice(&anime, &search.string)?;
-            if anime.is_empty() {
+            let choice = tui::series_choice(&anime.collect::<Vec<_>>(), &search.string)?;
+            if choice.is_empty() {
                 bail!(RemoteError::UrlNotFound)
             }
             let mut lock = vec.lock().await;
-            lock.extend(anime);
+            lock.extend(choice);
         }
 
         Ok(())

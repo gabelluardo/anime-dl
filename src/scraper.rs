@@ -78,14 +78,16 @@ impl Scraper {
         }
     }
 
-    pub async fn run(self, search: &[Search], site: Site) -> Result<SearchResult> {
+    pub async fn run<I>(self, search: I, site: Site) -> Result<SearchResult>
+    where
+        I: Iterator<Item = Search>,
+    {
         let (scraper_fun, referrer) = match site {
             Site::AW => (AnimeWorld::run, AnimeWorld::referrer()),
         };
 
         let vec = Arc::new(Mutex::new(Vec::new()));
         let tasks = search
-            .iter()
             .map(|s| scraper_fun(s.clone(), self.client.clone(), vec.clone()))
             .map(|f| async move {
                 if let Err(err) = f.await {
@@ -93,8 +95,7 @@ impl Scraper {
                         eprintln!("{}", err.red());
                     }
                 }
-            })
-            .collect::<Vec<_>>();
+            });
         join_all(tasks).await;
 
         Ok(SearchResult {
@@ -166,7 +167,7 @@ mod tests {
         }];
 
         let anime = Scraper::new(&cookie, proxy)
-            .run(&search, site)
+            .run(search.into_iter(), site)
             .await
             .unwrap();
 
@@ -203,7 +204,7 @@ mod tests {
         ];
 
         let anime = Scraper::new(&cookie, proxy)
-            .run(&search, site)
+            .run(search.into_iter(), site)
             .await
             .unwrap();
 
