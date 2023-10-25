@@ -1,7 +1,7 @@
 use nom::Slice;
 
 #[cfg(feature = "anilist")]
-use crate::anilist::AniList;
+use crate::anilist;
 
 #[derive(Clone, Copy, Default, Debug, PartialEq, Eq)]
 pub struct InfoNum {
@@ -93,7 +93,7 @@ impl Anime {
 
 #[cfg(feature = "anilist")]
 pub async fn last_watched(client_id: Option<u32>, anime_id: Option<u32>) -> Option<u32> {
-    AniList::new(client_id).last_watched(anime_id).await
+    anilist::last_watched(client_id, anime_id).await
 }
 
 #[cfg(not(feature = "anilist"))]

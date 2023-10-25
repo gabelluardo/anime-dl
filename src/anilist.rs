@@ -26,86 +26,80 @@ struct WatchingQuery;
 )]
 struct UserQuery;
 
-#[derive(Default, Debug)]
-pub struct AniList(Client);
+pub async fn last_watched(client_id: Option<u32>, anime_id: Option<u32>) -> Option<u32> {
+    let client = new_client(client_id)?;
 
-impl AniList {
-    pub fn new(client_id: Option<u32>) -> Self {
-        let client_id = client_id.unwrap_or(4047);
-        let opt_token = load_config().map_or_else(|_| oauth_token(client_id), Some);
+    let url = "https://graphql.anilist.co";
+    let variables = progress_query::Variables {
+        id: anime_id.map(|u| u as i64),
+    };
+    let query = ProgressQuery::build_query(variables);
+    let res = client.post(url).json(&query).send().await.ok()?;
+    let response_body = res
+        .json::<Response<progress_query::ResponseData>>()
+        .await
+        .ok()?;
 
-        let mut client = Client::new();
-        if let Some(token) = opt_token {
-            let mut headers = header::HeaderMap::new();
-            headers.insert(
-                header::AUTHORIZATION,
-                HeaderValue::from_str(&format!("Bearer {token}")).unwrap(),
-            );
-            headers.insert(header::ACCEPT, HeaderValue::from_static("application/json"));
-            headers.insert(
-                header::CONTENT_TYPE,
-                HeaderValue::from_static("application/json"),
-            );
+    response_body
+        .data?
+        .media?
+        .media_list_entry?
+        .progress
+        .map(|p| p as u32)
+}
 
-            client = Client::builder().default_headers(headers).build().unwrap();
-        }
+pub async fn get_watching_list(client_id: Option<u32>) -> Option<Vec<(String, i64)>> {
+    let client = new_client(client_id)?;
 
-        Self(client)
-    }
+    let url = "https://graphql.anilist.co";
+    let query = UserQuery::build_query(user_query::Variables);
+    let res = client.post(url).json(&query).send().await.ok()?;
+    let response_body = res
+        .json::<Response<user_query::ResponseData>>()
+        .await
+        .ok()?;
+    let user_id = response_body.data?.viewer.map(|d| d.id);
 
-    pub async fn last_watched(&self, anime_id: Option<u32>) -> Option<u32> {
-        let url = "https://graphql.anilist.co";
-        let variables = progress_query::Variables {
-            id: anime_id.map(|u| u as i64),
-        };
-        let query = ProgressQuery::build_query(variables);
-        let res = self.0.post(url).json(&query).send().await.ok()?;
-        let response_body = res
-            .json::<Response<progress_query::ResponseData>>()
-            .await
-            .ok()?;
+    let variables = watching_query::Variables { id: user_id };
+    let query = WatchingQuery::build_query(variables);
 
-        response_body
-            .data?
-            .media?
-            .media_list_entry?
-            .progress
-            .map(|p| p as u32)
-    }
+    let res = client.post(url).json(&query).send().await.ok()?;
+    let response_body = res
+        .json::<Response<watching_query::ResponseData>>()
+        .await
+        .ok()?;
 
-    pub async fn get_watching_list(&self) -> Option<Vec<(String, i64)>> {
-        let url = "https://graphql.anilist.co";
-        let query = UserQuery::build_query(user_query::Variables);
-        let res = self.0.post(url).json(&query).send().await.ok()?;
-        let response_body = res
-            .json::<Response<user_query::ResponseData>>()
-            .await
-            .ok()?;
-        let user_id = response_body.data?.viewer.map(|d| d.id);
+    let mut list = response_body.data?.media_list_collection?.lists?[0]
+        .clone()?
+        .entries?
+        .into_iter()
+        .filter_map(|e| {
+            e.and_then(|m| m.media)
+                .and_then(|m| m.title.zip(Some(m.id)))
+                .and_then(|(t, id)| t.romaji.zip(Some(id)))
+        })
+        .collect::<Vec<_>>();
+    list.sort_unstable_by(|(a, _), (b, _)| a.partial_cmp(b).unwrap());
 
-        let variables = watching_query::Variables { id: user_id };
-        let query = WatchingQuery::build_query(variables);
+    Some(list)
+}
 
-        let res = self.0.post(url).json(&query).send().await.ok()?;
-        let response_body = res
-            .json::<Response<watching_query::ResponseData>>()
-            .await
-            .ok()?;
+fn new_client(client_id: Option<u32>) -> Option<Client> {
+    let client_id = client_id.unwrap_or(4047);
+    let token = load_config().map_or_else(|_| oauth_token(client_id), Some)?;
 
-        let mut list = response_body.data?.media_list_collection?.lists?[0]
-            .clone()?
-            .entries?
-            .into_iter()
-            .filter_map(|e| {
-                e.and_then(|m| m.media)
-                    .and_then(|m| m.title.zip(Some(m.id)))
-                    .and_then(|(t, id)| t.romaji.zip(Some(id)))
-            })
-            .collect::<Vec<_>>();
-        list.sort_unstable_by(|(a, _), (b, _)| a.partial_cmp(b).unwrap());
+    let mut headers = header::HeaderMap::new();
+    headers.insert(header::ACCEPT, HeaderValue::from_static("application/json"));
+    headers.insert(
+        header::AUTHORIZATION,
+        HeaderValue::from_str(&format!("Bearer {token}")).unwrap(),
+    );
+    headers.insert(
+        header::CONTENT_TYPE,
+        HeaderValue::from_static("application/json"),
+    );
 
-        Some(list)
-    }
+    Client::builder().default_headers(headers).build().ok()
 }
 
 fn oauth_token(client_id: u32) -> Option<String> {

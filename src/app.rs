@@ -11,7 +11,8 @@ use tokio_stream as stream;
 use which::which;
 
 #[cfg(feature = "anilist")]
-use crate::anilist::AniList;
+use crate::anilist;
+
 use crate::anime::{self, Anime, AnimeInfo};
 use crate::cli::Args;
 use crate::config::clean_config;
@@ -33,9 +34,7 @@ impl App {
         }
 
         let items = if args.watching {
-            let anilist = AniList::new(args.anilist_id);
-
-            match anilist.get_watching_list().await {
+            match anilist::get_watching_list(args.anilist_id).await {
                 Some(list) => {
                     let series = tui::watching_choice(&list)?;
                     let search = series.iter().map(|(s, id)| {

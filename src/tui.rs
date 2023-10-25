@@ -1,6 +1,6 @@
 use std::ops::Deref;
 
-use anyhow::{bail, Context, Result};
+use anyhow::{bail, Result};
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use owo_colors::OwoColorize;
 use rustyline::{config::Configurer, error::ReadlineError, ColorMode, DefaultEditor};
@@ -75,7 +75,7 @@ pub fn watching_choice(series: &[(String, i64)]) -> Result<Vec<(String, i64)>> {
                 "Make your selection (eg: 1 2 3 or 1-3) [<enter> for all, <q> for exit]".bold()
             );
 
-            let mut rl = DefaultEditor::new().context(UserError::InvalidInput)?;
+            let mut rl = DefaultEditor::new()?;
             rl.set_color_mode(ColorMode::Enabled);
             let prompt = "~❯ ".red().to_string();
             let res = match rl.readline(&prompt) {
@@ -125,7 +125,7 @@ pub fn series_choice(series: &[AnimeInfo], search: &str) -> Result<Vec<AnimeInfo
                 "Make your selection (eg: 1 2 3 or 1-3) [<enter> for all, <q> for exit]".bold()
             );
 
-            let mut rl = DefaultEditor::new().context(UserError::InvalidInput)?;
+            let mut rl = DefaultEditor::new()?;
             rl.set_color_mode(ColorMode::Enabled);
             let prompt = "~❯ ".red().to_string();
             let res = match rl.readline(&prompt) {
@@ -188,7 +188,7 @@ pub fn episodes_choice(anime: &Anime) -> Result<Vec<String>> {
                 "Make your selection (eg: 1 2 3 or 1-3) [<enter> for all, <q> for exit, <u> for unwatched]".bold()
             );
 
-            let mut rl = DefaultEditor::new().context(UserError::InvalidInput)?;
+            let mut rl = DefaultEditor::new()?;
             rl.set_color_mode(ColorMode::Enabled);
             let prompt = "~❯ ".red().to_string();
             let res = match rl.readline(&prompt) {
@@ -224,7 +224,7 @@ pub fn get_token(url: &str) -> Result<String> {
     let text = oauth + "\n\n" + &action + " " + &url + "\n\n" + &input;
     println!("{text}");
 
-    let mut rl = DefaultEditor::new().context(UserError::InvalidInput)?;
+    let mut rl = DefaultEditor::new()?;
     let prompt = "~❯ ".red().to_string();
     let res = match rl.readline(&prompt) {
         Err(ReadlineError::Interrupted | ReadlineError::Eof) => bail!(Quit),
