@@ -13,6 +13,7 @@ use which::which;
 #[cfg(feature = "anilist")]
 use crate::anilist;
 
+use crate::anilist::WatchingAnime;
 use crate::anime::{self, Anime, AnimeInfo};
 use crate::cli::Args;
 use crate::config::clean_config;
@@ -37,15 +38,15 @@ impl App {
             match anilist::get_watching_list(args.anilist_id).await {
                 Some(list) => {
                     let series = tui::watching_choice(&list)?;
-                    let search = series.iter().map(|(s, id)| {
-                        let string = s
+                    let search = series.iter().map(|WatchingAnime { title, id, .. }| {
+                        let string = title
                             .split_ascii_whitespace()
                             .take(2)
                             .fold(String::new(), |acc, s| acc + "+" + s.trim());
 
                         Search {
                             string,
-                            id: Some(*id as u32),
+                            id: Some(*id),
                         }
                     });
 

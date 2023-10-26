@@ -4,6 +4,13 @@ use reqwest::{header, header::HeaderValue, Client};
 use crate::config::{load_config, save_config};
 use crate::tui;
 
+#[derive(Clone, Debug)]
+pub struct WatchingAnime {
+    pub behind: u32,
+    pub id: u32,
+    pub title: String,
+}
+
 #[derive(GraphQLQuery)]
 #[graphql(
     schema_path = "assets/anilist_schema.graphql",
@@ -15,7 +22,7 @@ struct ProgressQuery;
 #[graphql(
     schema_path = "assets/anilist_schema.graphql",
     query_path = "assets/watching_query.graphql",
-    response_derives = "Clone"
+    response_derives = "Clone, Default"
 )]
 struct WatchingQuery;
 
@@ -48,7 +55,7 @@ pub async fn last_watched(client_id: Option<u32>, anime_id: Option<u32>) -> Opti
         .map(|p| p as u32)
 }
 
-pub async fn get_watching_list(client_id: Option<u32>) -> Option<Vec<(String, i64)>> {
+pub async fn get_watching_list(client_id: Option<u32>) -> Option<Vec<WatchingAnime>> {
     let client = new_client(client_id)?;
 
     let url = "https://graphql.anilist.co";
@@ -74,12 +81,33 @@ pub async fn get_watching_list(client_id: Option<u32>) -> Option<Vec<(String, i6
         .entries?
         .into_iter()
         .filter_map(|e| {
-            e.and_then(|m| m.media)
-                .and_then(|m| m.title.zip(Some(m.id)))
-                .and_then(|(t, id)| t.romaji.zip(Some(id)))
+            let progress = e
+                .as_ref()
+                .and_then(|c| c.progress)
+                .map(|p| p as u32)
+                .unwrap_or_default();
+
+            e.and_then(|e| e.media)
+                .and_then(|m| {
+                    m.title.zip(Some(m.id)).zip(
+                        m.episodes
+                            .zip(Some(m.next_airing_episode.unwrap_or_default())),
+                    )
+                })
+                .and_then(|((t, id), (e, n))| {
+                    t.romaji
+                        .zip(Some(id as u32))
+                        .zip(Some((e as u32, n.episode as u32)))
+                })
+                .map(|((t, id), (e, n))| WatchingAnime {
+                    id,
+                    title: t,
+                    behind: n.checked_sub(progress + 1).unwrap_or(e - progress),
+                })
         })
         .collect::<Vec<_>>();
-    list.sort_unstable_by(|(a, _), (b, _)| a.partial_cmp(b).unwrap());
+
+    list.sort_unstable_by(|a, b| a.title.partial_cmp(&b.title).unwrap());
 
     Some(list)
 }

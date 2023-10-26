@@ -13,6 +13,7 @@ use tabled::{
     {builder::Builder, settings::Style},
 };
 
+use crate::anilist::WatchingAnime;
 use crate::anime::{Anime, AnimeInfo};
 use crate::errors::{Quit, RemoteError, UserError};
 use crate::range::Range;
@@ -46,7 +47,7 @@ fn parse_input<T: Clone>(line: &str, content: &[T], index_start: usize) -> Vec<T
     }
 }
 
-pub fn watching_choice(series: &[(String, i64)]) -> Result<Vec<(String, i64)>> {
+pub fn watching_choice(series: &[WatchingAnime]) -> Result<Vec<WatchingAnime>> {
     match series.len() {
         0 => bail!(UserError::Choices),
         1 => Ok(series.to_vec()),
@@ -56,17 +57,27 @@ pub fn watching_choice(series: &[(String, i64)]) -> Result<Vec<(String, i64)>> {
             println!("{str}\n",);
 
             let mut builder = Builder::default();
-            builder.set_header(["Index", "Name"]);
-            series.iter().enumerate().for_each(|(i, (c, _))| {
-                builder.push_record([(i + index_start).to_string(), c.clone()]);
+            builder.set_header(["Index", "Name", "Episodes Behind"]);
+            series.iter().enumerate().for_each(|(i, c)| {
+                let behind = match c.behind {
+                    0 => "•".to_string(),
+                    n => n.to_string(),
+                };
+
+                builder.push_record([(i + index_start).to_string(), c.title.clone(), behind]);
             });
 
             let mut table = builder.build();
             table
                 .with(Style::rounded())
-                .with(Colorization::columns([Color::FG_MAGENTA, Color::FG_GREEN]))
+                .with(Colorization::columns([
+                    Color::FG_MAGENTA,
+                    Color::FG_GREEN,
+                    Color::FG_BRIGHT_BLUE,
+                ]))
                 .with(Modify::new(Rows::first()).with(Color::FG_WHITE))
-                .with(Modify::new(Columns::first()).with(Alignment::center()));
+                .with(Modify::new(Columns::first()).with(Alignment::center()))
+                .with(Modify::new(Columns::last()).with(Alignment::center()));
 
             println!("{}", table);
             println!(
