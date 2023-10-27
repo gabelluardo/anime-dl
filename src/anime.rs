@@ -1,12 +1,7 @@
-use anyhow::Result;
 use nom::Slice;
-use reqwest::header::REFERER;
-use reqwest::Client;
 
 #[cfg(feature = "anilist")]
-use crate::anilist::AniList;
-use crate::parser;
-use crate::range::Range;
+use crate::anilist;
 
 #[derive(Clone, Copy, Default, Debug, PartialEq, Eq)]
 pub struct InfoNum {
@@ -25,9 +20,7 @@ pub struct AnimeInfo {
 }
 
 impl AnimeInfo {
-    pub fn new(input: &str, id: Option<u32>, episodes: Option<(u32, u32)>) -> Self {
-        let name = to_title_case!(parser::parse_name(input).unwrap());
-
+    pub fn new(name: &str, input: &str, id: Option<u32>, episodes: Option<(u32, u32)>) -> Self {
         // find episode number position in input
         let (mut opt_start, mut opt_end) = (None, None);
         for (i, c) in input.char_indices() {
@@ -58,10 +51,10 @@ impl AnimeInfo {
 
         AnimeInfo {
             id,
-            name,
             url,
             episodes,
             num: info_num,
+            name: name.to_owned(),
             origin: input.into(),
         }
     }
@@ -100,75 +93,12 @@ impl Anime {
 
 #[cfg(feature = "anilist")]
 pub async fn last_watched(client_id: Option<u32>, anime_id: Option<u32>) -> Option<u32> {
-    AniList::new(client_id).last_watched(anime_id).await
+    anilist::last_watched(client_id, anime_id).await
 }
 
 #[cfg(not(feature = "anilist"))]
 pub async fn last_watched(_: Option<u32>, _: Option<u32>) -> Option<u32> {
     None
-}
-
-pub async fn _find_episodes(
-    info: &AnimeInfo,
-    referrer: &str,
-    range: &Range<u32>,
-) -> Result<Vec<String>> {
-    let InfoNum { alignment, value } = info.num.unwrap();
-    let url = &info.url;
-    let client = Client::new();
-    let mut err;
-    let mut end;
-    let mut counter = 2;
-
-    // finds a possible least upper bound
-    loop {
-        err = counter;
-        end = counter / 2;
-        match client
-            .head(&gen_url!(url, counter, alignment))
-            .header(REFERER, referrer)
-            .send()
-            .await?
-            .error_for_status()
-        {
-            Ok(_) => counter *= 2,
-            Err(_) => break,
-        }
-    }
-
-    // finds the real upper bound with a binary search
-    while err != end + 1 {
-        counter = (err + end) / 2;
-        match client
-            .head(&gen_url!(url, counter, alignment))
-            .header(REFERER, referrer)
-            .send()
-            .await?
-            .error_for_status()
-        {
-            Ok(_) => end = counter,
-            Err(_) => err = counter,
-        }
-    }
-
-    // Check if there is a 0 episode
-    let start = match range.start() {
-        1 => match client
-            .head(&gen_url!(url, 0, alignment))
-            .header(REFERER, referrer)
-            .send()
-            .await?
-            .error_for_status()
-        {
-            Ok(_) => 0,
-            Err(_) => 1,
-        },
-        _ => *range.start(),
-    };
-
-    Ok((start..=end)
-        .map(|i| gen_url!(url, i + value.checked_sub(1).unwrap_or(value), alignment))
-        .collect())
 }
 
 #[cfg(test)]
@@ -179,7 +109,7 @@ mod tests {
     fn test_extract_info() {
         let origin = "https://www.domain.tld/sub/anotherSub/AnimeName/AnimeName_Ep_15_SUB_ITA.mp4";
         let url = "https://www.domain.tld/sub/anotherSub/AnimeName/AnimeName_Ep_{}_SUB_ITA.mp4";
-        let res = AnimeInfo::new(origin, None, None);
+        let res = AnimeInfo::new("Anime Name", origin, None, None);
         assert_eq!(
             res,
             AnimeInfo {
@@ -197,7 +127,7 @@ mod tests {
 
         let origin = "https://www.domain.tld/sub/anotherSub/AnimeName/AnimeName_Ep_016_SUB_ITA.mp4";
         let url = "https://www.domain.tld/sub/anotherSub/AnimeName/AnimeName_Ep_{}_SUB_ITA.mp4";
-        let res = AnimeInfo::new(origin, Some(14), None);
+        let res = AnimeInfo::new("Anime Name", origin, Some(14), None);
         assert_eq!(
             res,
             AnimeInfo {

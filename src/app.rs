@@ -11,14 +11,16 @@ use tokio_stream as stream;
 use which::which;
 
 #[cfg(feature = "anilist")]
-use crate::anilist::AniList;
+use crate::anilist;
+
+use crate::anilist::WatchingAnime;
 use crate::anime::{self, Anime, AnimeInfo};
 use crate::cli::Args;
 use crate::config::clean_config;
 use crate::errors::{RemoteError, SystemError};
 use crate::file::FileDest;
 use crate::parser;
-use crate::scraper::{select_cookie, select_proxy, Scraper, SearchResult};
+use crate::scraper::{select_cookie, select_proxy, Scraper, Search, SearchResult};
 use crate::tui;
 
 pub struct App;
@@ -33,40 +35,53 @@ impl App {
         }
 
         let items = if args.watching {
-            let anilist = AniList::new(args.anilist_id);
+            let list = anilist::get_watching_list(args.anilist_id)
+                .await
+                .ok_or(RemoteError::WatchingList)?;
 
-            match anilist.get_watching_list().await {
-                Some(list) => {
-                    let series = tui::watching_choice(&list)?;
-                    let query = series
-                        .iter()
-                        .map(|s| {
-                            s.split_ascii_whitespace()
-                                .take(2)
-                                .fold(String::new(), |acc, s| acc + " " + s)
-                        })
-                        .collect::<Vec<_>>();
+            let series = tui::watching_choice(&list)?;
+            let search = series.iter().map(|WatchingAnime { title, id, .. }| {
+                let string = title
+                    .split_ascii_whitespace()
+                    .take(2)
+                    .fold(String::new(), |acc, s| acc + "+" + s.trim());
 
-                    let proxy = select_proxy(args.no_proxy).await;
-                    let cookie = select_cookie(args.site.unwrap_or_default()).await?;
-                    Scraper::new(&cookie, proxy)
-                        .run(&query.join(","), args.site.unwrap_or_default())
-                        .await?
+                Search {
+                    string,
+                    id: Some(*id),
                 }
-                _ => bail!(RemoteError::WatchingList),
-            }
+            });
+
+            let site = args.site.unwrap_or_default();
+            let proxy = select_proxy(args.no_proxy).await;
+            let cookie = select_cookie(site).await?;
+            Scraper::new(&cookie, proxy).run(search, site).await?
         } else if parser::is_web_url(&args.entries[0]) {
             args.entries
                 .iter()
-                .map(|s| AnimeInfo::new(s, None, None))
+                .map(|s| {
+                    AnimeInfo::new(
+                        &to_title_case!(parser::parse_name(s).unwrap()),
+                        s,
+                        None,
+                        None,
+                    )
+                })
                 .collect()
         } else {
             let site = args.site.unwrap_or_default();
             let proxy = select_proxy(args.no_proxy).await;
             let cookie = select_cookie(site).await?;
-            Scraper::new(&cookie, proxy)
-                .run(&args.entries.join(" "), site)
-                .await?
+            let input = &args.entries.join(" ");
+            let search = input
+                .split(',')
+                .map(|s| s.trim().replace(' ', "+"))
+                .map(|s| Search {
+                    string: s,
+                    id: None,
+                });
+
+            Scraper::new(&cookie, proxy).run(search, site).await?
         };
 
         if args.stream {
@@ -84,15 +99,6 @@ impl App {
         for info in items.iter() {
             let last_watched = anime::last_watched(args.anilist_id, info.id).await;
             let mut anime = Anime::new(info, last_watched);
-
-            // if no episode is found, try with the download url
-            // if anime.episodes.is_empty() {
-            //     let range = args.range.as_ref().cloned().unwrap_or_default();
-            //     if let Ok(episodes) = anime::find_episodes(info, referrer, &range).await {
-            //         anime.episodes = episodes;
-            //         anime.start = *range.start();
-            //     }
-            // }
 
             if args.interactive {
                 anime.episodes = unroll!(tui::episodes_choice(&anime))
@@ -125,11 +131,11 @@ impl App {
                         bail!(SystemError::Overwrite(filename));
                     }
 
-                    let info = AnimeInfo::new(&url, None, None);
+                    // let info = AnimeInfo::new(&info.name, &url, None, None);
                     let msg = if let Some(inum) = info.num {
                         "Ep. ".to_string() + &zfill!(inum.value, 2) + " " + &info.name
                     } else {
-                        info.name
+                        info.name.clone()
                     };
 
                     pb.set_position(file.size);
@@ -148,6 +154,7 @@ impl App {
                         pb.inc(chunk.len() as u64);
                     }
                     pb.finish_with_message(msg + " 👍");
+
                     Ok(())
                 };
                 pool.push(future);
@@ -176,15 +183,6 @@ impl App {
         for info in items.iter() {
             let last_watched = anime::last_watched(args.anilist_id, info.id).await;
             let anime = Anime::new(info, last_watched);
-
-            // if no episode is found, try with the download url
-            // if anime.episodes.is_empty() {
-            //     let range = args.range.as_ref().cloned().unwrap_or_default();
-            //     if let Ok(episodes) = anime::find_episodes(info, referrer, &range).await {
-            //         anime.episodes = episodes;
-            //         anime.start = *range.start();
-            //     }
-            // }
 
             let urls = unroll!(tui::episodes_choice(&anime));
             Command::new(&cmd)

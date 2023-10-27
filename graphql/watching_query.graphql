@@ -2,12 +2,19 @@ query WatchingQuery($id: Int) {
   MediaListCollection(type: ANIME, status: CURRENT, userId: $id) {
     lists {
       entries {
+      	progress
         media {
+          id
+          episodes
           title {
             romaji
+          }
+          nextAiringEpisode {
+            episode
           }
         }
       }
     }
   }
 }
+

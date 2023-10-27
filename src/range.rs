@@ -10,7 +10,7 @@ pub struct Range<T>(OpsRange<T>);
 
 impl<T> Range<T>
 where
-    T: Copy + Clone + FromStr + Ord,
+    T: Copy + FromStr + Ord,
 {
     pub fn new(start: T, end: T) -> Self {
         Self(start..=end)
@@ -60,15 +60,15 @@ where
         let range_str = s
             .trim_matches(|p| p == '(' || p == ')')
             .split(&[',', '-', '.'])
+            .filter_map(|c| c.parse::<T>().ok())
             .collect::<Vec<_>>();
-        match (range_str.first(), range_str.last()) {
-            (Some(&f), Some(&l)) => match (f.parse::<T>(), l.parse::<T>()) {
-                (Ok(s), Ok(e)) => Ok(Self(s..=e)),
-                (Ok(s), Err(_)) => Ok(Self(s..=s)),
-                _ => bail!(UserError::InvalidRange),
-            },
+        let range = match range_str[..] {
+            [f, .., l] => Self(f..=l),
+            [f] => Self(f..=f),
             _ => bail!(UserError::InvalidRange),
-        }
+        };
+
+        Ok(range)
     }
 }
 
