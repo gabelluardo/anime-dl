@@ -92,7 +92,6 @@ impl App {
     }
 
     async fn download(args: Args, items: SearchResult) -> Result<()> {
-        let referrer = items.referrer;
         let bars = tui::Bars::new();
         let mut pool = vec![];
 
@@ -107,7 +106,6 @@ impl App {
             let path = parser::parse_path(&args, &anime.info.url)?;
             for url in anime.episodes {
                 let root = path.clone();
-                let overwrite = args.force;
                 let pb = bars.add_bar();
 
                 let future = async move {
@@ -115,7 +113,7 @@ impl App {
                     let filename = parser::parse_filename(&url)?;
                     let source_size = client
                         .head(&url)
-                        .header(REFERER, referrer)
+                        .header(REFERER, items.referrer)
                         .send()
                         .await?
                         .error_for_status()
@@ -125,13 +123,12 @@ impl App {
                         .and_then(|ct_len| ct_len.to_str().ok())
                         .and_then(|ct_len| ct_len.parse().ok())
                         .unwrap_or_default();
-                    let props = (root.as_path(), filename.as_str(), overwrite);
+                    let props = (root.as_path(), filename.as_str(), args.force);
                     let file = FileDest::new(props).await?;
                     if file.size >= source_size {
                         bail!(SystemError::Overwrite(filename));
                     }
 
-                    // let info = AnimeInfo::new(&info.name, &url, None, None);
                     let msg = if let Some(inum) = info.num {
                         "Ep. ".to_string() + &zfill!(inum.value, 2) + " " + &info.name
                     } else {
@@ -144,7 +141,7 @@ impl App {
                     let mut source = client
                         .get(url)
                         .header(RANGE, format!("bytes={}-", file.size))
-                        .header(REFERER, referrer)
+                        .header(REFERER, items.referrer)
                         .send()
                         .await?
                         .error_for_status()?;
