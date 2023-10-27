@@ -92,7 +92,7 @@ impl App {
     }
 
     async fn download(args: Args, items: SearchResult) -> Result<()> {
-        let referrer = &items.referrer;
+        let referrer = items.referrer;
         let bars = tui::Bars::new();
         let mut pool = vec![];
 

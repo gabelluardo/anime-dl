@@ -24,7 +24,7 @@ pub struct Search {
 #[derive(Debug, Default, Clone)]
 pub struct SearchResult {
     pub items: Vec<AnimeInfo>,
-    pub referrer: String,
+    pub referrer: &'static str,
 }
 
 impl Deref for SearchResult {
@@ -83,7 +83,7 @@ impl Scraper {
         I: Iterator<Item = Search>,
     {
         let (scraper_fun, referrer) = match site {
-            Site::AW => (AnimeWorld::run, AnimeWorld::referrer()),
+            Site::AW => (AnimeWorld::run, AnimeWorld::REFERRER),
         };
 
         let vec = Arc::new(Mutex::new(Vec::new()));
@@ -99,8 +99,8 @@ impl Scraper {
         join_all(tasks).await;
 
         Ok(SearchResult {
+            referrer,
             items: vec.lock_owned().await.to_vec(),
-            referrer: referrer.unwrap_or_default(),
         })
     }
 }
@@ -125,12 +125,12 @@ pub async fn select_cookie(site: Site) -> Result<String> {
     let cookie = "__ddg1=sti44Eo5SrS4IAwJPVFu; __cfduid=d1343ee68e09afafe0a4855d5c35e713f1619342282; _csrf=wSnjNmhifYyOPULeghB6Dloy;";
 
     let referrer = match site {
-        Site::AW => AnimeWorld::referrer(),
+        Site::AW => AnimeWorld::REFERRER,
     };
 
     let mut ctest = String::new();
-    if let Some(url) = referrer {
-        let text = reqwest::get(url).await?.text().await?;
+    if !referrer.is_empty() {
+        let text = reqwest::get(referrer).await?.text().await?;
         ctest = parser::parse_aw_cookie(&text).unwrap_or_default();
         ctest.push_str(cookie);
     }
