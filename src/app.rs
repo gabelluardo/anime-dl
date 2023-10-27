@@ -35,28 +35,27 @@ impl App {
         }
 
         let items = if args.watching {
-            match anilist::get_watching_list(args.anilist_id).await {
-                Some(list) => {
-                    let series = tui::watching_choice(&list)?;
-                    let search = series.iter().map(|WatchingAnime { title, id, .. }| {
-                        let string = title
-                            .split_ascii_whitespace()
-                            .take(2)
-                            .fold(String::new(), |acc, s| acc + "+" + s.trim());
+            let list = anilist::get_watching_list(args.anilist_id)
+                .await
+                .ok_or(RemoteError::WatchingList)?;
 
-                        Search {
-                            string,
-                            id: Some(*id),
-                        }
-                    });
+            let series = tui::watching_choice(&list)?;
+            let search = series.iter().map(|WatchingAnime { title, id, .. }| {
+                let string = title
+                    .split_ascii_whitespace()
+                    .take(2)
+                    .fold(String::new(), |acc, s| acc + "+" + s.trim());
 
-                    let site = args.site.unwrap_or_default();
-                    let proxy = select_proxy(args.no_proxy).await;
-                    let cookie = select_cookie(site).await?;
-                    Scraper::new(&cookie, proxy).run(search, site).await?
+                Search {
+                    string,
+                    id: Some(*id),
                 }
-                _ => bail!(RemoteError::WatchingList),
-            }
+            });
+
+            let site = args.site.unwrap_or_default();
+            let proxy = select_proxy(args.no_proxy).await;
+            let cookie = select_cookie(site).await?;
+            Scraper::new(&cookie, proxy).run(search, site).await?
         } else if parser::is_web_url(&args.entries[0]) {
             args.entries
                 .iter()

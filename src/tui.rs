@@ -48,182 +48,178 @@ fn parse_input<T: Clone>(line: &str, content: &[T], index_start: usize) -> Vec<T
 }
 
 pub fn watching_choice(series: &[WatchingAnime]) -> Result<Vec<WatchingAnime>> {
-    match series.len() {
-        0 => bail!(UserError::Choices),
-        1 => Ok(series.to_vec()),
-        _ => {
-            let index_start = 1;
-            let str = "You are watching these series".cyan().bold().to_string();
-            println!("{str}\n",);
-
-            let mut builder = Builder::default();
-            builder.set_header(["Index", "Name", "Episodes Behind"]);
-            series.iter().enumerate().for_each(|(i, c)| {
-                let behind = match c.behind {
-                    0 => "•".to_string(),
-                    n => n.to_string(),
-                };
-
-                builder.push_record([(i + index_start).to_string(), c.title.clone(), behind]);
-            });
-
-            let mut table = builder.build();
-            table
-                .with(Style::rounded())
-                .with(Colorization::columns([
-                    Color::FG_MAGENTA,
-                    Color::FG_GREEN,
-                    Color::FG_BRIGHT_BLUE,
-                ]))
-                .with(Modify::new(Rows::first()).with(Color::FG_WHITE))
-                .with(Modify::new(Columns::first()).with(Alignment::center()))
-                .with(Modify::new(Columns::last()).with(Alignment::center()));
-
-            println!("{}", table);
-            println!(
-                "\n{} {}",
-                "::".red(),
-                "Make your selection (eg: 1 2 3 or 1-3) [<enter> for all, <q> for exit]".bold()
-            );
-
-            let mut rl = DefaultEditor::new()?;
-            rl.set_color_mode(ColorMode::Enabled);
-            let prompt = "~❯ ".red().to_string();
-            let res = match rl.readline(&prompt) {
-                Err(ReadlineError::Interrupted | ReadlineError::Eof) => bail!(Quit),
-                Err(_) => bail!(UserError::InvalidInput),
-                Ok(line) if line.contains(['q', 'Q']) => bail!(Quit),
-                Ok(line) => parse_input(&line, series, index_start),
-            };
-            println!();
-
-            if res.is_empty() {
-                bail!(RemoteError::AnimeNotFound);
-            }
-
-            Ok(res)
-        }
+    if series.len() == 1 {
+        return Ok(series.to_vec());
     }
+
+    let index_start = 1;
+    let str = "You are watching these series".cyan().bold().to_string();
+    println!("{str}\n",);
+
+    let mut builder = Builder::default();
+    builder.set_header(["Index", "Name", "Episodes Behind"]);
+    series.iter().enumerate().for_each(|(i, c)| {
+        let behind = match c.behind {
+            0 => "•".to_string(),
+            n => n.to_string(),
+        };
+
+        builder.push_record([(i + index_start).to_string(), c.title.clone(), behind]);
+    });
+
+    let mut table = builder.build();
+    table
+        .with(Style::rounded())
+        .with(Colorization::columns([
+            Color::FG_MAGENTA,
+            Color::FG_GREEN,
+            Color::FG_BRIGHT_BLUE,
+        ]))
+        .with(Modify::new(Rows::first()).with(Color::FG_WHITE))
+        .with(Modify::new(Columns::first()).with(Alignment::center()))
+        .with(Modify::new(Columns::last()).with(Alignment::center()));
+
+    println!("{}", table);
+    println!(
+        "\n{} {}",
+        "::".red(),
+        "Make your selection (eg: 1 2 3 or 1-3) [<enter> for all, <q> for exit]".bold()
+    );
+
+    let mut rl = DefaultEditor::new()?;
+    rl.set_color_mode(ColorMode::Enabled);
+    let prompt = "~❯ ".red().to_string();
+    let res = match rl.readline(&prompt) {
+        Err(ReadlineError::Interrupted | ReadlineError::Eof) => bail!(Quit),
+        Err(_) => bail!(UserError::InvalidInput),
+        Ok(line) if line.contains(['q', 'Q']) => bail!(Quit),
+        Ok(line) => parse_input(&line, series, index_start),
+    };
+    println!();
+
+    if res.is_empty() {
+        bail!(RemoteError::AnimeNotFound);
+    }
+
+    Ok(res)
 }
 
 pub fn series_choice(series: &[AnimeInfo], search: &str) -> Result<Vec<AnimeInfo>> {
-    match series.len() {
-        0 => bail!(UserError::Choices),
-        1 => Ok(series.to_vec()),
-        len => {
-            let index_start = 1;
-            let query = search.replace('+', " ");
-            let results = format!("{len} results found for `{query}`");
-            println!("{}\n", results.cyan().bold());
-
-            let mut builder = Builder::default();
-            builder.set_header(["Index", "Name"]);
-            series.iter().enumerate().for_each(|(i, c)| {
-                builder.push_record([(i + index_start).to_string(), c.name.clone()]);
-            });
-
-            let mut table = builder.build();
-            table
-                .with(Style::rounded())
-                .with(Colorization::columns([Color::FG_MAGENTA, Color::FG_GREEN]))
-                .with(Modify::new(Rows::first()).with(Color::FG_WHITE))
-                .with(Modify::new(Columns::first()).with(Alignment::center()));
-
-            println!("{}", table);
-            println!(
-                "\n{} {}",
-                "::".red(),
-                "Make your selection (eg: 1 2 3 or 1-3) [<enter> for all, <q> for exit]".bold()
-            );
-
-            let mut rl = DefaultEditor::new()?;
-            rl.set_color_mode(ColorMode::Enabled);
-            let prompt = "~❯ ".red().to_string();
-            let res = match rl.readline(&prompt) {
-                Err(ReadlineError::Interrupted | ReadlineError::Eof) => bail!(Quit),
-                Err(_) => bail!(UserError::InvalidInput),
-                Ok(line) if line.contains(['q', 'Q']) => bail!(Quit),
-                Ok(line) => parse_input(&line, series, index_start),
-            };
-            println!();
-
-            if res.is_empty() {
-                bail!(RemoteError::AnimeNotFound);
-            }
-
-            Ok(res)
-        }
+    if series.len() == 1 {
+        return Ok(series.to_vec());
     }
+
+    let index_start = 1;
+    let len = series.len();
+    let query = search.replace('+', " ");
+    let results = format!("{len} results found for `{query}`");
+    println!("{}\n", results.cyan().bold());
+
+    let mut builder = Builder::default();
+    builder.set_header(["Index", "Name"]);
+    series.iter().enumerate().for_each(|(i, c)| {
+        builder.push_record([(i + index_start).to_string(), c.name.clone()]);
+    });
+
+    let mut table = builder.build();
+    table
+        .with(Style::rounded())
+        .with(Colorization::columns([Color::FG_MAGENTA, Color::FG_GREEN]))
+        .with(Modify::new(Rows::first()).with(Color::FG_WHITE))
+        .with(Modify::new(Columns::first()).with(Alignment::center()));
+
+    println!("{}", table);
+    println!(
+        "\n{} {}",
+        "::".red(),
+        "Make your selection (eg: 1 2 3 or 1-3) [<enter> for all, <q> for exit]".bold()
+    );
+
+    let mut rl = DefaultEditor::new()?;
+    rl.set_color_mode(ColorMode::Enabled);
+    let prompt = "~❯ ".red().to_string();
+    let res = match rl.readline(&prompt) {
+        Err(ReadlineError::Interrupted | ReadlineError::Eof) => bail!(Quit),
+        Err(_) => bail!(UserError::InvalidInput),
+        Ok(line) if line.contains(['q', 'Q']) => bail!(Quit),
+        Ok(line) => parse_input(&line, series, index_start),
+    };
+    println!();
+
+    if res.is_empty() {
+        bail!(RemoteError::AnimeNotFound);
+    }
+
+    Ok(res)
 }
 
 pub fn episodes_choice(anime: &Anime) -> Result<Vec<String>> {
-    match anime.episodes.len() {
-        0 => bail!(UserError::Choices),
-        1 => Ok(vec![anime.info.origin.to_owned()]),
-        _ => {
-            println!(" {}", anime.info.name.cyan().bold());
-
-            let mut next_to_watch = None;
-            let mut builder = Builder::default();
-            builder.set_header(["Episode", "Seen"]);
-            anime.episodes.iter().enumerate().for_each(|(i, _)| {
-                let index = anime.start + i as u32;
-                let watched = Some(i as u32) < anime.last_watched;
-                let check = if watched { "✔" } else { "✗" };
-
-                if next_to_watch.is_none() && !watched {
-                    next_to_watch = Some(builder.count_rows() + 1)
-                }
-
-                builder.push_record([index.to_string(), check.to_string()]);
-            });
-
-            let mut table = builder.build();
-            table
-                .with(Style::rounded())
-                .with(Colorization::columns([Color::FG_MAGENTA, Color::FG_GREEN]))
-                .with(Modify::new(Rows::first()).with(Color::FG_WHITE))
-                .with(Modify::new(Segment::all()).with(Alignment::center()));
-
-            if let Some(index) = next_to_watch {
-                table.with(Colorization::exact(
-                    [Color::FG_BLACK | Color::BG_WHITE],
-                    Rows::single(index),
-                ));
-            }
-
-            println!("{}", table);
-            println!(
-                "\n{} {}",
-                "::".red(),
-                "Make your selection (eg: 1 2 3 or 1-3) [<enter> for all, <q> for exit, <u> for unwatched]".bold()
-            );
-
-            let mut rl = DefaultEditor::new()?;
-            rl.set_color_mode(ColorMode::Enabled);
-            let prompt = "~❯ ".red().to_string();
-            let res = match rl.readline(&prompt) {
-                Err(ReadlineError::Interrupted | ReadlineError::Eof) => bail!(Quit),
-                Err(_) => bail!(UserError::InvalidInput),
-                Ok(line) if line.contains(['q', 'Q']) => bail!(Quit),
-                Ok(line) if line.contains(['u', 'U']) => {
-                    if let Some(index) = next_to_watch {
-                        anime.episodes[index - 1..].to_vec()
-                    } else {
-                        bail!(UserError::InvalidInput)
-                    }
-                }
-                Ok(line) => parse_input(&line, &anime.episodes, anime.start as usize),
-            };
-            println!();
-
-            if res.is_empty() {
-                bail!(RemoteError::EpisodeNotFound);
-            }
-
-            Ok(res)
-        }
+    if anime.episodes.len() == 1 {
+        return Ok(vec![anime.info.origin.to_owned()]);
     }
+
+    println!(" {}", anime.info.name.cyan().bold());
+
+    let mut next_to_watch = None;
+    let mut builder = Builder::default();
+    builder.set_header(["Episode", "Seen"]);
+    anime.episodes.iter().enumerate().for_each(|(i, _)| {
+        let index = anime.start + i as u32;
+        let watched = Some(i as u32) < anime.last_watched;
+        let check = if watched { "✔" } else { "✗" };
+
+        if next_to_watch.is_none() && !watched {
+            next_to_watch = Some(builder.count_rows() + 1)
+        }
+
+        builder.push_record([index.to_string(), check.to_string()]);
+    });
+
+    let mut table = builder.build();
+    table
+        .with(Style::rounded())
+        .with(Colorization::columns([Color::FG_MAGENTA, Color::FG_GREEN]))
+        .with(Modify::new(Rows::first()).with(Color::FG_WHITE))
+        .with(Modify::new(Segment::all()).with(Alignment::center()));
+
+    if let Some(index) = next_to_watch {
+        table.with(Colorization::exact(
+            [Color::FG_BLACK | Color::BG_WHITE],
+            Rows::single(index),
+        ));
+    }
+
+    println!("{}", table);
+    println!(
+        "\n{} {}",
+        "::".red(),
+        "Make your selection (eg: 1 2 3 or 1-3) [<enter> for all, <q> for exit, <u> for unwatched]"
+            .bold()
+    );
+
+    let mut rl = DefaultEditor::new()?;
+    rl.set_color_mode(ColorMode::Enabled);
+    let prompt = "~❯ ".red().to_string();
+    let res = match rl.readline(&prompt) {
+        Err(ReadlineError::Interrupted | ReadlineError::Eof) => bail!(Quit),
+        Err(_) => bail!(UserError::InvalidInput),
+        Ok(line) if line.contains(['q', 'Q']) => bail!(Quit),
+        Ok(line) if line.contains(['u', 'U']) => {
+            if let Some(index) = next_to_watch {
+                anime.episodes[index - 1..].to_vec()
+            } else {
+                bail!(UserError::InvalidInput)
+            }
+        }
+        Ok(line) => parse_input(&line, &anime.episodes, anime.start as usize),
+    };
+    println!();
+
+    if res.is_empty() {
+        bail!(RemoteError::EpisodeNotFound);
+    }
+
+    Ok(res)
 }
 
 #[cfg(feature = "anilist")]

@@ -29,8 +29,6 @@ pub enum UserError {
     InvalidToken(#[from] InvalidHeaderValue),
     #[error("Unable to parse `{0}`")]
     Parsing(String),
-    #[error("No match found")]
-    Choices,
 }
 
 #[derive(Error, Debug)]
