@@ -4,6 +4,8 @@ use reqwest::{header, header::HeaderValue, Client};
 use crate::config::{load_config, save_config};
 use crate::tui;
 
+const ENDPOINT: &str = "https://graphql.anilist.co";
+
 #[derive(Clone, Debug)]
 pub struct WatchingAnime {
     pub behind: u32,
@@ -13,35 +15,34 @@ pub struct WatchingAnime {
 
 #[derive(GraphQLQuery)]
 #[graphql(
-    schema_path = "assets/anilist_schema.graphql",
-    query_path = "assets/progress_query.graphql"
+    schema_path = "graphql/anilist_schema.graphql",
+    query_path = "graphql/progress_query.graphql"
 )]
 struct ProgressQuery;
 
 #[derive(GraphQLQuery)]
 #[graphql(
-    schema_path = "assets/anilist_schema.graphql",
-    query_path = "assets/watching_query.graphql",
+    schema_path = "graphql/anilist_schema.graphql",
+    query_path = "graphql/watching_query.graphql",
     response_derives = "Clone, Default"
 )]
 struct WatchingQuery;
 
 #[derive(GraphQLQuery)]
 #[graphql(
-    schema_path = "assets/anilist_schema.graphql",
-    query_path = "assets/user_query.graphql"
+    schema_path = "graphql/anilist_schema.graphql",
+    query_path = "graphql/user_query.graphql"
 )]
 struct UserQuery;
 
 pub async fn last_watched(client_id: Option<u32>, anime_id: Option<u32>) -> Option<u32> {
     let client = new_client(client_id)?;
 
-    let url = "https://graphql.anilist.co";
     let variables = progress_query::Variables {
         id: anime_id.map(|u| u as i64),
     };
     let query = ProgressQuery::build_query(variables);
-    let res = client.post(url).json(&query).send().await.ok()?;
+    let res = client.post(ENDPOINT).json(&query).send().await.ok()?;
     let response_body = res
         .json::<Response<progress_query::ResponseData>>()
         .await
@@ -58,9 +59,8 @@ pub async fn last_watched(client_id: Option<u32>, anime_id: Option<u32>) -> Opti
 pub async fn get_watching_list(client_id: Option<u32>) -> Option<Vec<WatchingAnime>> {
     let client = new_client(client_id)?;
 
-    let url = "https://graphql.anilist.co";
     let query = UserQuery::build_query(user_query::Variables);
-    let res = client.post(url).json(&query).send().await.ok()?;
+    let res = client.post(ENDPOINT).json(&query).send().await.ok()?;
     let response_body = res
         .json::<Response<user_query::ResponseData>>()
         .await
@@ -70,7 +70,7 @@ pub async fn get_watching_list(client_id: Option<u32>) -> Option<Vec<WatchingAni
     let variables = watching_query::Variables { id: user_id };
     let query = WatchingQuery::build_query(variables);
 
-    let res = client.post(url).json(&query).send().await.ok()?;
+    let res = client.post(ENDPOINT).json(&query).send().await.ok()?;
     let response_body = res
         .json::<Response<watching_query::ResponseData>>()
         .await
