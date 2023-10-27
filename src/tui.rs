@@ -52,10 +52,6 @@ pub fn watching_choice(series: &[WatchingAnime]) -> Result<Vec<WatchingAnime>> {
         return Ok(series.to_vec());
     }
 
-    let index_start = 1;
-    let str = "You are watching these series".cyan().bold().to_string();
-    println!("{str}\n",);
-
     let mut builder = Builder::default();
     builder.set_header(["Index", "Name", "Episodes Behind"]);
     series.iter().enumerate().for_each(|(i, c)| {
@@ -64,7 +60,7 @@ pub fn watching_choice(series: &[WatchingAnime]) -> Result<Vec<WatchingAnime>> {
             n => n.to_string(),
         };
 
-        builder.push_record([(i + index_start).to_string(), c.title.clone(), behind]);
+        builder.push_record([(i + 1).to_string(), c.title.clone(), behind]);
     });
 
     let mut table = builder.build();
@@ -79,6 +75,8 @@ pub fn watching_choice(series: &[WatchingAnime]) -> Result<Vec<WatchingAnime>> {
         .with(Modify::new(Columns::first()).with(Alignment::center()))
         .with(Modify::new(Columns::last()).with(Alignment::center()));
 
+    let str = "You are watching these series".cyan().bold().to_string();
+    println!("{str}\n",);
     println!("{}", table);
     println!(
         "\n{} {}",
@@ -93,7 +91,7 @@ pub fn watching_choice(series: &[WatchingAnime]) -> Result<Vec<WatchingAnime>> {
         Err(ReadlineError::Interrupted | ReadlineError::Eof) => bail!(Quit),
         Err(_) => bail!(UserError::InvalidInput),
         Ok(line) if line.contains(['q', 'Q']) => bail!(Quit),
-        Ok(line) => parse_input(&line, series, index_start),
+        Ok(line) => parse_input(&line, series, 1),
     };
     println!();
 
@@ -109,7 +107,6 @@ pub fn series_choice(series: &[AnimeInfo], search: &str) -> Result<Vec<AnimeInfo
         return Ok(series.to_vec());
     }
 
-    let index_start = 1;
     let len = series.len();
     let query = search.replace('+', " ");
     let results = format!("{len} results found for `{query}`");
@@ -118,7 +115,7 @@ pub fn series_choice(series: &[AnimeInfo], search: &str) -> Result<Vec<AnimeInfo
     let mut builder = Builder::default();
     builder.set_header(["Index", "Name"]);
     series.iter().enumerate().for_each(|(i, c)| {
-        builder.push_record([(i + index_start).to_string(), c.name.clone()]);
+        builder.push_record([(i + 1).to_string(), c.name.clone()]);
     });
 
     let mut table = builder.build();
@@ -142,7 +139,7 @@ pub fn series_choice(series: &[AnimeInfo], search: &str) -> Result<Vec<AnimeInfo
         Err(ReadlineError::Interrupted | ReadlineError::Eof) => bail!(Quit),
         Err(_) => bail!(UserError::InvalidInput),
         Ok(line) if line.contains(['q', 'Q']) => bail!(Quit),
-        Ok(line) => parse_input(&line, series, index_start),
+        Ok(line) => parse_input(&line, series, 1),
     };
     println!();
 
@@ -157,8 +154,6 @@ pub fn episodes_choice(anime: &Anime) -> Result<Vec<String>> {
     if anime.episodes.len() == 1 {
         return Ok(vec![anime.info.origin.to_owned()]);
     }
-
-    println!(" {}", anime.info.name.cyan().bold());
 
     let mut next_to_watch = None;
     let mut builder = Builder::default();
@@ -189,6 +184,7 @@ pub fn episodes_choice(anime: &Anime) -> Result<Vec<String>> {
         ));
     }
 
+    println!("{}\n", anime.info.name.cyan().bold());
     println!("{}", table);
     println!(
         "\n{} {}",
