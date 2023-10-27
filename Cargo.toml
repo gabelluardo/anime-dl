@@ -18,7 +18,7 @@ path = "src/main.rs"
 
 [profile.release]
 lto = true
-opt-level = 2
+opt-level = "z"
 codegen-units = 1
 panic = "abort"
 strip = true
