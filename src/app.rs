@@ -6,7 +6,7 @@ use futures::stream::StreamExt;
 use owo_colors::OwoColorize;
 use reqwest::header::{CONTENT_LENGTH, RANGE, REFERER};
 use reqwest::Client;
-use tokio::{io::AsyncWriteExt, process::Command};
+use tokio::{fs, io::AsyncWriteExt, process::Command};
 use tokio_stream as stream;
 use which::which;
 
@@ -18,7 +18,6 @@ use crate::anime::{self, Anime, AnimeInfo};
 use crate::cli::Args;
 use crate::config::clean_config;
 use crate::errors::{RemoteError, SystemError};
-use crate::file::FileDest;
 use crate::parser;
 use crate::scraper::{select_cookie, select_proxy, Scraper, Search, SearchResult};
 use crate::tui;
@@ -103,9 +102,9 @@ impl App {
                 anime.episodes = unroll!(tui::episodes_choice(&anime))
             }
 
-            let path = parser::parse_path(&args, &anime.info.url)?;
+            let parent = parser::parse_path(&args, &anime.info.url)?;
             for url in anime.episodes {
-                let root = path.clone();
+                let mut path = parent.clone();
                 let pb = bars.add_bar();
 
                 let future = async move {
@@ -123,9 +122,25 @@ impl App {
                         .and_then(|ct_len| ct_len.to_str().ok())
                         .and_then(|ct_len| ct_len.parse().ok())
                         .unwrap_or_default();
-                    let props = (root.as_path(), filename.as_str(), args.force);
-                    let file = FileDest::new(props).await?;
-                    if file.size >= source_size {
+
+                    let mut dest = {
+                        if !path.exists() {
+                            fs::create_dir_all(&path).await?;
+                        }
+                        path.push(&filename);
+
+                        fs::OpenOptions::new()
+                            .append(!args.force)
+                            .truncate(args.force)
+                            .write(args.force)
+                            .create(true)
+                            .open(path)
+                            .await
+                            .context(SystemError::FsOpen)?
+                    };
+
+                    let file_size = dest.metadata().await?.len();
+                    if file_size >= source_size {
                         bail!(SystemError::Overwrite(filename));
                     }
 
@@ -135,17 +150,17 @@ impl App {
                         info.name.clone()
                     };
 
-                    pb.set_position(file.size);
+                    pb.set_position(file_size);
                     pb.set_length(source_size);
                     pb.set_message(msg.clone());
+
                     let mut source = client
                         .get(url)
-                        .header(RANGE, format!("bytes={}-", file.size))
+                        .header(RANGE, format!("bytes={}-", file_size))
                         .header(REFERER, items.referrer)
                         .send()
                         .await?
                         .error_for_status()?;
-                    let mut dest = file.open().await?;
                     while let Some(chunk) = source.chunk().await? {
                         dest.write_all(&chunk).await?;
                         pb.inc(chunk.len() as u64);

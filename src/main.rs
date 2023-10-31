@@ -10,7 +10,6 @@ mod archive;
 mod cli;
 mod config;
 mod errors;
-mod file;
 mod parser;
 mod range;
 mod scraper;
