@@ -18,7 +18,7 @@ use crate::anime::{Anime, AnimeInfo};
 use crate::errors::{Quit, RemoteError, UserError};
 use crate::range::Range;
 
-fn parse_input<T: Clone>(line: &str, content: &[T], index_start: usize) -> Vec<T> {
+fn parse_input<T: Clone>(line: &str, content: &mut Vec<T>, index_start: usize) {
     let mut selected = vec![];
     let line = line
         .replace([',', '.'], " ")
@@ -37,21 +37,15 @@ fn parse_input<T: Clone>(line: &str, content: &[T], index_start: usize) -> Vec<T
     selected.sort_unstable();
     selected.dedup();
 
-    if selected.is_empty() {
-        content.to_vec()
-    } else {
-        selected
+    if !selected.is_empty() {
+        *content = selected
             .iter()
             .filter_map(|i| content.get(i - index_start).cloned())
             .collect()
     }
 }
 
-pub fn watching_choice(series: &[WatchingAnime]) -> Result<Vec<WatchingAnime>> {
-    if series.len() == 1 {
-        return Ok(series.to_vec());
-    }
-
+pub fn watching_choice(series: &mut Vec<WatchingAnime>) -> Result<()> {
     let mut builder = Builder::default();
     builder.set_header(["Index", "Name", "Episodes Behind"]);
     series.iter().enumerate().for_each(|(i, c)| {
@@ -87,7 +81,7 @@ pub fn watching_choice(series: &[WatchingAnime]) -> Result<Vec<WatchingAnime>> {
     let mut rl = DefaultEditor::new()?;
     rl.set_color_mode(ColorMode::Enabled);
     let prompt = "~❯ ".red().to_string();
-    let res = match rl.readline(&prompt) {
+    match rl.readline(&prompt) {
         Err(ReadlineError::Interrupted | ReadlineError::Eof) => bail!(Quit),
         Err(_) => bail!(UserError::InvalidInput),
         Ok(line) if line.contains(['q', 'Q']) => bail!(Quit),
@@ -95,18 +89,14 @@ pub fn watching_choice(series: &[WatchingAnime]) -> Result<Vec<WatchingAnime>> {
     };
     println!();
 
-    if res.is_empty() {
+    if series.is_empty() {
         bail!(RemoteError::AnimeNotFound);
     }
 
-    Ok(res)
+    Ok(())
 }
 
-pub fn series_choice(series: &[AnimeInfo], search: &str) -> Result<Vec<AnimeInfo>> {
-    if series.len() == 1 {
-        return Ok(series.to_vec());
-    }
-
+pub fn series_choice(series: &mut Vec<AnimeInfo>, search: &str) -> Result<()> {
     let len = series.len();
     let query = search.replace('+', " ");
     let results = format!("{len} results found for `{query}`");
@@ -135,7 +125,7 @@ pub fn series_choice(series: &[AnimeInfo], search: &str) -> Result<Vec<AnimeInfo
     let mut rl = DefaultEditor::new()?;
     rl.set_color_mode(ColorMode::Enabled);
     let prompt = "~❯ ".red().to_string();
-    let res = match rl.readline(&prompt) {
+    match rl.readline(&prompt) {
         Err(ReadlineError::Interrupted | ReadlineError::Eof) => bail!(Quit),
         Err(_) => bail!(UserError::InvalidInput),
         Ok(line) if line.contains(['q', 'Q']) => bail!(Quit),
@@ -143,18 +133,14 @@ pub fn series_choice(series: &[AnimeInfo], search: &str) -> Result<Vec<AnimeInfo
     };
     println!();
 
-    if res.is_empty() {
+    if series.is_empty() {
         bail!(RemoteError::AnimeNotFound);
     }
 
-    Ok(res)
+    Ok(())
 }
 
-pub fn episodes_choice(anime: &Anime) -> Result<Vec<String>> {
-    if anime.episodes.len() == 1 {
-        return Ok(vec![anime.info.origin.to_owned()]);
-    }
-
+pub fn episodes_choice(anime: &mut Anime) -> Result<()> {
     let mut next_to_watch = None;
     let mut builder = Builder::default();
     builder.set_header(["Episode", "Seen"]);
@@ -196,26 +182,26 @@ pub fn episodes_choice(anime: &Anime) -> Result<Vec<String>> {
     let mut rl = DefaultEditor::new()?;
     rl.set_color_mode(ColorMode::Enabled);
     let prompt = "~❯ ".red().to_string();
-    let res = match rl.readline(&prompt) {
+    match rl.readline(&prompt) {
         Err(ReadlineError::Interrupted | ReadlineError::Eof) => bail!(Quit),
         Err(_) => bail!(UserError::InvalidInput),
         Ok(line) if line.contains(['q', 'Q']) => bail!(Quit),
         Ok(line) if line.contains(['u', 'U']) => {
             if let Some(index) = next_to_watch {
-                anime.episodes[index - 1..].to_vec()
+                anime.episodes = anime.episodes[index - 1..].to_vec()
             } else {
                 bail!(UserError::InvalidInput)
             }
         }
-        Ok(line) => parse_input(&line, &anime.episodes, anime.start as usize),
+        Ok(line) => parse_input(&line, &mut anime.episodes, anime.start as usize),
     };
     println!();
 
-    if res.is_empty() {
+    if anime.episodes.is_empty() {
         bail!(RemoteError::EpisodeNotFound);
     }
 
-    Ok(res)
+    Ok(())
 }
 
 #[cfg(feature = "anilist")]
@@ -282,38 +268,44 @@ mod tests {
         ];
 
         let line = "1,2,3";
-        assert_eq!(
-            parse_input(line, &urls, 1),
-            vec!["link1", "link2", "link3",]
-        );
+        let mut test = urls.clone();
+        parse_input(line, &mut test, 1);
+
+        assert_eq!(test, vec!["link1", "link2", "link3",]);
 
         let line = "1-5";
-        assert_eq!(
-            parse_input(line, &urls, 1),
-            vec!["link1", "link2", "link3", "link4", "link5",]
-        );
+        let mut test = urls.clone();
+        parse_input(line, &mut test, 1);
+
+        assert_eq!(test, vec!["link1", "link2", "link3", "link4", "link5",]);
 
         let line = "1-3, 6";
-        assert_eq!(
-            parse_input(line, &urls, 1),
-            vec!["link1", "link2", "link3", "link6",]
-        );
+        let mut test = urls.clone();
+        parse_input(line, &mut test, 1);
+
+        assert_eq!(test, vec!["link1", "link2", "link3", "link6",]);
 
         let line = "1-";
+        let mut test = urls.clone();
+        parse_input(line, &mut test, 1);
+
         assert_eq!(
-            parse_input(line, &urls, 1),
+            test,
             vec!["link1", "link2", "link3", "link4", "link5", "link6",]
         );
         let line = "";
+        let mut test = urls.clone();
+        parse_input(line, &mut test, 1);
+
         assert_eq!(
-            parse_input(line, &urls, 1),
+            test,
             vec!["link1", "link2", "link3", "link4", "link5", "link6",]
         );
 
         let line = "1-2, 4-6";
-        assert_eq!(
-            parse_input(line, &urls, 1),
-            vec!["link1", "link2", "link4", "link5", "link6",]
-        );
+        let mut test = urls.clone();
+        parse_input(line, &mut test, 1);
+
+        assert_eq!(test, vec!["link1", "link2", "link4", "link5", "link6",]);
     }
 }

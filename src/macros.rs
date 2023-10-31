@@ -5,21 +5,6 @@ macro_rules! gen_url {
     };
 }
 
-/// Print the error message and continue
-macro_rules! unroll {
-    ($x:expr) => {
-        match $x {
-            Ok(item) => item,
-            Err(err) => {
-                if !err.is::<crate::errors::Quit>() {
-                    eprintln!("{}", err.red());
-                }
-                continue;
-            }
-        }
-    };
-}
-
 /// Format digit with 2 zero into a string
 macro_rules! zfill {
     ($num:expr, $alignment:expr) => {

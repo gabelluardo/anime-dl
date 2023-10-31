@@ -3,7 +3,6 @@ use std::process::Stdio;
 
 use anyhow::{bail, Context, Result};
 use futures::stream::StreamExt;
-use owo_colors::OwoColorize;
 use reqwest::header::{CONTENT_LENGTH, RANGE, REFERER};
 use reqwest::Client;
 use tokio::{fs, io::AsyncWriteExt, process::Command};
@@ -34,11 +33,11 @@ impl App {
         }
 
         let items = if args.watching {
-            let list = anilist::get_watching_list(args.anilist_id)
+            let mut series = anilist::get_watching_list(args.anilist_id)
                 .await
                 .ok_or(RemoteError::WatchingList)?;
+            tui::watching_choice(&mut series)?;
 
-            let series = tui::watching_choice(&list)?;
             let search = series.iter().map(|WatchingAnime { title, id, .. }| {
                 let string = title
                     .split_ascii_whitespace()
@@ -97,7 +96,7 @@ impl App {
             let mut anime = Anime::new(info, last_watched);
 
             if args.interactive {
-                anime.episodes = unroll!(tui::episodes_choice(&anime))
+                tui::episodes_choice(&mut anime).unwrap_or_default()
             }
 
             let parent = parser::parse_path(&args, &anime.info.url)?;
@@ -180,7 +179,7 @@ impl App {
     }
 
     async fn streaming(args: Args, items: SearchResult) -> Result<()> {
-        let referrer = &items.referrer;
+        let referrer = items.referrer;
         let (cmd, cmd_referrer) = match which("mpv") {
             Ok(c) => (c, format!("--referrer={referrer}")),
             _ => (
@@ -192,12 +191,12 @@ impl App {
 
         for info in items.iter() {
             let last_watched = anime::last_watched(args.anilist_id, info.id).await;
-            let anime = Anime::new(info, last_watched);
+            let mut anime = Anime::new(info, last_watched);
+            tui::episodes_choice(&mut anime)?;
 
-            let urls = unroll!(tui::episodes_choice(&anime));
             Command::new(&cmd)
                 .arg(&cmd_referrer)
-                .args(urls)
+                .args(anime.episodes)
                 .stdout(Stdio::null())
                 .stderr(Stdio::null())
                 .spawn()

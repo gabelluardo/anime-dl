@@ -76,21 +76,19 @@ impl Archive for AnimeWorld {
         }
 
         let stream = stream::iter(pool).buffered(20).collect::<Vec<_>>().await;
-        let anime = stream.into_iter().filter_map(|a| a.ok());
+        let mut anime = stream.into_iter().filter_map(|a| a.ok());
 
         if search.id.is_some() {
-            if let Some(anime) = anime
-                .into_iter()
-                .find(|a| a.id == search.id && !a.name.contains("(ITA)"))
-            {
+            if let Some(anime) = anime.find(|a| a.id == search.id && !a.name.contains("(ITA)")) {
                 let mut lock = vec.lock().await;
                 lock.push(anime);
             }
         } else {
-            let choice = tui::series_choice(&anime.collect::<Vec<_>>(), &search.string)?;
-            if choice.is_empty() {
-                bail!(RemoteError::UrlNotFound)
+            let mut choice = anime.collect::<Vec<_>>();
+            if choice.len() > 1 {
+                tui::series_choice(&mut choice, &search.string)?;
             }
+
             let mut lock = vec.lock().await;
             lock.extend(choice);
         }
