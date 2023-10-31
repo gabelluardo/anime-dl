@@ -1,13 +1,6 @@
 use std::path::PathBuf;
 
 use anyhow::{Context, Result};
-use nom::{
-    bytes::complete::take_until,
-    character::complete::{alpha0, alphanumeric1, char},
-    combinator::map,
-    sequence::{preceded, tuple},
-    IResult,
-};
 
 use crate::errors::UserError;
 
@@ -28,16 +21,12 @@ pub fn parse_filename(input: &str) -> Result<String> {
         .context(UserError::Parsing(input.into()))
 }
 
-pub fn parse_aw_cookie<'a>(input: &'a str) -> Result<String> {
-    let parser = |input: &'a str| -> IResult<&str, String> {
-        let key = preceded(take_until("AWCookie"), alpha0);
-        let value = preceded(char('='), alphanumeric1);
-        let parser = tuple((key, value));
-        map(parser, |(k, v)| format!("{k}={v}"))(input)
-    };
-    let (_, mut cookie) = parser(input).unwrap_or_default();
-    cookie.push_str("; ");
-    Ok(cookie)
+pub fn parse_aw_cookie(input: &str) -> Option<String> {
+    input.find("AWCookie").and_then(|start| {
+        input[start..]
+            .find(";")
+            .map(|end| input[start..start + end].trim().to_string() + ";")
+    })
 }
 
 pub fn parse_path(args: &crate::cli::Args, url: &str) -> Result<PathBuf> {
@@ -100,11 +89,11 @@ mod tests {
     fn test_parse_aw_cookie() {
         let s = r#"<html><script src="/cdn-cgi/apps/head/WvfaYe5SS22u5exoBw70ThuTjHg.js"></script><body><script>document.cookie="AWCookieVerify=295db002e27e3ac26934485002b41564 ; </script></body></html>"#;
         let res = parse_aw_cookie(s).unwrap();
-        assert_eq!(res, "AWCookieVerify=295db002e27e3ac26934485002b41564; ");
+        assert_eq!(res, "AWCookieVerify=295db002e27e3ac26934485002b41564;");
 
         let s = r#"<html><script src="/cdn-cgi/apps/head/WvfaYe5SS22u5exoBw70ThuTjHg.js"></script><body><script>document.cookie=" ; </script></body></html>"#;
-        let res = parse_aw_cookie(s).unwrap();
-        assert_eq!(res, "; ")
+        let res = parse_aw_cookie(s);
+        assert_eq!(res, None)
     }
 
     #[test]

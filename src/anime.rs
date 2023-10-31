@@ -1,5 +1,3 @@
-use nom::Slice;
-
 #[cfg(feature = "anilist")]
 use crate::anilist;
 
@@ -34,8 +32,7 @@ impl AnimeInfo {
         }
         let (url, info_num) = match (opt_start, opt_end) {
             (Some(start_pos), Some(end_pos)) => {
-                let sub_str = input
-                    .slice(start_pos..end_pos + 1)
+                let sub_str = input[start_pos..end_pos + 1]
                     .chars()
                     .filter(char::is_ascii_digit)
                     .collect::<String>();
