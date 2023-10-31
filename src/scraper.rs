@@ -13,7 +13,6 @@ use crate::anime::AnimeInfo;
 use crate::archive::{AnimeWorld, Archive};
 use crate::cli::Site;
 use crate::errors::{Quit, RemoteError};
-use crate::parser;
 
 #[derive(Debug, Clone)]
 pub struct Search {
@@ -55,13 +54,12 @@ pub struct Scraper {
 }
 
 impl Scraper {
-    pub fn new(cookie: &str, proxy: Option<String>) -> Self {
+    pub fn new(proxy: Option<String>) -> Self {
         let user_agent = "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)";
         let accept =
             "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8";
 
         let mut headers = header::HeaderMap::new();
-        headers.insert(header::COOKIE, HeaderValue::from_str(cookie).unwrap());
         headers.insert(header::ACCEPT, HeaderValue::from_static(accept));
         headers.insert(header::ACCEPT_LANGUAGE, HeaderValue::from_static("it"));
         headers.insert(header::USER_AGENT, HeaderValue::from_static(user_agent));
@@ -121,23 +119,6 @@ pub async fn select_proxy(disable: bool) -> Option<String> {
     Some(proxy)
 }
 
-pub async fn select_cookie(site: Site) -> Result<String> {
-    let cookie = "__ddg1=sti44Eo5SrS4IAwJPVFu; __cfduid=d1343ee68e09afafe0a4855d5c35e713f1619342282; _csrf=wSnjNmhifYyOPULeghB6Dloy;";
-
-    let referrer = match site {
-        Site::AW => AnimeWorld::REFERRER,
-    };
-
-    let mut ctest = String::new();
-    if !referrer.is_empty() {
-        let text = reqwest::get(referrer).await?.text().await?;
-        ctest = parser::parse_aw_cookie(&text).unwrap_or_default();
-        ctest.push_str(cookie);
-    }
-
-    Ok(ctest)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -160,13 +141,12 @@ mod tests {
 
         let site = Site::AW;
         let proxy = select_proxy(false).await;
-        let cookie = select_cookie(site).await.unwrap();
         let search = vec![Search {
             string: "bunny girl".to_owned(),
             id: None,
         }];
 
-        let anime = Scraper::new(&cookie, proxy)
+        let anime = Scraper::new(proxy)
             .run(search.into_iter(), site)
             .await
             .unwrap();
@@ -187,7 +167,6 @@ mod tests {
 
         let site = Site::AW;
         let proxy = select_proxy(false).await;
-        let cookie = select_cookie(site).await.unwrap();
         let search = vec![
             Search {
                 string: "bunny girl".to_owned(),
@@ -203,7 +182,7 @@ mod tests {
             },
         ];
 
-        let anime = Scraper::new(&cookie, proxy)
+        let anime = Scraper::new(proxy)
             .run(search.into_iter(), site)
             .await
             .unwrap();

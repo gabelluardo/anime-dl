@@ -21,14 +21,6 @@ pub fn parse_filename(input: &str) -> Result<String> {
         .context(UserError::Parsing(input.into()))
 }
 
-pub fn parse_aw_cookie(input: &str) -> Option<String> {
-    input.find("AWCookie").and_then(|start| {
-        input[start..]
-            .find(";")
-            .map(|end| input[start..start + end].trim().to_string() + ";")
-    })
-}
-
 pub fn parse_path(args: &crate::cli::Args, url: &str) -> Result<PathBuf> {
     let mut path = args.dir.clone();
     if args.auto_dir {
@@ -83,17 +75,6 @@ mod tests {
         let url = "https://www.domain.tld/sub/anotherSub/AnimeName/AnimeName_Ep_15_SUB_ITA.mp4";
         let res = parse_filename(url).unwrap();
         assert_eq!(res, "AnimeName_Ep_15_SUB_ITA.mp4")
-    }
-
-    #[test]
-    fn test_parse_aw_cookie() {
-        let s = r#"<html><script src="/cdn-cgi/apps/head/WvfaYe5SS22u5exoBw70ThuTjHg.js"></script><body><script>document.cookie="AWCookieVerify=295db002e27e3ac26934485002b41564 ; </script></body></html>"#;
-        let res = parse_aw_cookie(s).unwrap();
-        assert_eq!(res, "AWCookieVerify=295db002e27e3ac26934485002b41564;");
-
-        let s = r#"<html><script src="/cdn-cgi/apps/head/WvfaYe5SS22u5exoBw70ThuTjHg.js"></script><body><script>document.cookie=" ; </script></body></html>"#;
-        let res = parse_aw_cookie(s);
-        assert_eq!(res, None)
     }
 
     #[test]

@@ -19,7 +19,7 @@ use crate::cli::Args;
 use crate::config::clean_config;
 use crate::errors::{RemoteError, SystemError};
 use crate::parser;
-use crate::scraper::{select_cookie, select_proxy, Scraper, Search, SearchResult};
+use crate::scraper::{select_proxy, Scraper, Search, SearchResult};
 use crate::tui;
 
 pub struct App;
@@ -53,8 +53,7 @@ impl App {
 
             let site = args.site.unwrap_or_default();
             let proxy = select_proxy(args.no_proxy).await;
-            let cookie = select_cookie(site).await?;
-            Scraper::new(&cookie, proxy).run(search, site).await?
+            Scraper::new(proxy).run(search, site).await?
         } else if parser::is_web_url(&args.entries[0]) {
             args.entries
                 .iter()
@@ -70,7 +69,6 @@ impl App {
         } else {
             let site = args.site.unwrap_or_default();
             let proxy = select_proxy(args.no_proxy).await;
-            let cookie = select_cookie(site).await?;
             let input = &args.entries.join(" ");
             let search = input
                 .split(',')
@@ -80,7 +78,7 @@ impl App {
                     id: None,
                 });
 
-            Scraper::new(&cookie, proxy).run(search, site).await?
+            Scraper::new(proxy).run(search, site).await?
         };
 
         if args.stream {
