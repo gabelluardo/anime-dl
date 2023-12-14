@@ -29,7 +29,8 @@ fn parse_input<T: Clone>(line: &str, content: &mut Vec<T>, index_start: usize) {
     for s in line.split_ascii_whitespace().map(|s| s.trim()) {
         if let Ok(num) = s.parse::<usize>() {
             selected.push(num);
-        } else if let Ok(range) = Range::<usize>::parse_and_fill(s, content.len()) {
+        } else if let Ok(range) = Range::<usize>::parse_and_fill(s, content.len() + index_start - 1)
+        {
             selected.extend(range.expand())
         }
     }
@@ -293,6 +294,7 @@ mod tests {
             test,
             vec!["link1", "link2", "link3", "link4", "link5", "link6",]
         );
+
         let line = "";
         let mut test = urls.clone();
         parse_input(line, &mut test, 1);
