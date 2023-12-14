@@ -189,19 +189,22 @@ impl App {
             ),
         };
 
+        let mut episodes = vec![];
         for info in items.iter() {
             let last_watched = anime::last_watched(args.anilist_id, info.id).await;
             let mut anime = Anime::new(info, last_watched);
             tui::episodes_choice(&mut anime)?;
 
-            Command::new(&cmd)
-                .arg(&cmd_referrer)
-                .args(anime.episodes)
-                .stdout(Stdio::null())
-                .stderr(Stdio::null())
-                .spawn()
-                .context(SystemError::MediaPlayer)?;
+            episodes.extend(anime.episodes);
         }
+
+        Command::new(&cmd)
+            .arg(&cmd_referrer)
+            .args(episodes)
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .context(SystemError::MediaPlayer)?;
 
         Ok(())
     }
