@@ -26,7 +26,7 @@ strip = true
 [package.metadata.release]
 tag-name = "v{{version}}"
 tag-message = "v{{version}}"
-pre-release-commit-message = "Bump version to {{version}}"
+pre-release-commit-message = "Release version {{version}}"
 
 [features]
 default = ["anilist"]
