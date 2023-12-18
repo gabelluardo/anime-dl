@@ -86,6 +86,9 @@ impl Anime {
             start: info.num.unwrap_or_default().value,
         }
     }
+
+    // todo: generate episodes on the fly
+    // pub fn episodes()
 }
 
 #[cfg(feature = "anilist")]

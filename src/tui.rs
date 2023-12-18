@@ -76,7 +76,8 @@ pub fn watching_choice(series: &mut Vec<WatchingAnime>) -> Result<()> {
     println!(
         "\n{} {}",
         "::".red(),
-        "Make your selection (eg: 1 2 3 or 1-3) [<enter> for all, <q> for exit]".bold()
+        "Make your selection (eg: 1 2 3 or 1-3) [<enter> for all, <u> for unwatched, <q> for exit]"
+            .bold()
     );
 
     let mut rl = DefaultEditor::new()?;
@@ -86,13 +87,20 @@ pub fn watching_choice(series: &mut Vec<WatchingAnime>) -> Result<()> {
         Err(ReadlineError::Interrupted | ReadlineError::Eof) => bail!(Quit),
         Err(_) => bail!(UserError::InvalidInput),
         Ok(line) if line.contains(['q', 'Q']) => bail!(Quit),
+        Ok(line) if line.contains(['u', 'U']) => {
+            match series
+                .iter()
+                .filter(|s| s.behind > 0)
+                .cloned()
+                .collect::<Vec<_>>()
+            {
+                behind if behind.len() > 0 => *series = behind,
+                _ => bail!(UserError::InvalidInput),
+            }
+        }
         Ok(line) => parse_input(&line, series, 1),
     };
     println!();
-
-    if series.is_empty() {
-        bail!(RemoteError::AnimeNotFound);
-    }
 
     Ok(())
 }
@@ -176,7 +184,7 @@ pub fn episodes_choice(anime: &mut Anime) -> Result<()> {
     println!(
         "\n{} {}",
         "::".red(),
-        "Make your selection (eg: 1 2 3 or 1-3) [<enter> for all, <q> for exit, <u> for unwatched]"
+        "Make your selection (eg: 1 2 3 or 1-3) [<enter> for all, <u> for unwatched, <s> for skip, <q> for exit]"
             .bold()
     );
 
@@ -187,6 +195,7 @@ pub fn episodes_choice(anime: &mut Anime) -> Result<()> {
         Err(ReadlineError::Interrupted | ReadlineError::Eof) => bail!(Quit),
         Err(_) => bail!(UserError::InvalidInput),
         Ok(line) if line.contains(['q', 'Q']) => bail!(Quit),
+        Ok(line) if line.contains(['s', 'S']) => anime.episodes = vec![],
         Ok(line) if line.contains(['u', 'U']) => {
             if let Some(index) = next_to_watch {
                 anime.episodes = anime.episodes[index - 1..].to_vec()
@@ -197,10 +206,6 @@ pub fn episodes_choice(anime: &mut Anime) -> Result<()> {
         Ok(line) => parse_input(&line, &mut anime.episodes, anime.start as usize),
     };
     println!();
-
-    if anime.episodes.is_empty() {
-        bail!(RemoteError::EpisodeNotFound);
-    }
 
     Ok(())
 }
