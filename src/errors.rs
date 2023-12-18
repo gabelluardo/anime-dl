@@ -13,8 +13,6 @@ pub enum RemoteError {
     WatchingList,
     #[error("No url found")]
     UrlNotFound,
-    #[error("No episode found")]
-    EpisodeNotFound,
     #[error("No anime found")]
     AnimeNotFound,
 }

@@ -67,7 +67,20 @@ pub struct Anime {
 
 impl Anime {
     pub fn new(info: &AnimeInfo, last_watched: Option<u32>) -> Self {
-        let episodes = match info {
+        Anime {
+            last_watched,
+            episodes: vec![],
+            info: info.to_owned(),
+            start: info.num.unwrap_or_default().value,
+        }
+    }
+
+    pub fn range(&mut self, range: Option<(u32, u32)>) {
+        self.info.episodes = range
+    }
+
+    pub fn expand(&mut self) {
+        self.episodes = match &self.info {
             AnimeInfo {
                 url,
                 num: Some(InfoNum { alignment, value }),
@@ -76,19 +89,18 @@ impl Anime {
             } => (*start..=*end)
                 .map(|i| gen_url!(url, i + value.checked_sub(1).unwrap_or(*value), alignment))
                 .collect(),
-            _ => vec![info.url.to_owned()],
+            _ => vec![self.info.url.to_owned()],
         };
-
-        Anime {
-            episodes,
-            last_watched,
-            info: info.to_owned(),
-            start: info.num.unwrap_or_default().value,
-        }
     }
 
-    // todo: generate episodes on the fly
-    // pub fn episodes()
+    pub fn select_episodes(&mut self, selection: &[usize]) {
+        let InfoNum { alignment, .. } = self.info.num.unwrap();
+
+        self.episodes = selection
+            .iter()
+            .map(|&i| gen_url!(self.info.url, i as u32, alignment))
+            .collect()
+    }
 }
 
 #[cfg(feature = "anilist")]
