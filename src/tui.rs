@@ -48,7 +48,7 @@ fn parse_input<T: Clone>(line: &str, content: &mut Vec<T>, index_start: usize) {
 
 pub fn watching_choice(series: &mut Vec<WatchingAnime>) -> Result<()> {
     let mut builder = Builder::default();
-    builder.set_header(["Index", "Name", "Episodes Behind"]);
+    builder.push_record(["Index", "Name", "Episodes Behind"]);
     series.iter().enumerate().for_each(|(i, c)| {
         let behind = match c.behind {
             0 => "•".to_string(),
@@ -104,7 +104,7 @@ pub fn series_choice(series: &mut Vec<AnimeInfo>, search: &str) -> Result<()> {
     println!("{}\n", results.cyan().bold());
 
     let mut builder = Builder::default();
-    builder.set_header(["Index", "Name"]);
+    builder.push_record(["Index", "Name"]);
     series.iter().enumerate().for_each(|(i, c)| {
         builder.push_record([(i + 1).to_string(), c.name.clone()]);
     });
@@ -144,14 +144,14 @@ pub fn series_choice(series: &mut Vec<AnimeInfo>, search: &str) -> Result<()> {
 pub fn episodes_choice(anime: &mut Anime) -> Result<()> {
     let mut next_to_watch = None;
     let mut builder = Builder::default();
-    builder.set_header(["Episode", "Seen"]);
+    builder.push_record(["Episode", "Seen"]);
     anime.episodes.iter().enumerate().for_each(|(i, _)| {
         let index = anime.start + i as u32;
         let watched = Some(i as u32) < anime.last_watched;
         let check = if watched { "✔" } else { "✗" };
 
         if next_to_watch.is_none() && !watched {
-            next_to_watch = Some(builder.count_rows() + 1)
+            next_to_watch = Some(builder.count_records())
         }
 
         builder.push_record([index.to_string(), check.to_string()]);
