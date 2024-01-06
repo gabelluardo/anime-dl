@@ -155,7 +155,7 @@ pub fn episodes_choice(anime: &mut Anime) -> Result<()> {
     if let Some((start, end)) = anime.info.episodes {
         for i in start.min(0)..end {
             let index = anime.start + i;
-            let watched = Some(i) < anime.last_watched;
+            let watched = anime.last_watched > Some(i);
             let check = if watched { "✔" } else { "✗" };
 
             if next_to_watch.is_none() && !watched {
@@ -166,7 +166,7 @@ pub fn episodes_choice(anime: &mut Anime) -> Result<()> {
         }
     } else {
         #[rustfmt::skip]
-        let check = if anime.last_watched.is_some() { "✔" } else { "✗" };
+        let check = if anime.last_watched > Some(0) { "✔" } else { "✗" };
         builder.push_record([1.to_string(), check.to_string()]);
     }
 
