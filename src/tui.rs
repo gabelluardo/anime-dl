@@ -15,10 +15,10 @@ use tabled::{
 
 use crate::anilist::WatchingAnime;
 use crate::anime::{Anime, AnimeInfo};
-use crate::errors::{Quit, RemoteError, UserError};
+use crate::errors::{Quit, UserError};
 use crate::range::Range;
 
-fn parse_input<T: Clone>(line: &str, content: &mut Vec<T>, index_start: usize) {
+fn parse_input(line: &str, index_start: usize, content_len: usize) -> Vec<usize> {
     let mut selected = vec![];
     let line = line
         .replace([',', '.'], " ")
@@ -29,8 +29,7 @@ fn parse_input<T: Clone>(line: &str, content: &mut Vec<T>, index_start: usize) {
     for s in line.split_ascii_whitespace().map(|s| s.trim()) {
         if let Ok(num) = s.parse::<usize>() {
             selected.push(num);
-        } else if let Ok(range) = Range::<usize>::parse_and_fill(s, content.len() + index_start - 1)
-        {
+        } else if let Ok(range) = Range::<usize>::parse_and_fill(s, content_len + index_start - 1) {
             selected.extend(range.expand())
         }
     }
@@ -38,12 +37,7 @@ fn parse_input<T: Clone>(line: &str, content: &mut Vec<T>, index_start: usize) {
     selected.sort_unstable();
     selected.dedup();
 
-    if !selected.is_empty() {
-        *content = selected
-            .iter()
-            .filter_map(|i| content.get(i - index_start).cloned())
-            .collect()
-    }
+    selected
 }
 
 pub fn watching_choice(series: &mut Vec<WatchingAnime>) -> Result<()> {
@@ -76,7 +70,7 @@ pub fn watching_choice(series: &mut Vec<WatchingAnime>) -> Result<()> {
     println!(
         "\n{} {}",
         "::".red(),
-        "Make your selection (eg: 1 2 3 or 1-3) [<enter> for all, <q> for exit]".bold()
+        "Make your selection (eg: 1 2 3 or 1-3) [<u> for unwatched, <q> for exit]".bold()
     );
 
     let mut rl = DefaultEditor::new()?;
@@ -86,13 +80,25 @@ pub fn watching_choice(series: &mut Vec<WatchingAnime>) -> Result<()> {
         Err(ReadlineError::Interrupted | ReadlineError::Eof) => bail!(Quit),
         Err(_) => bail!(UserError::InvalidInput),
         Ok(line) if line.contains(['q', 'Q']) => bail!(Quit),
-        Ok(line) => parse_input(&line, series, 1),
+        Ok(line) if line.contains(['u', 'U']) => {
+            match series
+                .iter()
+                .filter(|s| s.behind > 0)
+                .cloned()
+                .collect::<Vec<_>>()
+            {
+                to_watch if !to_watch.is_empty() => *series = to_watch,
+                _ => bail!(UserError::InvalidInput),
+            }
+        }
+        Ok(line) => {
+            *series = parse_input(&line, 1, series.len())
+                .iter()
+                .filter_map(|i| series.get(i - 1).cloned())
+                .collect()
+        }
     };
     println!();
-
-    if series.is_empty() {
-        bail!(RemoteError::AnimeNotFound);
-    }
 
     Ok(())
 }
@@ -130,13 +136,14 @@ pub fn series_choice(series: &mut Vec<AnimeInfo>, search: &str) -> Result<()> {
         Err(ReadlineError::Interrupted | ReadlineError::Eof) => bail!(Quit),
         Err(_) => bail!(UserError::InvalidInput),
         Ok(line) if line.contains(['q', 'Q']) => bail!(Quit),
-        Ok(line) => parse_input(&line, series, 1),
+        Ok(line) => {
+            *series = parse_input(&line, 1, series.len())
+                .iter()
+                .filter_map(|i| series.get(i - 1).cloned())
+                .collect()
+        }
     };
     println!();
-
-    if series.is_empty() {
-        bail!(RemoteError::AnimeNotFound);
-    }
 
     Ok(())
 }
@@ -145,17 +152,23 @@ pub fn episodes_choice(anime: &mut Anime) -> Result<()> {
     let mut next_to_watch = None;
     let mut builder = Builder::default();
     builder.set_header(["Episode", "Seen"]);
-    anime.episodes.iter().enumerate().for_each(|(i, _)| {
-        let index = anime.start + i as u32;
-        let watched = Some(i as u32) < anime.last_watched;
-        let check = if watched { "✔" } else { "✗" };
+    if let Some((start, end)) = anime.info.episodes {
+        for i in start.min(0)..end {
+            let index = anime.start + i;
+            let watched = anime.last_watched > Some(i);
+            let check = if watched { "✔" } else { "✗" };
 
-        if next_to_watch.is_none() && !watched {
-            next_to_watch = Some(builder.count_rows() + 1)
+            if next_to_watch.is_none() && !watched {
+                next_to_watch = Some(builder.count_rows() + 1)
+            }
+
+            builder.push_record([index.to_string(), check.to_string()]);
         }
-
-        builder.push_record([index.to_string(), check.to_string()]);
-    });
+    } else {
+        #[rustfmt::skip]
+        let check = if anime.last_watched > Some(0) { "✔" } else { "✗" };
+        builder.push_record([1.to_string(), check.to_string()]);
+    }
 
     let mut table = builder.build();
     table
@@ -176,8 +189,7 @@ pub fn episodes_choice(anime: &mut Anime) -> Result<()> {
     println!(
         "\n{} {}",
         "::".red(),
-        "Make your selection (eg: 1 2 3 or 1-3) [<enter> for all, <q> for exit, <u> for unwatched]"
-            .bold()
+        "Make your selection (eg: 1 2 3 or 1-3) [<u> for unwatched, <q> for exit]".bold()
     );
 
     let mut rl = DefaultEditor::new()?;
@@ -189,18 +201,19 @@ pub fn episodes_choice(anime: &mut Anime) -> Result<()> {
         Ok(line) if line.contains(['q', 'Q']) => bail!(Quit),
         Ok(line) if line.contains(['u', 'U']) => {
             if let Some(index) = next_to_watch {
-                anime.episodes = anime.episodes[index - 1..].to_vec()
+                anime.range(anime.info.episodes.map(|(_, end)| (index as u32, end)));
+                anime.expand();
             } else {
                 bail!(UserError::InvalidInput)
             }
         }
-        Ok(line) => parse_input(&line, &mut anime.episodes, anime.start as usize),
+        Ok(line) => anime.select_episodes(&parse_input(
+            &line,
+            anime.start as usize,
+            anime.info.episodes.unwrap_or_default().1 as usize,
+        )),
     };
     println!();
-
-    if anime.episodes.is_empty() {
-        bail!(RemoteError::EpisodeNotFound);
-    }
 
     Ok(())
 }
@@ -268,46 +281,28 @@ mod tests {
             "link6".into(),
         ];
 
-        let line = "1,2,3";
-        let mut test = urls.clone();
-        parse_input(line, &mut test, 1);
+        let input = "1,2,3";
+        let res = parse_input(input, 1, urls.len());
+        assert_eq!(res, vec![1, 2, 3,]);
 
-        assert_eq!(test, vec!["link1", "link2", "link3",]);
+        let input = "1-5";
+        let res = parse_input(input, 1, urls.len());
+        assert_eq!(res, vec![1, 2, 3, 4, 5]);
 
-        let line = "1-5";
-        let mut test = urls.clone();
-        parse_input(line, &mut test, 1);
+        let input = "1-3, 6";
+        let res = parse_input(input, 1, urls.len());
+        assert_eq!(res, vec![1, 2, 3, 6]);
 
-        assert_eq!(test, vec!["link1", "link2", "link3", "link4", "link5",]);
+        let input = "1-";
+        let res = parse_input(input, 1, urls.len());
+        assert_eq!(res, vec![1, 2, 3, 4, 5, 6]);
 
-        let line = "1-3, 6";
-        let mut test = urls.clone();
-        parse_input(line, &mut test, 1);
+        let input = "";
+        let res = parse_input(input, 1, urls.len());
+        assert!(res.is_empty());
 
-        assert_eq!(test, vec!["link1", "link2", "link3", "link6",]);
-
-        let line = "1-";
-        let mut test = urls.clone();
-        parse_input(line, &mut test, 1);
-
-        assert_eq!(
-            test,
-            vec!["link1", "link2", "link3", "link4", "link5", "link6",]
-        );
-
-        let line = "";
-        let mut test = urls.clone();
-        parse_input(line, &mut test, 1);
-
-        assert_eq!(
-            test,
-            vec!["link1", "link2", "link3", "link4", "link5", "link6",]
-        );
-
-        let line = "1-2, 4-6";
-        let mut test = urls.clone();
-        parse_input(line, &mut test, 1);
-
-        assert_eq!(test, vec!["link1", "link2", "link4", "link5", "link6",]);
+        let input = "1-2, 4-6";
+        let res = parse_input(input, 1, urls.len());
+        assert_eq!(res, vec![1, 2, 4, 5, 6]);
     }
 }
