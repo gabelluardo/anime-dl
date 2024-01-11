@@ -13,9 +13,8 @@ use crate::errors::RemoteError;
 use crate::scraper::Search;
 use crate::tui;
 
-#[async_trait::async_trait]
 pub trait Archive {
-    const REFERRER: &'static str;
+    const REFERRER: Option<&'static str>;
 
     async fn run(
         search: Search,
@@ -25,10 +24,8 @@ pub trait Archive {
 }
 
 pub struct AnimeWorld;
-
-#[async_trait::async_trait]
 impl Archive for AnimeWorld {
-    const REFERRER: &'static str = "https://www.animeworld.tv";
+    const REFERRER: Option<&'static str> = Some("https://www.animeworld.tv");
 
     async fn run(
         search: Search,
@@ -43,7 +40,7 @@ impl Archive for AnimeWorld {
 
         let mut search_results = {
             let keyword = &search.string;
-            let referrer = Self::REFERRER;
+            let referrer = Self::REFERRER.unwrap();
             let search_url = format!("{referrer}/search?keyword={keyword}");
             let search_page = parse_url(&client, &search_url).await?;
             let anime_list = Selector::parse("div.film-list").unwrap();
@@ -66,7 +63,7 @@ impl Archive for AnimeWorld {
         for url in search_results {
             let client = client.clone();
             let future = async move {
-                let url = Self::REFERRER.to_string() + &url;
+                let url = Self::REFERRER.unwrap().to_string() + &url;
                 let page = parse_url(&client, &url).await?;
 
                 Self::parser(page)
@@ -188,9 +185,8 @@ impl AnimeWorld {
 }
 
 pub struct Placeholder;
-#[async_trait::async_trait]
 impl Archive for Placeholder {
-    const REFERRER: &'static str = "";
+    const REFERRER: Option<&'static str> = None;
 
     async fn run(
         _search: Search,

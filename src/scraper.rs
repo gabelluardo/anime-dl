@@ -97,8 +97,8 @@ impl Scraper {
         join_all(tasks).await;
 
         Ok(SearchResult {
-            referrer,
             items: vec.lock_owned().await.to_vec(),
+            referrer: referrer.unwrap_or_default(),
         })
     }
 }
