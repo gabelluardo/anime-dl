@@ -173,10 +173,15 @@ impl AnimeWorld {
             _ => {
                 let ul = Selector::parse("ul.episodes").unwrap();
                 let a = Selector::parse("a").unwrap();
-                let mut list = page.select(&ul).next().unwrap().select(&a);
+                let mut list = page
+                    .select(&ul)
+                    .next()
+                    .unwrap()
+                    .select(&a)
+                    .filter_map(|a| a.inner_html().parse::<u32>().ok());
 
-                let start = list.next()?.inner_html().parse::<u32>().ok()?;
-                let end = list.last()?.inner_html().parse::<u32>().ok()?;
+                let start = list.next()?;
+                let end = list.last()?;
 
                 Some((start, end))
             }
