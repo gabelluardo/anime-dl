@@ -43,7 +43,7 @@ scraper = "^0.18"
 tabled = "0.15.0"
 thiserror = "^1.0"
 tokio-stream = "^0.1.14"
-which = "^5.0.0"
+which = "^6.0.0"
 
 clap = { version = "^4.4", features = ["derive", "env"] }
 reqwest = { default-features = false, version = "^0.11", features = [
