@@ -13,12 +13,12 @@ use which::which;
 use crate::anilist;
 
 use crate::anilist::WatchingAnime;
-use crate::anime::{self, Anime, AnimeInfo};
+use crate::anime::{Anime, AnimeInfo, InfoNum};
 use crate::cli::Args;
 use crate::config::clean_config;
 use crate::errors::{RemoteError, SystemError};
 use crate::parser;
-use crate::scraper::{select_proxy, Scraper, Search, SearchResult};
+use crate::scraper::{select_proxy, Scraper, Search};
 use crate::tui;
 
 pub struct App;
@@ -32,7 +32,7 @@ impl App {
             return clean_config();
         }
 
-        let items = if args.watching {
+        let (vec_anime, referrer) = if args.watching {
             let mut series = anilist::get_watching_list(args.anilist_id)
                 .await
                 .ok_or(RemoteError::WatchingList)?;
@@ -52,19 +52,23 @@ impl App {
 
             let site = args.site.unwrap_or_default();
             let proxy = select_proxy(args.no_proxy).await;
-            Scraper::new(proxy).run(search, site).await?
+            let (vec_info, referrer) = Scraper::new(proxy).run(search, site).await?;
+            let items = vec_info.into_iter().map(|info| Anime::new(&info)).collect();
+
+            (items, referrer)
         } else if parser::is_web_url(&args.entries[0]) {
-            args.entries
+            let items = args
+                .entries
                 .iter()
                 .map(|s| {
-                    AnimeInfo::new(
-                        &to_title_case!(parser::parse_name(s).unwrap()),
-                        s,
-                        None,
-                        None,
-                    )
+                    let name = to_title_case!(parser::parse_name(s).unwrap());
+                    let info = AnimeInfo::new(&name, s, None, None);
+
+                    Anime::new(&info)
                 })
-                .collect()
+                .collect();
+
+            (items, None)
         } else {
             let site = args.site.unwrap_or_default();
             let proxy = select_proxy(args.no_proxy).await;
@@ -77,39 +81,42 @@ impl App {
                     id: None,
                 });
 
-            Scraper::new(proxy).run(search, site).await?
+            let (vec_info, referrer) = Scraper::new(proxy).run(search, site).await?;
+            let items = vec_info.into_iter().map(|info| Anime::new(&info)).collect();
+
+            (items, referrer)
         };
 
         if args.stream {
-            Self::streaming(args, items).await
+            Self::streaming(args, vec_anime, referrer).await
         } else {
-            Self::download(args, items).await
+            Self::download(args, vec_anime, referrer).await
         }
     }
 
-    async fn download(args: Args, items: SearchResult) -> Result<()> {
+    async fn download(args: Args, items: Vec<Anime>, referrer: Option<&'static str>) -> Result<()> {
         let bars = tui::Bars::new();
         let mut pool = vec![];
 
-        for info in items.iter() {
-            let last_watched = anime::last_watched(args.anilist_id, info.id).await;
-            let mut anime = Anime::new(info, last_watched);
-
+        for mut anime in items.into_iter() {
             if args.interactive {
-                tui::episodes_choice(&mut anime).unwrap_or_default()
+                tui::episodes_choice(&mut anime)?;
+            } else {
+                anime.expand();
             }
 
             let parent = parser::parse_path(&args, &anime.info.url)?;
-            for url in anime.episodes {
+            for (i, url) in anime.episodes.into_iter().enumerate() {
                 let mut path = parent.clone();
                 let pb = bars.add_bar();
+                let info = anime.info.clone();
 
                 let future = async move {
                     let client = Client::new();
                     let filename = parser::parse_filename(&url)?;
                     let source_size = client
                         .head(&url)
-                        .header(REFERER, items.referrer)
+                        .header(REFERER, referrer.unwrap_or_default())
                         .send()
                         .await?
                         .error_for_status()
@@ -141,20 +148,20 @@ impl App {
                         bail!(SystemError::Overwrite(filename));
                     }
 
-                    let msg = if let Some(inum) = info.num {
-                        "Ep. ".to_string() + &zfill!(inum.value, 2) + " " + &info.name
+                    let msg = if let Some(InfoNum { value, alignment }) = info.num {
+                        "Ep. ".to_string() + &zfill!(value + i as u32, alignment) + " " + &info.name
                     } else {
                         info.name.clone()
                     };
 
                     pb.set_position(file_size);
                     pb.set_length(source_size);
-                    pb.set_message(msg.clone());
+                    pb.set_message(msg);
 
                     let mut source = client
                         .get(url)
                         .header(RANGE, format!("bytes={}-", file_size))
-                        .header(REFERER, items.referrer)
+                        .header(REFERER, referrer.unwrap_or_default())
                         .send()
                         .await?
                         .error_for_status()?;
@@ -162,7 +169,7 @@ impl App {
                         dest.write_all(&chunk).await?;
                         pb.inc(chunk.len() as u64);
                     }
-                    pb.finish_with_message(msg + " 👍");
+                    pb.finish_with_message(pb.message() + " 👍");
 
                     Ok(())
                 };
@@ -178,8 +185,12 @@ impl App {
         Ok(())
     }
 
-    async fn streaming(args: Args, items: SearchResult) -> Result<()> {
-        let referrer = items.referrer;
+    async fn streaming(
+        _args: Args,
+        items: Vec<Anime>,
+        referrer: Option<&'static str>,
+    ) -> Result<()> {
+        let referrer = referrer.unwrap_or_default();
         let (cmd, cmd_referrer) = match which("mpv") {
             Ok(c) => (c, format!("--referrer={referrer}")),
             _ => (
@@ -190,9 +201,7 @@ impl App {
         };
 
         let mut episodes = vec![];
-        for info in items.iter() {
-            let last_watched = anime::last_watched(args.anilist_id, info.id).await;
-            let mut anime = Anime::new(info, last_watched);
+        for mut anime in items.into_iter() {
             tui::episodes_choice(&mut anime)?;
 
             episodes.extend(anime.episodes);

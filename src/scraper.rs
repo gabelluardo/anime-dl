@@ -1,5 +1,5 @@
-use std::iter::FromIterator;
-use std::ops::{Deref, DerefMut};
+// use std::iter::FromIterator;
+// use std::ops::{Deref, DerefMut};
 use std::sync::Arc;
 
 use anyhow::{Context, Result};
@@ -20,33 +20,33 @@ pub struct Search {
     pub string: String,
 }
 
-#[derive(Debug, Default, Clone)]
-pub struct SearchResult {
-    pub items: Vec<AnimeInfo>,
-    pub referrer: &'static str,
-}
+// #[derive(Debug, Default, Clone)]
+// pub struct SearchResult {
+//     pub items: Vec<AnimeInfo>,
+//     pub referrer: &'static str,
+// }
 
-impl Deref for SearchResult {
-    type Target = Vec<AnimeInfo>;
+// impl Deref for SearchResult {
+//     type Target = Vec<AnimeInfo>;
 
-    fn deref(&self) -> &Self::Target {
-        &self.items
-    }
-}
+//     fn deref(&self) -> &Self::Target {
+//         &self.items
+//     }
+// }
 
-impl DerefMut for SearchResult {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.items
-    }
-}
+// impl DerefMut for SearchResult {
+//     fn deref_mut(&mut self) -> &mut Self::Target {
+//         &mut self.items
+//     }
+// }
 
-impl FromIterator<AnimeInfo> for SearchResult {
-    fn from_iter<I: IntoIterator<Item = AnimeInfo>>(iter: I) -> Self {
-        let mut c = SearchResult::default();
-        c.extend(iter);
-        c
-    }
-}
+// impl FromIterator<AnimeInfo> for SearchResult {
+//     fn from_iter<I: IntoIterator<Item = AnimeInfo>>(iter: I) -> Self {
+//         let mut c = SearchResult::default();
+//         c.extend(iter);
+//         c
+//     }
+// }
 
 #[derive(Debug)]
 pub struct Scraper {
@@ -76,7 +76,11 @@ impl Scraper {
         }
     }
 
-    pub async fn run<I>(self, search: I, site: Site) -> Result<SearchResult>
+    pub async fn run<I>(
+        self,
+        search: I,
+        site: Site,
+    ) -> Result<(Vec<AnimeInfo>, Option<&'static str>)>
     where
         I: Iterator<Item = Search>,
     {
@@ -96,10 +100,7 @@ impl Scraper {
             });
         join_all(tasks).await;
 
-        Ok(SearchResult {
-            items: vec.lock_owned().await.to_vec(),
-            referrer: referrer.unwrap_or_default(),
-        })
+        Ok((vec.lock_owned().await.to_vec(), referrer))
     }
 }
 
@@ -131,7 +132,7 @@ mod tests {
             .path_segments()
             .and_then(|segments| segments.last())
             .unwrap()
-            .to_owned()
+            .into()
     }
 
     #[tokio::test]
@@ -142,11 +143,11 @@ mod tests {
         let site = Site::AW;
         let proxy = select_proxy(false).await;
         let search = vec![Search {
-            string: "bunny girl".to_owned(),
+            string: "bunny girl".into(),
             id: None,
         }];
 
-        let anime = Scraper::new(proxy)
+        let (anime, _) = Scraper::new(proxy)
             .run(search.into_iter(), site)
             .await
             .unwrap();
@@ -169,20 +170,20 @@ mod tests {
         let proxy = select_proxy(false).await;
         let search = vec![
             Search {
-                string: "bunny girl".to_owned(),
+                string: "bunny girl".into(),
                 id: None,
             },
             Search {
-                string: "tsuredure children".to_owned(),
+                string: "tsuredure children".into(),
                 id: None,
             },
             Search {
-                string: "promare".to_owned(),
+                string: "promare".into(),
                 id: None,
             },
         ];
 
-        let anime = Scraper::new(proxy)
+        let (anime, _) = Scraper::new(proxy)
             .run(search.into_iter(), site)
             .await
             .unwrap();

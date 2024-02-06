@@ -8,7 +8,7 @@ use scraper::{Html, Selector};
 use tokio::sync::Mutex;
 use tokio_stream as stream;
 
-use crate::anime::AnimeInfo;
+use crate::anime::{self, AnimeInfo};
 use crate::errors::RemoteError;
 use crate::scraper::Search;
 use crate::tui;
@@ -66,7 +66,10 @@ impl Archive for AnimeWorld {
                 let url = Self::REFERRER.unwrap().to_string() + &url;
                 let page = parse_url(&client, &url).await?;
 
-                Self::parser(page)
+                let mut info = Self::parser(page)?;
+                info.last_watched = anime::last_watched(search.id, info.id).await;
+
+                Ok::<AnimeInfo, anyhow::Error>(info)
             };
 
             pool.push(future);
@@ -336,7 +339,7 @@ mod tests {
             let anime = Arc::new(Mutex::new(Vec::new()));
             let client = Arc::new(Client::default());
             let search = Search {
-                string: "bunny girl".to_string(),
+                string: "bunny girl".into(),
                 id: None,
             };
 

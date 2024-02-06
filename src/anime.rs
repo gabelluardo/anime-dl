@@ -15,6 +15,7 @@ pub struct AnimeInfo {
     pub num: Option<InfoNum>,
     pub url: String,
     pub episodes: Option<(u32, u32)>,
+    pub last_watched: Option<u32>,
 }
 
 impl AnimeInfo {
@@ -30,6 +31,7 @@ impl AnimeInfo {
                 }
             }
         }
+
         let (url, info_num) = match (opt_start, opt_end) {
             (Some(start_pos), Some(end_pos)) => {
                 let sub_str = input[start_pos..end_pos + 1]
@@ -48,27 +50,26 @@ impl AnimeInfo {
 
         AnimeInfo {
             id,
-            url,
             episodes,
+            url,
+            name: name.into(),
             num: info_num,
-            name: name.to_owned(),
             origin: input.into(),
+            ..Default::default()
         }
     }
 }
 
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Clone)]
 pub struct Anime {
     pub episodes: Vec<String>,
     pub info: AnimeInfo,
-    pub last_watched: Option<u32>,
     pub start: u32,
 }
 
 impl Anime {
-    pub fn new(info: &AnimeInfo, last_watched: Option<u32>) -> Self {
+    pub fn new(info: &AnimeInfo) -> Self {
         Anime {
-            last_watched,
             episodes: vec![],
             info: info.to_owned(),
             start: info.num.unwrap_or_default().value,
@@ -128,18 +129,19 @@ mod tests {
                 name: "Anime Name".into(),
                 url: url.into(),
                 origin: origin.into(),
-                id: None,
-                episodes: None,
                 num: Some(InfoNum {
                     value: 15,
                     alignment: 2
-                })
+                }),
+                ..Default::default()
             }
         );
 
         let origin = "https://www.domain.tld/sub/anotherSub/AnimeName/AnimeName_Ep_016_SUB_ITA.mp4";
         let url = "https://www.domain.tld/sub/anotherSub/AnimeName/AnimeName_Ep_{}_SUB_ITA.mp4";
-        let res = AnimeInfo::new("Anime Name", origin, Some(14), None);
+        let mut res = AnimeInfo::new("Anime Name", origin, Some(14), None);
+        res.last_watched = Some(3);
+
         assert_eq!(
             res,
             AnimeInfo {
@@ -147,11 +149,12 @@ mod tests {
                 url: url.into(),
                 origin: origin.into(),
                 id: Some(14),
-                episodes: None,
+                last_watched: Some(3),
                 num: Some(InfoNum {
                     value: 16,
                     alignment: 3
-                })
+                }),
+                ..Default::default()
             }
         );
     }

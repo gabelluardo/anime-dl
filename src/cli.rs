@@ -9,9 +9,9 @@ pub enum Site {
     AW,
 }
 
+/// Efficient cli app for downloading anime
 #[derive(clap::Parser, Debug, Default)]
 #[clap(version)]
-/// Efficient cli app for downloading anime
 pub struct Args {
     /// Source urls or scraper's queries
     #[clap(required_unless_present("clean"), required_unless_present("watching"))]
