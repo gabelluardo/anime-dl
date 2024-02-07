@@ -37,6 +37,7 @@ enum Command {
     Download(download::Args),
 
     #[cfg(feature = "anilist")]
+    /// Delete app cache
     Clean,
 }
 

@@ -12,18 +12,15 @@ use crate::errors::SystemError;
 use crate::scraper::select_proxy;
 use crate::tui;
 
-/// Stream episodes in a media player
+/// Stream anime in a media player
 #[derive(Parser, Debug)]
-#[command(arg_required_else_help(false))]
+#[command(arg_required_else_help(true))]
 pub struct Args {
     /// Source urls or scraper's queries
     #[arg(required_unless_present("watching"))]
     pub entries: Vec<String>,
 
-    /**
-     * Common parameters
-     * */
-
+    /*  Common paramenters */
     /// Override app id environment variable    
     #[cfg(feature = "anilist")]
     #[arg(short, long, env = "ANIMEDL_ID", hide_env_values = true)]

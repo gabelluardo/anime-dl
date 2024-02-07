@@ -17,8 +17,9 @@ use reqwest::Client;
 use tokio::{fs, io::AsyncWriteExt};
 use tokio_stream as stream;
 
-/// Donwload episodes
+/// Donwload anime
 #[derive(Parser, Debug, Default)]
+#[command(arg_required_else_help(true))]
 pub struct Args {
     /// Source urls or scraper's queries
     #[arg(required_unless_present("watching"))]
@@ -53,10 +54,7 @@ pub struct Args {
     #[arg(short = 'r', long = "range")]
     pub range: Option<Range<u32>>,
 
-    /**
-     * Common parameters
-     * */
-
+    /* Common parameters */
     /// Override app id environment variable    
     #[cfg(feature = "anilist")]
     #[arg(short, long, env = "ANIMEDL_ID", hide_env_values = true)]

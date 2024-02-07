@@ -25,7 +25,7 @@ cargo install --git https://github.com/gabelluardo/anime-dl
 I usually use this:
 
 ```sh
-adl -D <entries>
+adl download -D <entries>
 ```
 
 to store every anime in a properly named directory.
@@ -33,45 +33,36 @@ to store every anime in a properly named directory.
 Or for stream after scraped an archive:
 
 ```sh
-adl -sS <archive> <entries>
+adl stream -S <archive> <entries>
 ```
 
 [![asciicast](https://asciinema.org/a/wdjS4wxIvQrTR7IDLGFW38cM6.svg)](https://asciinema.org/a/wdjS4wxIvQrTR7IDLGFW38cM6)
 
 ```
-Usage: adl [OPTIONS] [ENTRIES]...
+Usage: adl [COMMAND]
 
-Arguments:
-  [ENTRIES]...  Source urls or scraper's queries
+Commands:
+  stream    Stream anime in a media player
+  download  Donwload anime
+  clean     Delete app cache
+  help      Print this message or the help of the given subcommand(s)
 
 Options:
-  -d, --dir <DIR>                Root path where store files [default: .]
-  -m, --max-concurrent <MAX>     Maximum number of simultaneous downloads allowed [default: 24]
-  -r, --range <RANGE>            Episodes to download (es. `1-4` or `1,2,3,4`) [default: 1]
-  -S, --site <SITE>              Search anime in remote archive [possible values: aw]
-  -D, --default-dir              Save files in a folder with a default name
-  -f, --force                    Override existent files
-  -a, --anilist-id <ANILIST_ID>  Override app id environment variable [env: ANIMEDL_ID]
-  -w, --watching                 Retrive anime from anilist watching list
-  -s, --stream                   Stream episode in a media player
-  -i, --interactive              Interactive mode
-  -p, --no-proxy                 Disable automatic proxy (useful for slow connections)
-      --clean                    Delete app cache
-  -h, --help                     Print help
-  -V, --version                  Print version
+  -h, --help     Print help
+  -V, --version  Print version
 ```
 
 For parsing urls from a file (es. `urls`):
 
 ```sh
-adl [FLAGS] [OPTIONS] $(cat urls)
+adl [COMMAND] [OPTIONS] $(cat urls)
 ```
 
 > [!WARNING]
 > Streaming requires [mpv](https://mpv.io/) or [vlc](https://www.videolan.org/vlc/)
 
 ```sh
-adl -s <entries>
+adl stream <entries>
 ```
 
 ### Anilist
