@@ -90,11 +90,7 @@ pub async fn execute(cmd: Args) -> Result<()> {
     let mut pool = vec![];
 
     for mut anime in vec_anime.into_iter() {
-        if let Some(ref range) = cmd.range {
-            anime.range(Some((*range.start(), *range.end())))
-        }
-
-        dbg!(&anime);
+        anime.range(cmd.range);
 
         if cmd.interactive {
             tui::episodes_choice(&mut anime)?;
@@ -153,7 +149,7 @@ pub async fn execute(cmd: Args) -> Result<()> {
                 }
 
                 let msg = match (info.num, info.episodes) {
-                    (Some(InfoNum { value, alignment }), Some((start, _))) => {
+                    (Some(InfoNum { value, alignment }), Some(Range { start, .. })) => {
                         "Ep. ".to_string()
                             + &zfill!(value + start + i as u32, alignment)
                             + " "
@@ -177,6 +173,7 @@ pub async fn execute(cmd: Args) -> Result<()> {
                     dest.write_all(&chunk).await?;
                     pb.inc(chunk.len() as u64);
                 }
+
                 pb.finish_with_message(pb.message() + " 👍");
 
                 Ok(())

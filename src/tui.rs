@@ -26,10 +26,10 @@ fn parse_input(line: &str, index_start: usize, content_len: usize) -> Vec<usize>
         .filter(|c| c.is_ascii_digit() || c.is_ascii_whitespace() || *c == '-')
         .collect::<String>();
 
-    for s in line.split_ascii_whitespace().map(|s| s.trim()) {
+    for s in line.split_ascii_whitespace().map(|s: &str| s.trim()) {
         if let Ok(num) = s.parse::<usize>() {
             selected.push(num);
-        } else if let Ok(range) = Range::<usize>::parse_and_fill(s, content_len + index_start - 1) {
+        } else if let Ok(range) = Range::parse(s, Some(content_len + index_start - 1)) {
             selected.extend(range.expand())
         }
     }
@@ -152,7 +152,7 @@ pub fn episodes_choice(anime: &mut Anime) -> Result<()> {
     let mut next_to_watch = None;
     let mut builder = Builder::default();
     builder.push_record(["Episode", "Seen"]);
-    if let Some((start, end)) = anime.info.episodes {
+    if let Some(Range { start, end }) = anime.info.episodes {
         for i in start.min(0)..end {
             let index = anime.start + i;
             let watched = anime.info.last_watched > Some(i);
@@ -201,7 +201,10 @@ pub fn episodes_choice(anime: &mut Anime) -> Result<()> {
         Ok(line) if line.contains(['q', 'Q']) => bail!(Quit),
         Ok(line) if line.contains(['u', 'U']) => {
             if let Some(index) = next_to_watch {
-                anime.range(anime.info.episodes.map(|(_, end)| (index as u32, end)));
+                if let Some(Range { end, .. }) = anime.info.episodes {
+                    anime.range(Some(Range::new(index as u32, end)))
+                }
+
                 anime.expand();
             } else {
                 bail!(UserError::InvalidInput)
@@ -210,7 +213,7 @@ pub fn episodes_choice(anime: &mut Anime) -> Result<()> {
         Ok(line) => anime.select_episodes(&parse_input(
             &line,
             anime.start as usize,
-            anime.info.episodes.unwrap_or_default().1 as usize,
+            anime.info.episodes.unwrap_or_default().end as usize,
         )),
     };
     println!();

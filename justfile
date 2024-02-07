@@ -6,7 +6,7 @@ commit message: pre-commit
     git commit -am "{{message}}" 
 
 fix: 
-    cargo clippy --fix --allow-dirty
+    cargo clippy --fix --allow-dirty --allow-staged
 
 amend: pre-commit
     git commit --amend --no-verify

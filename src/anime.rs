@@ -1,5 +1,6 @@
 #[cfg(feature = "anilist")]
 use crate::anilist;
+use crate::range::Range;
 
 #[derive(Clone, Copy, Default, Debug, PartialEq, Eq)]
 pub struct InfoNum {
@@ -14,12 +15,12 @@ pub struct AnimeInfo {
     pub origin: String,
     pub num: Option<InfoNum>,
     pub url: String,
-    pub episodes: Option<(u32, u32)>,
+    pub episodes: Option<Range<u32>>,
     pub last_watched: Option<u32>,
 }
 
 impl AnimeInfo {
-    pub fn new(name: &str, input: &str, id: Option<u32>, episodes: Option<(u32, u32)>) -> Self {
+    pub fn new(name: &str, input: &str, id: Option<u32>, episodes: Option<Range<u32>>) -> Self {
         // find episode number position in input
         let (mut opt_start, mut opt_end) = (None, None);
         for (i, c) in input.char_indices() {
@@ -76,7 +77,7 @@ impl Anime {
         }
     }
 
-    pub fn range(&mut self, range: Option<(u32, u32)>) {
+    pub fn range(&mut self, range: Option<Range<u32>>) {
         self.info.episodes = range
     }
 
@@ -85,7 +86,7 @@ impl Anime {
             AnimeInfo {
                 url,
                 num: Some(InfoNum { alignment, value }),
-                episodes: Some((start, end)),
+                episodes: Some(Range { start, end }),
                 ..
             } => (*start..=*end)
                 .map(|i| gen_url!(url, i + value.checked_sub(1).unwrap_or(*value), alignment))
@@ -95,12 +96,12 @@ impl Anime {
     }
 
     pub fn select_episodes(&mut self, selection: &[usize]) {
-        let InfoNum { alignment, .. } = self.info.num.unwrap();
-
-        self.episodes = selection
-            .iter()
-            .map(|&i| gen_url!(self.info.url, i as u32, alignment))
-            .collect()
+        if let Some(InfoNum { alignment, .. }) = self.info.num {
+            self.episodes = selection
+                .iter()
+                .map(|&i| gen_url!(self.info.url, i as u32, alignment))
+                .collect()
+        }
     }
 }
 
@@ -141,7 +142,6 @@ mod tests {
         let url = "https://www.domain.tld/sub/anotherSub/AnimeName/AnimeName_Ep_{}_SUB_ITA.mp4";
         let mut res = AnimeInfo::new("Anime Name", origin, Some(14), None);
         res.last_watched = Some(3);
-
         assert_eq!(
             res,
             AnimeInfo {

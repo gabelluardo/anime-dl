@@ -104,7 +104,7 @@ impl AnimeWorld {
         let episodes = Self::parse_episodes(&page);
         let name = Self::parse_name(&page);
 
-        Ok(AnimeInfo::new(&name, &url, id, episodes))
+        Ok(AnimeInfo::new(&name, &url, id, episodes.map(|e| e.into())))
     }
 
     fn parse_name(page: &Html) -> String {
