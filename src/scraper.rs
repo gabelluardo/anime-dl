@@ -1,5 +1,3 @@
-// use std::iter::FromIterator;
-// use std::ops::{Deref, DerefMut};
 use std::sync::Arc;
 
 use anyhow::{Context, Result};
@@ -9,7 +7,7 @@ use rand::seq::IteratorRandom;
 use reqwest::{header, header::HeaderValue, Client};
 use tokio::sync::Mutex;
 
-use crate::anime::AnimeInfo;
+use crate::anime::Anime;
 use crate::archive::{AnimeWorld, Archive};
 use crate::cli::Site;
 use crate::errors::{Quit, RemoteError};
@@ -19,34 +17,6 @@ pub struct Search {
     pub id: Option<u32>,
     pub string: String,
 }
-
-// #[derive(Debug, Default, Clone)]
-// pub struct SearchResult {
-//     pub items: Vec<AnimeInfo>,
-//     pub referrer: &'static str,
-// }
-
-// impl Deref for SearchResult {
-//     type Target = Vec<AnimeInfo>;
-
-//     fn deref(&self) -> &Self::Target {
-//         &self.items
-//     }
-// }
-
-// impl DerefMut for SearchResult {
-//     fn deref_mut(&mut self) -> &mut Self::Target {
-//         &mut self.items
-//     }
-// }
-
-// impl FromIterator<AnimeInfo> for SearchResult {
-//     fn from_iter<I: IntoIterator<Item = AnimeInfo>>(iter: I) -> Self {
-//         let mut c = SearchResult::default();
-//         c.extend(iter);
-//         c
-//     }
-// }
 
 #[derive(Debug)]
 pub struct Scraper {
@@ -76,11 +46,7 @@ impl Scraper {
         }
     }
 
-    pub async fn run<I>(
-        self,
-        search: I,
-        site: Site,
-    ) -> Result<(Vec<AnimeInfo>, Option<&'static str>)>
+    pub async fn run<I>(self, search: I, site: Site) -> Result<(Vec<Anime>, Option<&'static str>)>
     where
         I: Iterator<Item = Search>,
     {
@@ -100,7 +66,9 @@ impl Scraper {
             });
         join_all(tasks).await;
 
-        Ok((vec.lock_owned().await.to_vec(), referrer))
+        let anime_vec = vec.lock_owned().await.iter().map(Anime::new).collect();
+
+        Ok((anime_vec, referrer))
     }
 }
 
@@ -151,8 +119,7 @@ mod tests {
             .run(search.into_iter(), site)
             .await
             .unwrap();
-
-        let info = get_url(&anime.first().unwrap().origin);
+        let info = get_url(&anime.first().unwrap().info.origin);
 
         assert_eq!(file, info)
     }
@@ -191,7 +158,7 @@ mod tests {
         let mut anime = anime
             .iter()
             .map(|a| {
-                Url::parse(&a.origin)
+                Url::parse(&a.info.origin)
                     .unwrap()
                     .path_segments()
                     .and_then(|segments| segments.last())

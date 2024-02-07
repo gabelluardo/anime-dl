@@ -1,5 +1,3 @@
-use std::path::PathBuf;
-
 use anyhow::{Context, Result};
 
 use crate::errors::UserError;
@@ -19,16 +17,6 @@ pub fn parse_filename(input: &str) -> Result<String> {
         .and_then(|segments| segments.last())
         .map(|s| s.into())
         .context(UserError::Parsing(input.into()))
-}
-
-pub fn parse_path(args: &crate::cli::Args, url: &str) -> Result<PathBuf> {
-    let mut path = args.dir.clone();
-    if args.auto_dir {
-        let name = parse_name(url)?;
-        let dir = to_snake_case!(name);
-        path.push(dir)
-    }
-    Ok(path)
 }
 
 pub fn recase_string(s: &str, separator: char, all_lowercase: bool) -> String {
@@ -94,39 +82,6 @@ mod tests {
         let str = "AnimeName";
         let res = recase_string(str, '_', false);
         assert_eq!(res, "Anime_Name")
-    }
-
-    #[test]
-    fn test_get_path() {
-        let url = "https://www.domain.tld/sub/anotherSub/AnimeName/AnimeName_Ep_15_SUB_ITA.mp4";
-        let mut args = crate::cli::Args {
-            auto_dir: true,
-            dir: PathBuf::from("root"),
-            ..Default::default()
-        };
-
-        assert_eq!(
-            parse_path(&args, url).unwrap(),
-            PathBuf::from("root/anime_name")
-        );
-
-        args.auto_dir = true;
-        args.dir = PathBuf::from("custom_root");
-        assert_eq!(
-            parse_path(&args, url).unwrap(),
-            PathBuf::from("custom_root/anime_name")
-        );
-
-        args.auto_dir = false;
-        args.dir = PathBuf::from("root");
-        assert_eq!(parse_path(&args, url).unwrap(), PathBuf::from("root"));
-
-        args.auto_dir = false;
-        args.dir = PathBuf::from("custom_root");
-        assert_eq!(
-            parse_path(&args, url).unwrap(),
-            PathBuf::from("custom_root")
-        )
     }
 
     #[test]

@@ -5,7 +5,6 @@ mod macros;
 mod anilist;
 
 mod anime;
-mod app;
 mod archive;
 mod cli;
 mod config;
@@ -15,12 +14,11 @@ mod range;
 mod scraper;
 mod tui;
 
-use app::App;
 use owo_colors::OwoColorize;
 
 #[tokio::main]
 async fn main() {
-    if let Err(err) = App::run().await {
+    if let Err(err) = cli::run().await {
         if !err.is::<errors::Quit>() {
             eprintln!("{}", err.red());
         }
