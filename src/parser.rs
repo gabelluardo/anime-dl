@@ -1,6 +1,4 @@
-use anyhow::{Context, Result};
-
-use crate::errors::UserError;
+use anyhow::{anyhow, Result};
 
 pub fn parse_name(input: &str) -> Result<String> {
     let url = reqwest::Url::parse(input)?;
@@ -8,7 +6,7 @@ pub fn parse_name(input: &str) -> Result<String> {
         .and_then(|s| s.last())
         .and_then(|s| s.split('_').next())
         .map(|s| s.into())
-        .context(UserError::Parsing(input.into()))
+        .ok_or(anyhow!("Unable to parse {input}"))
 }
 
 pub fn parse_filename(input: &str) -> Result<String> {
@@ -16,7 +14,7 @@ pub fn parse_filename(input: &str) -> Result<String> {
         .path_segments()
         .and_then(|segments| segments.last())
         .map(|s| s.into())
-        .context(UserError::Parsing(input.into()))
+        .ok_or(anyhow!("Unable to parse {input}"))
 }
 
 pub fn recase_string(s: &str, separator: char, all_lowercase: bool) -> String {

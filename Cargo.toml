@@ -41,7 +41,6 @@ rand = "^0.8"
 rustyline = "^13.0"
 scraper = "^0.18"
 tabled = "0.15.0"
-thiserror = "^1.0"
 tokio-stream = "^0.1.14"
 which = "^5.0.0"
 

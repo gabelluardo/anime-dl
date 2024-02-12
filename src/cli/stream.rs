@@ -3,12 +3,11 @@ use clap::Parser;
 use std::path::PathBuf;
 use std::process::Stdio;
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use tokio::process::Command;
 use which::which;
 
 use super::Site;
-use crate::errors::SystemError;
 use crate::scraper::select_proxy;
 use crate::tui;
 
@@ -70,8 +69,7 @@ pub async fn execute(cmd: Args) -> Result<()> {
         .args(episodes)
         .stdout(Stdio::null())
         .stderr(Stdio::null())
-        .spawn()
-        .context(SystemError::MediaPlayer)?;
+        .spawn()?;
 
     Ok(())
 }

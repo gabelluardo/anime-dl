@@ -4,13 +4,12 @@ use std::path::PathBuf;
 
 use super::Site;
 use crate::anime::InfoNum;
-use crate::errors::{RemoteError, SystemError};
 use crate::parser;
 use crate::range::Range;
 use crate::scraper::select_proxy;
 use crate::tui;
 
-use anyhow::{bail, Context, Result};
+use anyhow::{ensure, Result};
 use futures::stream::StreamExt;
 use reqwest::header::{CONTENT_LENGTH, RANGE, REFERER};
 use reqwest::Client;
@@ -117,8 +116,7 @@ pub async fn execute(cmd: Args) -> Result<()> {
                     .header(REFERER, referrer.unwrap_or_default())
                     .send()
                     .await?
-                    .error_for_status()
-                    .context(RemoteError::Download(filename.clone()))?
+                    .error_for_status()?
                     .headers()
                     .get(CONTENT_LENGTH)
                     .and_then(|ct_len| ct_len.to_str().ok())
@@ -137,14 +135,11 @@ pub async fn execute(cmd: Args) -> Result<()> {
                         .write(cmd.force)
                         .create(true)
                         .open(path)
-                        .await
-                        .context(SystemError::FsOpen)?
+                        .await?
                 };
 
                 let file_size = dest.metadata().await?.len();
-                if file_size >= source_size {
-                    bail!(SystemError::Overwrite(filename));
-                }
+                ensure!(file_size < source_size, filename + " already exists");
 
                 let msg = match (info.num, info.episodes) {
                     (Some(InfoNum { value, alignment }), Some(Range { start, .. })) => {

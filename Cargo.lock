@@ -46,7 +46,6 @@ dependencies = [
  "scraper",
  "serde",
  "tabled",
- "thiserror",
  "tokio",
  "tokio-stream",
  "which",

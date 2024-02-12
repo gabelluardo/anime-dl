@@ -1,9 +1,9 @@
 use std::ops::Deref;
 
-use anyhow::{bail, Result};
+use anyhow::{bail, ensure, Result};
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use owo_colors::OwoColorize;
-use rustyline::{config::Configurer, error::ReadlineError, ColorMode, DefaultEditor};
+use rustyline::{config::Configurer, ColorMode, DefaultEditor};
 use tabled::{
     settings::{
         object::{Columns, Rows, Segment},
@@ -15,8 +15,27 @@ use tabled::{
 
 use crate::anilist::WatchingAnime;
 use crate::anime::{Anime, AnimeInfo};
-use crate::errors::{Quit, UserError};
 use crate::range::Range;
+
+enum Command {
+    Quit,
+    Unwatched,
+    Default(String),
+}
+
+fn parse_commands() -> Result<Command> {
+    let mut rl = DefaultEditor::new()?;
+    rl.set_color_mode(ColorMode::Enabled);
+    let prompt = "~❯ ".red().to_string();
+    let cmd = match rl.readline(&prompt).map(|line| line.trim().to_owned()) {
+        Ok(line) if line.len() == 1 && line.contains(['q', 'Q']) => Command::Quit,
+        Ok(line) if line.len() == 1 && line.contains(['u', 'U']) => Command::Unwatched,
+        Ok(line) => Command::Default(line),
+        Err(err) => bail!(err),
+    };
+
+    Ok(cmd)
+}
 
 fn parse_input(line: &str, index_start: usize, content_len: usize) -> Vec<usize> {
     let mut selected = vec![];
@@ -73,30 +92,19 @@ pub fn watching_choice(series: &mut Vec<WatchingAnime>) -> Result<()> {
         "Make your selection (eg: 1 2 3 or 1-3) [<u> for unwatched, <q> for exit]".bold()
     );
 
-    let mut rl = DefaultEditor::new()?;
-    rl.set_color_mode(ColorMode::Enabled);
-    let prompt = "~❯ ".red().to_string();
-    match rl.readline(&prompt) {
-        Err(ReadlineError::Interrupted | ReadlineError::Eof) => bail!(Quit),
-        Err(_) => bail!(UserError::InvalidInput),
-        Ok(line) if line.contains(['q', 'Q']) => bail!(Quit),
-        Ok(line) if line.contains(['u', 'U']) => {
-            match series
-                .iter()
-                .filter(|s| s.behind > 0)
-                .cloned()
-                .collect::<Vec<_>>()
-            {
-                to_watch if !to_watch.is_empty() => *series = to_watch,
-                _ => bail!(UserError::InvalidInput),
-            }
-        }
-        Ok(line) => {
-            *series = parse_input(&line, 1, series.len())
+    match parse_commands()? {
+        Command::Default(input) => {
+            *series = parse_input(&input, 1, series.len())
                 .iter()
                 .filter_map(|i| series.get(i - 1).cloned())
                 .collect()
         }
+        Command::Unwatched => {
+            *series = series.iter().filter(|s| s.behind > 0).cloned().collect();
+
+            ensure!(!series.is_empty(), "Invalid input");
+        }
+        Command::Quit => quit!(),
     };
     println!();
 
@@ -129,20 +137,15 @@ pub fn series_choice(series: &mut Vec<AnimeInfo>, search: &str) -> Result<()> {
         "Make your selection (eg: 1 2 3 or 1-3) [<enter> for all, <q> for exit]".bold()
     );
 
-    let mut rl = DefaultEditor::new()?;
-    rl.set_color_mode(ColorMode::Enabled);
-    let prompt = "~❯ ".red().to_string();
-    match rl.readline(&prompt) {
-        Err(ReadlineError::Interrupted | ReadlineError::Eof) => bail!(Quit),
-        Err(_) => bail!(UserError::InvalidInput),
-        Ok(line) if line.contains(['q', 'Q']) => bail!(Quit),
-        Ok(line) => {
-            *series = parse_input(&line, 1, series.len())
+    match parse_commands()? {
+        Command::Default(input) => {
+            *series = parse_input(&input, 1, series.len())
                 .iter()
                 .filter_map(|i| series.get(i - 1).cloned())
                 .collect()
         }
-    };
+        _ => quit!(),
+    }
     println!();
 
     Ok(())
@@ -192,29 +195,22 @@ pub fn episodes_choice(anime: &mut Anime) -> Result<()> {
         "Make your selection (eg: 1 2 3 or 1-3) [<u> for unwatched, <q> for exit]".bold()
     );
 
-    let mut rl = DefaultEditor::new()?;
-    rl.set_color_mode(ColorMode::Enabled);
-    let prompt = "~❯ ".red().to_string();
-    match rl.readline(&prompt) {
-        Err(ReadlineError::Interrupted | ReadlineError::Eof) => bail!(Quit),
-        Err(_) => bail!(UserError::InvalidInput),
-        Ok(line) if line.contains(['q', 'Q']) => bail!(Quit),
-        Ok(line) if line.contains(['u', 'U']) => {
-            if let Some(index) = next_to_watch {
-                if let Some(Range { end, .. }) = anime.info.episodes {
-                    anime.range(Some(Range::new(index as u32, end)))
-                }
-
-                anime.expand();
-            } else {
-                bail!(UserError::InvalidInput)
-            }
-        }
-        Ok(line) => anime.select_episodes(&parse_input(
-            &line,
+    match parse_commands()? {
+        Command::Default(input) => anime.select_episodes(&parse_input(
+            &input,
             anime.start as usize,
             anime.info.episodes.unwrap_or_default().end as usize,
         )),
+        Command::Unwatched => match next_to_watch {
+            Some(index) => {
+                if let Some(Range { end, .. }) = anime.info.episodes {
+                    anime.range(Some(Range::new(index as u32, end)))
+                }
+                anime.expand();
+            }
+            _ => bail!("Invalid input"),
+        },
+        Command::Quit => quit!(),
     };
     println!();
 
@@ -230,13 +226,9 @@ pub fn get_token(url: &str) -> Result<String> {
     let text = oauth + "\n\n" + &action + " " + &url + "\n\n" + &input;
     println!("{text}");
 
-    let mut rl = DefaultEditor::new()?;
-    let prompt = "~❯ ".red().to_string();
-    let res = match rl.readline(&prompt) {
-        Err(ReadlineError::Interrupted | ReadlineError::Eof) => bail!(Quit),
-        Err(_) => bail!(UserError::InvalidInput),
-        Ok(line) if line.trim().len() == 1 && line.contains(['q', 'Q']) => bail!(Quit),
-        Ok(line) => line.trim().to_string(),
+    let res = match parse_commands()? {
+        Command::Default(line) => line,
+        _ => quit!(),
     };
 
     Ok(res)

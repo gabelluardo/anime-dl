@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use futures::future::join_all;
 use owo_colors::OwoColorize;
 use rand::seq::IteratorRandom;
@@ -10,7 +10,6 @@ use tokio::sync::Mutex;
 use crate::anime::Anime;
 use crate::archive::{AnimeWorld, Archive};
 use crate::cli::Site;
-use crate::errors::{Quit, RemoteError};
 
 #[derive(Debug, Clone)]
 pub struct Search {
@@ -35,7 +34,7 @@ impl Scraper {
         headers.insert(header::USER_AGENT, HeaderValue::from_static(user_agent));
         let mut builder = Client::builder().default_headers(headers);
         if let Some(proxy) = proxy {
-            if let Ok(req_proxy) = reqwest::Proxy::http(proxy).context(RemoteError::Proxy) {
+            if let Ok(req_proxy) = reqwest::Proxy::http(proxy) {
                 builder = builder.proxy(req_proxy)
             }
         }
@@ -59,9 +58,7 @@ impl Scraper {
             .map(|s| scraper_fun(s.clone(), self.client.clone(), vec.clone()))
             .map(|f| async move {
                 if let Err(err) = f.await {
-                    if !err.is::<Quit>() {
-                        eprintln!("{}", err.red());
-                    }
+                    eprintln!("{}", err.red());
                 }
             });
         join_all(tasks).await;

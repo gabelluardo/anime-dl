@@ -3,8 +3,6 @@ use std::str::FromStr;
 
 use anyhow::{bail, Result};
 
-use crate::errors::UserError;
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Range<T> {
     pub start: T,
@@ -69,7 +67,7 @@ where
         let range = match range_str[..] {
             [start, .., end] => Self::new(start, end),
             [start] => Self::new(start, start),
-            _ => bail!(UserError::InvalidRange),
+            _ => bail!("Invalid range"),
         };
 
         Ok(range)

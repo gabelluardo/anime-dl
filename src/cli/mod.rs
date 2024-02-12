@@ -1,11 +1,10 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 use clap::Parser;
 
 use crate::{
     anilist::{self, WatchingAnime},
     anime::{Anime, AnimeInfo},
     config::clean_config,
-    errors::RemoteError,
     parser,
     scraper::{Scraper, Search},
     tui,
@@ -47,7 +46,6 @@ pub async fn run() -> Result<()> {
     match args.command {
         Some(Command::Stream(cmd)) => stream::execute(cmd).await,
         Some(Command::Download(cmd)) => download::execute(cmd).await,
-
         #[cfg(feature = "anilist")]
         Some(Command::Clean) => clean_config(),
         _ => unreachable!(),
@@ -61,7 +59,7 @@ async fn get_from_watching_list(
 ) -> Result<(Vec<Anime>, Option<&'static str>)> {
     let mut series = anilist::get_watching_list(anilist_id)
         .await
-        .ok_or(RemoteError::WatchingList)?;
+        .context("Unable to get data from watching list")?;
     tui::watching_choice(&mut series)?;
 
     let search = series.iter().map(|WatchingAnime { title, id, .. }| {
