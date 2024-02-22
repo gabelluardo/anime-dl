@@ -1,51 +1,20 @@
-use std::iter::FromIterator;
-use std::ops::{Deref, DerefMut};
 use std::sync::Arc;
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use futures::future::join_all;
 use owo_colors::OwoColorize;
 use rand::seq::IteratorRandom;
 use reqwest::{header, header::HeaderValue, Client};
 use tokio::sync::Mutex;
 
-use crate::anime::AnimeInfo;
+use crate::anime::Anime;
 use crate::archive::{AnimeWorld, Archive};
 use crate::cli::Site;
-use crate::errors::{Quit, RemoteError};
 
 #[derive(Debug, Clone)]
 pub struct Search {
     pub id: Option<u32>,
     pub string: String,
-}
-
-#[derive(Debug, Default, Clone)]
-pub struct SearchResult {
-    pub items: Vec<AnimeInfo>,
-    pub referrer: &'static str,
-}
-
-impl Deref for SearchResult {
-    type Target = Vec<AnimeInfo>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.items
-    }
-}
-
-impl DerefMut for SearchResult {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.items
-    }
-}
-
-impl FromIterator<AnimeInfo> for SearchResult {
-    fn from_iter<I: IntoIterator<Item = AnimeInfo>>(iter: I) -> Self {
-        let mut c = SearchResult::default();
-        c.extend(iter);
-        c
-    }
 }
 
 #[derive(Debug)]
@@ -65,7 +34,7 @@ impl Scraper {
         headers.insert(header::USER_AGENT, HeaderValue::from_static(user_agent));
         let mut builder = Client::builder().default_headers(headers);
         if let Some(proxy) = proxy {
-            if let Ok(req_proxy) = reqwest::Proxy::http(proxy).context(RemoteError::Proxy) {
+            if let Ok(req_proxy) = reqwest::Proxy::http(proxy) {
                 builder = builder.proxy(req_proxy)
             }
         }
@@ -76,7 +45,7 @@ impl Scraper {
         }
     }
 
-    pub async fn run<I>(self, search: I, site: Site) -> Result<SearchResult>
+    pub async fn run<I>(self, search: I, site: Site) -> Result<(Vec<Anime>, Option<&'static str>)>
     where
         I: Iterator<Item = Search>,
     {
@@ -89,17 +58,14 @@ impl Scraper {
             .map(|s| scraper_fun(s.clone(), self.client.clone(), vec.clone()))
             .map(|f| async move {
                 if let Err(err) = f.await {
-                    if !err.is::<Quit>() {
-                        eprintln!("{}", err.red());
-                    }
+                    eprintln!("{}", err.red());
                 }
             });
         join_all(tasks).await;
 
-        Ok(SearchResult {
-            items: vec.lock_owned().await.to_vec(),
-            referrer: referrer.unwrap_or_default(),
-        })
+        let anime_vec = vec.lock_owned().await.iter().map(Anime::new).collect();
+
+        Ok((anime_vec, referrer))
     }
 }
 
@@ -131,7 +97,7 @@ mod tests {
             .path_segments()
             .and_then(|segments| segments.last())
             .unwrap()
-            .to_owned()
+            .into()
     }
 
     #[tokio::test]
@@ -142,16 +108,15 @@ mod tests {
         let site = Site::AW;
         let proxy = select_proxy(false).await;
         let search = vec![Search {
-            string: "bunny girl".to_owned(),
+            string: "bunny girl".into(),
             id: None,
         }];
 
-        let anime = Scraper::new(proxy)
+        let (anime, _) = Scraper::new(proxy)
             .run(search.into_iter(), site)
             .await
             .unwrap();
-
-        let info = get_url(&anime.first().unwrap().origin);
+        let info = get_url(&anime.first().unwrap().info.origin);
 
         assert_eq!(file, info)
     }
@@ -169,20 +134,20 @@ mod tests {
         let proxy = select_proxy(false).await;
         let search = vec![
             Search {
-                string: "bunny girl".to_owned(),
+                string: "bunny girl".into(),
                 id: None,
             },
             Search {
-                string: "tsuredure children".to_owned(),
+                string: "tsuredure children".into(),
                 id: None,
             },
             Search {
-                string: "promare".to_owned(),
+                string: "promare".into(),
                 id: None,
             },
         ];
 
-        let anime = Scraper::new(proxy)
+        let (anime, _) = Scraper::new(proxy)
             .run(search.into_iter(), site)
             .await
             .unwrap();
@@ -190,7 +155,7 @@ mod tests {
         let mut anime = anime
             .iter()
             .map(|a| {
-                Url::parse(&a.origin)
+                Url::parse(&a.info.origin)
                     .unwrap()
                     .path_segments()
                     .and_then(|segments| segments.last())

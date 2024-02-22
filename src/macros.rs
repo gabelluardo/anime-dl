@@ -26,6 +26,13 @@ macro_rules! to_snake_case {
     };
 }
 
+/// Convert a string from CamelCase to snake_case
+macro_rules! quit {
+    () => {
+        anyhow::bail!("")
+    };
+}
+
 #[cfg(test)]
 mod tests {
     #[test]

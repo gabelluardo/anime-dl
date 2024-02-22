@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use anyhow::{bail, Context, Result};
+use anyhow::{bail, ensure, Context, Result};
 
 use futures::stream::StreamExt;
 use reqwest::{Client, Url};
@@ -8,8 +8,7 @@ use scraper::{Html, Selector};
 use tokio::sync::Mutex;
 use tokio_stream as stream;
 
-use crate::anime::AnimeInfo;
-use crate::errors::RemoteError;
+use crate::anime::{self, AnimeInfo};
 use crate::scraper::Search;
 use crate::tui;
 
@@ -54,9 +53,8 @@ impl Archive for AnimeWorld {
                 .map(|a| a.value().attr("href").expect("No link found").to_string())
                 .collect::<Vec<_>>()
         };
-        if search_results.is_empty() {
-            bail!(RemoteError::AnimeNotFound)
-        }
+        ensure!(!search_results.is_empty(), "No anime found");
+
         search_results.sort_unstable();
 
         let mut pool = vec![];
@@ -66,7 +64,10 @@ impl Archive for AnimeWorld {
                 let url = Self::REFERRER.unwrap().to_string() + &url;
                 let page = parse_url(&client, &url).await?;
 
-                Self::parser(page)
+                let mut info = Self::parser(page)?;
+                info.last_watched = anime::last_watched(search.id, info.id).await;
+
+                Ok::<AnimeInfo, anyhow::Error>(info)
             };
 
             pool.push(future);
@@ -96,21 +97,21 @@ impl Archive for AnimeWorld {
 
 impl AnimeWorld {
     fn parser(page: Html) -> Result<AnimeInfo> {
-        let url = Self::parse_url(&page)?;
-        let id = Self::parse_id(&page);
         let episodes = Self::parse_episodes(&page);
-        let name = Self::parse_name(&page);
+        let id = Self::parse_id(&page);
+        let name = Self::parse_name(&page)?;
+        let url = Self::parse_url(&page)?;
 
-        Ok(AnimeInfo::new(&name, &url, id, episodes))
+        Ok(AnimeInfo::new(&name, &url, id, episodes.map(|e| e.into())))
     }
 
-    fn parse_name(page: &Html) -> String {
+    fn parse_name(page: &Html) -> Result<String> {
         let h1 = Selector::parse(r#"h1[id="anime-title"]"#).unwrap();
         page.select(&h1)
             .next()
             .and_then(|e| e.first_child().and_then(|a| a.value().as_text()))
-            .expect("No name found")
-            .to_string()
+            .map(|t| t.to_string())
+            .context("No name found")
     }
 
     fn parse_url(page: &Html) -> Result<String> {
@@ -126,7 +127,7 @@ impl AnimeWorld {
         }
         let url = match url {
             Some(u) => u.replace("download-file.php?id=", ""),
-            _ => bail!(RemoteError::UrlNotFound),
+            _ => bail!("No url found"),
         };
 
         Ok(url)
@@ -336,7 +337,7 @@ mod tests {
             let anime = Arc::new(Mutex::new(Vec::new()));
             let client = Arc::new(Client::default());
             let search = Search {
-                string: "bunny girl".to_string(),
+                string: "bunny girl".into(),
                 id: None,
             };
 

@@ -1,58 +1,60 @@
-use std::ops::{Deref, RangeInclusive as OpsRange};
+use std::ops::RangeInclusive;
 use std::str::FromStr;
 
 use anyhow::{bail, Result};
 
-use crate::errors::UserError;
-
-#[derive(Debug, Clone)]
-pub struct Range<T>(OpsRange<T>);
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Range<T> {
+    pub start: T,
+    pub end: T,
+}
 
 impl<T> Range<T>
 where
     T: Copy + FromStr + Ord,
 {
     pub fn new(start: T, end: T) -> Self {
-        Self(start..=end)
+        Self { start, end }
     }
 
-    pub fn expand(&self) -> OpsRange<T> {
-        *self.start()..=*self.end()
+    pub fn expand(&self) -> RangeInclusive<T> {
+        (*self).into()
     }
 
-    pub fn parse(s: &str) -> Result<Self, <Self as FromStr>::Err> {
-        Self::from_str(s)
-    }
-
-    pub fn parse_and_fill(s: &str, end: T) -> Result<Self, <Self as FromStr>::Err> {
-        Self::parse(s).map(|r| {
-            if r.end().gt(&end) || r.end().eq(r.start()) {
-                Self::new(*r.start(), end)
-            } else {
-                r
+    pub fn parse(s: &str, end: Option<T>) -> Result<Self, <Self as FromStr>::Err> {
+        match (Self::from_str(s), end) {
+            (Ok(r), Some(end)) if r.end.gt(&end) || r.end.eq(&r.start) => {
+                Ok(Self::new(r.start, end))
             }
-        })
+            (res, _) => res,
+        }
     }
 }
 
-#[allow(clippy::reversed_empty_ranges)]
 impl Default for Range<u32> {
     fn default() -> Self {
-        Self(1..=0)
+        Self { start: 1, end: 0 }
     }
 }
 
-impl<T> Deref for Range<T> {
-    type Target = OpsRange<T>;
+impl<T> From<Range<T>> for RangeInclusive<T> {
+    fn from(val: Range<T>) -> Self {
+        val.start..=val.end
+    }
+}
 
-    fn deref(&self) -> &Self::Target {
-        &self.0
+impl<T> From<(T, T)> for Range<T>
+where
+    T: Copy + FromStr + Ord,
+{
+    fn from((start, end): (T, T)) -> Self {
+        Self::new(start, end)
     }
 }
 
 impl<T> FromStr for Range<T>
 where
-    T: Copy + Clone + FromStr + Ord,
+    T: Copy + FromStr + Ord,
 {
     type Err = anyhow::Error;
 
@@ -63,9 +65,9 @@ where
             .filter_map(|c| c.parse::<T>().ok())
             .collect::<Vec<_>>();
         let range = match range_str[..] {
-            [f, .., l] => Self(f..=l),
-            [f] => Self(f..=f),
-            _ => bail!(UserError::InvalidRange),
+            [start, .., end] => Self::new(start, end),
+            [start] => Self::new(start, start),
+            _ => bail!("Invalid range"),
         };
 
         Ok(range)
@@ -77,29 +79,38 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_range() {
-        let range1 = Range::new(0, 1);
-        let (start, end) = (*range1.start(), *range1.end());
-        assert_eq!(start, 0);
-        assert_eq!(end, 1);
+    fn test_from_str() {
+        let range = Range::<u32>::from_str("(0..5)").unwrap();
+        assert_eq!((range.start, range.end), (0, 5));
 
-        let range2 = Range::<i32>::from_str("(0..1)").unwrap();
-        assert_eq!(*range2.start(), 0);
-        assert_eq!(*range2.end(), 1);
+        let range = Range::from_str("1-5").unwrap();
+        assert_eq!((range.start, range.end), (1, 5));
+
+        let range = Range::from_str("1-").unwrap();
+        assert_eq!((range.start, range.end), (1, 1));
+    }
+
+    #[test]
+    fn test_expand() {
+        let range1 = Range::new(0, 1);
+        let range2 = Range::<u32>::from_str("(0..1)").unwrap();
 
         assert!(range1.expand().eq(range2.expand()));
+    }
 
-        let range3 = Range::default();
-        assert_eq!((*range3.start(), *range3.end()), (1, 0));
+    #[test]
+    fn test_parse() {
+        let range = Range::parse("1-", Some(6)).unwrap();
+        assert_eq!((range.start, range.end), (1, 6));
 
-        let range4 = Range::<i32>::from_str("1-5").unwrap();
-        assert_eq!((*range4.start(), *range4.end()), (1, 5));
+        let range = Range::parse("4-", Some(6)).unwrap();
+        assert_eq!((range.start, range.end), (4, 6));
 
-        let range5 = Range::<i32>::from_str("1-").unwrap();
-        assert_eq!((*range5.start(), *range5.end()), (1, 1));
+        let range = Range::parse("4-8", Some(12)).unwrap();
+        assert_eq!((range.start, range.end), (4, 8));
 
-        let range6 = Range::<i32>::parse_and_fill("1-", 6).unwrap();
-        assert_eq!((*range6.start(), *range6.end()), (1, 6));
+        let range = Range::parse("4-8", Some(6)).unwrap();
+        assert_eq!((range.start, range.end), (4, 6));
     }
 
     #[test]

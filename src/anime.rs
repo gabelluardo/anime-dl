@@ -1,5 +1,6 @@
 #[cfg(feature = "anilist")]
 use crate::anilist;
+use crate::range::Range;
 
 #[derive(Clone, Copy, Default, Debug, PartialEq, Eq)]
 pub struct InfoNum {
@@ -14,11 +15,12 @@ pub struct AnimeInfo {
     pub origin: String,
     pub num: Option<InfoNum>,
     pub url: String,
-    pub episodes: Option<(u32, u32)>,
+    pub episodes: Option<Range<u32>>,
+    pub last_watched: Option<u32>,
 }
 
 impl AnimeInfo {
-    pub fn new(name: &str, input: &str, id: Option<u32>, episodes: Option<(u32, u32)>) -> Self {
+    pub fn new(name: &str, input: &str, id: Option<u32>, episodes: Option<Range<u32>>) -> Self {
         // find episode number position in input
         let (mut opt_start, mut opt_end) = (None, None);
         for (i, c) in input.char_indices() {
@@ -30,6 +32,7 @@ impl AnimeInfo {
                 }
             }
         }
+
         let (url, info_num) = match (opt_start, opt_end) {
             (Some(start_pos), Some(end_pos)) => {
                 let sub_str = input[start_pos..end_pos + 1]
@@ -48,34 +51,33 @@ impl AnimeInfo {
 
         AnimeInfo {
             id,
-            url,
             episodes,
+            url,
+            name: name.into(),
             num: info_num,
-            name: name.to_owned(),
             origin: input.into(),
+            ..Default::default()
         }
     }
 }
 
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Clone)]
 pub struct Anime {
     pub episodes: Vec<String>,
     pub info: AnimeInfo,
-    pub last_watched: Option<u32>,
     pub start: u32,
 }
 
 impl Anime {
-    pub fn new(info: &AnimeInfo, last_watched: Option<u32>) -> Self {
+    pub fn new(info: &AnimeInfo) -> Self {
         Anime {
-            last_watched,
             episodes: vec![],
             info: info.to_owned(),
             start: info.num.unwrap_or_default().value,
         }
     }
 
-    pub fn range(&mut self, range: Option<(u32, u32)>) {
+    pub fn range(&mut self, range: Option<Range<u32>>) {
         self.info.episodes = range
     }
 
@@ -84,7 +86,7 @@ impl Anime {
             AnimeInfo {
                 url,
                 num: Some(InfoNum { alignment, value }),
-                episodes: Some((start, end)),
+                episodes: Some(Range { start, end }),
                 ..
             } => (*start..=*end)
                 .map(|i| gen_url!(url, i + value.checked_sub(1).unwrap_or(*value), alignment))
@@ -94,12 +96,12 @@ impl Anime {
     }
 
     pub fn select_episodes(&mut self, selection: &[usize]) {
-        let InfoNum { alignment, .. } = self.info.num.unwrap();
-
-        self.episodes = selection
-            .iter()
-            .map(|&i| gen_url!(self.info.url, i as u32, alignment))
-            .collect()
+        if let Some(InfoNum { alignment, .. }) = self.info.num {
+            self.episodes = selection
+                .iter()
+                .map(|&i| gen_url!(self.info.url, i as u32, alignment))
+                .collect()
+        }
     }
 }
 
@@ -128,18 +130,18 @@ mod tests {
                 name: "Anime Name".into(),
                 url: url.into(),
                 origin: origin.into(),
-                id: None,
-                episodes: None,
                 num: Some(InfoNum {
                     value: 15,
                     alignment: 2
-                })
+                }),
+                ..Default::default()
             }
         );
 
         let origin = "https://www.domain.tld/sub/anotherSub/AnimeName/AnimeName_Ep_016_SUB_ITA.mp4";
         let url = "https://www.domain.tld/sub/anotherSub/AnimeName/AnimeName_Ep_{}_SUB_ITA.mp4";
-        let res = AnimeInfo::new("Anime Name", origin, Some(14), None);
+        let mut res = AnimeInfo::new("Anime Name", origin, Some(14), None);
+        res.last_watched = Some(3);
         assert_eq!(
             res,
             AnimeInfo {
@@ -147,11 +149,12 @@ mod tests {
                 url: url.into(),
                 origin: origin.into(),
                 id: Some(14),
-                episodes: None,
+                last_watched: Some(3),
                 num: Some(InfoNum {
                     value: 16,
                     alignment: 3
-                })
+                }),
+                ..Default::default()
             }
         );
     }

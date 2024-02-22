@@ -3,8 +3,6 @@ use std::{fs, io::Read, io::Write};
 
 use anyhow::{Context, Result};
 
-use crate::errors::SystemError;
-
 #[cfg(all(not(test), not(windows)))]
 fn default_path() -> PathBuf {
     let mut path = PathBuf::from(std::env::var("HOME").unwrap_or_default());
@@ -28,7 +26,7 @@ pub fn load_config() -> Result<String> {
         f.read_to_string(&mut contents).ok();
         contents
     })
-    .context(SystemError::FsLoad)
+    .context("Unable to load configuration")
 }
 
 pub fn save_config(token: &str) -> Result<()> {
@@ -43,13 +41,13 @@ pub fn save_config(token: &str) -> Result<()> {
         .open(path)?;
 
     buf.write_all(token.as_bytes())
-        .context(SystemError::FsWrite)
+        .context("Unable to write file")
 }
 
 pub fn clean_config() -> Result<()> {
     let path = default_path();
 
-    fs::remove_file(path).context(SystemError::FsRemove)
+    fs::remove_file(path).context("Unable to remove file")
 }
 
 #[cfg(all(test, not(windows)))]
