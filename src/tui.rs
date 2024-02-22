@@ -37,26 +37,26 @@ fn parse_commands() -> Result<Command> {
     Ok(cmd)
 }
 
-fn parse_input(line: &str, index_start: usize, content_len: usize) -> Vec<usize> {
+fn parse_input(line: &str, index_start: usize, content_len: usize) -> Result<Vec<usize>> {
     let mut selected = vec![];
-    let line = line
-        .replace([',', '.'], " ")
-        .chars()
-        .filter(|c| c.is_ascii_digit() || c.is_ascii_whitespace() || *c == '-')
-        .collect::<String>();
-
-    for s in line.split_ascii_whitespace().map(|s: &str| s.trim()) {
+    for s in line
+        .split_terminator([' ', ','])
+        .filter(|s| !s.is_empty())
+        .map(|s| s.trim())
+    {
         if let Ok(num) = s.parse::<usize>() {
-            selected.push(num);
+            selected.push(num)
         } else if let Ok(range) = Range::parse(s, Some(content_len + index_start - 1)) {
             selected.extend(range.expand())
+        } else {
+            bail!("Invalid input")
         }
     }
 
     selected.sort_unstable();
     selected.dedup();
 
-    selected
+    Ok(selected)
 }
 
 pub fn watching_choice(series: &mut Vec<WatchingAnime>) -> Result<()> {
@@ -94,7 +94,7 @@ pub fn watching_choice(series: &mut Vec<WatchingAnime>) -> Result<()> {
 
     match parse_commands()? {
         Command::Default(input) => {
-            *series = parse_input(&input, 1, series.len())
+            *series = parse_input(&input, 1, series.len())?
                 .iter()
                 .filter_map(|i| series.get(i - 1).cloned())
                 .collect()
@@ -139,7 +139,7 @@ pub fn series_choice(series: &mut Vec<AnimeInfo>, search: &str) -> Result<()> {
 
     match parse_commands()? {
         Command::Default(input) => {
-            *series = parse_input(&input, 1, series.len())
+            *series = parse_input(&input, 1, series.len())?
                 .iter()
                 .filter_map(|i| series.get(i - 1).cloned())
                 .collect()
@@ -200,7 +200,7 @@ pub fn episodes_choice(anime: &mut Anime) -> Result<()> {
             &input,
             anime.start as usize,
             anime.info.episodes.unwrap_or_default().end as usize,
-        )),
+        )?),
         Command::Unwatched => match next_to_watch {
             Some(index) => {
                 if let Some(Range { end, .. }) = anime.info.episodes {
@@ -277,27 +277,27 @@ mod tests {
         ];
 
         let input = "1,2,3";
-        let res = parse_input(input, 1, urls.len());
+        let res = parse_input(input, 1, urls.len()).unwrap();
         assert_eq!(res, vec![1, 2, 3,]);
 
         let input = "1-5";
-        let res = parse_input(input, 1, urls.len());
+        let res = parse_input(input, 1, urls.len()).unwrap();
         assert_eq!(res, vec![1, 2, 3, 4, 5]);
 
         let input = "1-3, 6";
-        let res = parse_input(input, 1, urls.len());
+        let res = parse_input(input, 1, urls.len()).unwrap();
         assert_eq!(res, vec![1, 2, 3, 6]);
 
         let input = "1-";
-        let res = parse_input(input, 1, urls.len());
+        let res = parse_input(input, 1, urls.len()).unwrap();
         assert_eq!(res, vec![1, 2, 3, 4, 5, 6]);
 
         let input = "";
-        let res = parse_input(input, 1, urls.len());
+        let res = parse_input(input, 1, urls.len()).unwrap();
         assert!(res.is_empty());
 
         let input = "1-2, 4-6";
-        let res = parse_input(input, 1, urls.len());
+        let res = parse_input(input, 1, urls.len()).unwrap();
         assert_eq!(res, vec![1, 2, 4, 5, 6]);
     }
 }
