@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
   workflow_dispatch:
 
 env:
@@ -18,58 +18,37 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            rust: stable
             target: x86_64-unknown-linux-musl
           - os: windows-latest
-            rust: stable
             target: x86_64-pc-windows-msvc
           - os: macos-latest
-            rust: stable
             target: x86_64-apple-darwin
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
 
       - name: Setup Rust toolchain
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@stable
         with:
-          profile: minimal
-          toolchain: ${{ matrix.rust }}
-          target: ${{ matrix.target }}
-          override: true
+          targets: ${{ matrix.target }}
           components: rustfmt, clippy
 
       - name: Install packages (Ubuntu)
-        if: matrix.os == 'ubuntu-latest'
+        if: startsWith(matrix.os, 'ubuntu')
         run: |
           ci/ubuntu-install-packages
 
       - name: cargo fmt
-        uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: --all -- --check
+        run: cargo fmt --all -- --check
 
       - name: cargo clippy
-        uses: actions-rs/cargo@v1
-        with:
-          command: clippy
-          args: --target ${{ matrix.target }} -- -D warnings
+        run: cargo clippy --target ${{ matrix.target }} -- -D warnings
 
+      - name: Build
+        run: cargo build --target ${{ matrix.target }}
 
       - name: Install latest nextest release
         uses: taiki-e/install-action@nextest
 
-      - name: Build
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --target ${{ matrix.target }}
-
       - name: Test
-        uses: actions-rs/cargo@v1
-        with:
-          command: nextest
-          args: run --target ${{ matrix.target }}
-
+        run: cargo nextest run --target ${{ matrix.target }}
