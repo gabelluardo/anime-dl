@@ -7,7 +7,7 @@ on:
 
 jobs:
   publish:
-    name: Publish for ${{ matrix.os }} - ${{ matrix.release_name }}
+    name: Publish ${{ matrix.release_name }} (on ${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -24,62 +24,49 @@ jobs:
             target: armv7-unknown-linux-musleabihf
             artifact_name: target/armv7-unknown-linux-musleabihf/release/adl
             release_name: armv7-unknown-linux-musleabihf
-            cross: true
-            strip: false
           - os: ubuntu-latest
             target: arm-unknown-linux-musleabihf
             artifact_name: target/arm-unknown-linux-musleabihf/release/adl
             release_name: arm-unknown-linux-musleabihf
-            cross: true
-            strip: false
           - os: macos-latest
             target: aarch64-apple-darwin
             artifact_name: target/aarch64-apple-darwin/release/adl
             release_name: aarch64-apple-darwin
-            cross: false
-            strip: true
 
           # x86_64
           - os: ubuntu-latest
             target: x86_64-unknown-linux-musl
             artifact_name: target/x86_64-unknown-linux-musl/release/adl
             release_name: x86_64-unknown-linux-musl
-            cross: false
-            strip: true
           - os: macos-latest
             target: x86_64-apple-darwin
             artifact_name: target/x86_64-apple-darwin/release/adl
             release_name: x86_64-apple-darwin
-            cross: false
-            strip: true
           - os: windows-latest
             target: x86_64-pc-windows-msvc
             artifact_name: target/x86_64-pc-windows-msvc/release/adl.exe
             release_name: x86_64-pc-windows-msvc.exe
-            cross: false
-            strip: true
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
 
       - name: Setup Rust toolchain
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: stable
-          target: ${{ matrix.target }}
+          targets: ${{ matrix.target }}
 
       - name: Install packages (Ubuntu)
-        if: matrix.os == 'ubuntu-latest'
+        if: startsWith(matrix.os, 'ubuntu')
         run: |
           ci/ubuntu-install-packages
 
       - name: Build
-        uses: actions-rs/cargo@v1
+        uses: houseabsolute/actions-rust-cross@v0
         with:
           command: build
-          args: --release --locked --target=${{ matrix.target }}
-          use-cross: ${{ matrix.cross }}
+          args: --release --locked
+          target: ${{ matrix.target }}
 
       - name: Release
         uses: svenstaro/upload-release-action@v2
