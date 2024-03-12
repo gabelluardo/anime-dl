@@ -11,17 +11,20 @@ fix:
 amend: pre-commit
     git commit --amend --no-verify
 
+release:
+    cargo build --release --locked --target x86_64-unknown-linux-musl
+
 install:
     cargo install --path . --target x86_64-unknown-linux-musl
 
 test:
-    cargo nextest run
+    cargo nextest run --target x86_64-unknown-linux-musl
 
 test-ignored:
-    cargo nextest run --run-ignored=ignored-only
+    cargo nextest run --run-ignored=ignored-only --target x86_64-unknown-linux-musl
 
 test-all:
-    cargo nextest run --run-ignored=all
+    cargo nextest run --run-ignored=all --target x86_64-unknown-linux-musl
 
 coverage:
     cargo tarpaulin \

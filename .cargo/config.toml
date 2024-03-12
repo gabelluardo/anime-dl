@@ -1,8 +1,3 @@
-# default target build is linux musl
-# other targets need the `--target` flag
-[build]
-target = "x86_64-unknown-linux-musl"
-
 [target.x86_64-unknown-linux-musl]
 rustflags = ["-C", "linker=ld.lld", "-C", "relocation-model=static"]
 
