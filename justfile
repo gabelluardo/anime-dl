@@ -11,6 +11,9 @@ fix:
 amend: pre-commit
     git commit --amend --no-verify
 
+release:
+    cargo build --release --locked --target x86_64-unknown-linux-musl
+
 install:
     cargo install --path . --target x86_64-unknown-linux-musl
 
