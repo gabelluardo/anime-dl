@@ -28,15 +28,3 @@ test-all:
 
 test-all-musl:
     cargo nextest run --run-ignored=all --target x86_64-unknown-linux-musl
-
-coverage:
-    cargo tarpaulin \
-        --skip-clean \
-        --all-features \
-        --ignored \
-        --engine llvm \
-        --exclude-files \
-            src/main.rs \
-            src/cli.rs \
-            src/errors.rs \
-            src/macros.rs
