@@ -176,8 +176,7 @@ impl AnimeWorld {
                 let a = Selector::parse("a").unwrap();
                 let mut list = page
                     .select(&ul)
-                    .next()
-                    .unwrap()
+                    .next()?
                     .select(&a)
                     .filter_map(|a| a.inner_html().parse::<u32>().ok());
 
