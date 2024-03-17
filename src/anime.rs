@@ -23,13 +23,14 @@ impl AnimeInfo {
     pub fn new(name: &str, input: &str, id: Option<u32>, episodes: Option<Range<u32>>) -> Self {
         // find episode number position in input
         let (mut opt_start, mut opt_end) = (None, None);
-        for (i, c) in input.char_indices() {
-            if let Some(next) = input.chars().nth(i + 1) {
-                if c == '_' && next.is_ascii_digit() {
-                    opt_start = Some(i);
-                } else if c.is_ascii_digit() && next == '_' {
-                    opt_end = Some(i);
-                }
+        for i in 0..input.len() - 1 {
+            match (
+                input.chars().nth(i).unwrap(),
+                input.chars().nth(i + 1).unwrap(),
+            ) {
+                ('_', next) if next.is_ascii_digit() => opt_start = Some(i),
+                (curr, '_') if curr.is_ascii_digit() => opt_end = Some(i),
+                _ => continue,
             }
         }
 
