@@ -40,7 +40,7 @@ owo-colors = "^4.0"
 rand = "^0.8"
 rustyline = "^14.0"
 scraper = "^0.19"
-tabled = "0.15.0"
+tabled = "0.16.0"
 tokio-stream = "^0.1.14"
 which = "^6.0.0"
 
