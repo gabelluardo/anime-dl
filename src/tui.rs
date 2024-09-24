@@ -155,8 +155,8 @@ pub fn episodes_choice(anime: &mut Anime) -> Result<()> {
     let mut next_to_watch = None;
     let mut builder = Builder::default();
     builder.push_record(["Episode", "Seen"]);
-    if let Some(Range { start, end }) = anime.info.episodes {
-        for i in start.min(0)..end {
+    if let Some(Range { end, .. }) = anime.info.episodes {
+        for i in 0..end {
             let index = anime.start + i;
             let watched = anime.info.last_watched > Some(i);
             let check = if watched { "✔" } else { "✗" };
