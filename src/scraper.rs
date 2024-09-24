@@ -142,7 +142,7 @@ mod tests {
                 id: None,
             },
             Search {
-                string: "promare".into(),
+                string: "promare (ita)".into(),
                 id: None,
             },
         ];
