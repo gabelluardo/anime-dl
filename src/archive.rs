@@ -181,7 +181,7 @@ impl AnimeWorld {
                     .filter_map(|a| a.inner_html().parse::<u32>().ok());
 
                 let start = list.next()?;
-                let end = list.last()?;
+                let end = list.last().unwrap_or(start);
 
                 Some((start, end))
             }
