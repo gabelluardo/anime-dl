@@ -1,5 +1,11 @@
 use anyhow::{anyhow, Result};
 
+#[derive(Clone, Copy, Default, Debug, PartialEq, Eq)]
+pub struct InfoNum {
+    pub value: u32,
+    pub alignment: usize,
+}
+
 pub fn parse_name(input: &str) -> Result<String> {
     let url = reqwest::Url::parse(input)?;
     url.path_segments()
@@ -15,6 +21,53 @@ pub fn parse_filename(input: &str) -> Result<String> {
         .and_then(|segments| segments.last())
         .map(|s| s.into())
         .ok_or(anyhow!("Unable to parse {input}"))
+}
+
+pub fn parse_percentage(input: &str) -> Option<u32> {
+    let sym = input.find('%')?;
+
+    input[sym - 3..sym]
+        .chars()
+        .filter(|c| c.is_ascii_digit())
+        .collect::<String>()
+        .parse()
+        .ok()
+}
+
+pub fn parse_number(input: &str) -> Option<InfoNum> {
+    // find episode number position in input
+    let (mut opt_start, mut opt_end) = (None, None);
+    for i in 0..input.len() - 1 {
+        match (
+            input.chars().nth(i).unwrap(),
+            input.chars().nth(i + 1).unwrap(),
+        ) {
+            ('_', next) if next.is_ascii_digit() => opt_start = Some(i),
+            (curr, '_') if curr.is_ascii_digit() => opt_end = Some(i),
+            _ => continue,
+        }
+    }
+
+    match (opt_start, opt_end) {
+        (Some(start_pos), Some(end_pos)) => {
+            let sub_str = input[start_pos..end_pos + 1]
+                .chars()
+                .filter(char::is_ascii_digit)
+                .collect::<String>();
+            sub_str.parse::<u32>().ok().map(|value| InfoNum {
+                value,
+                alignment: sub_str.len(),
+            })
+        }
+        _ => None,
+    }
+}
+
+pub fn parse_url(input: &str, num: Option<InfoNum>) -> String {
+    match num {
+        Some(InfoNum { value, alignment }) => input.replace(&zfill!(value, alignment), "{}"),
+        _ => input.into(),
+    }
 }
 
 pub fn recase_string(s: &str, separator: char, all_lowercase: bool) -> String {

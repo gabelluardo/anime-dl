@@ -41,7 +41,6 @@ rand = "^0.8"
 rustyline = "^14.0"
 scraper = "^0.20"
 tabled = "0.16.0"
-tokio-stream = "^0.1.14"
 which = "^6.0.0"
 
 clap = { version = "^4.5", features = ["derive", "env"] }
@@ -55,6 +54,7 @@ tokio = { default-features = false, version = "^1.40.0", features = [
     "process",
     "rt-multi-thread",
 ] }
+tokio-stream = { version = "^0.1.14", features = ["io-util"] }
 
 # Optional deps...
 
