@@ -41,7 +41,7 @@ rand = "^0.8"
 rustyline = "^14.0"
 scraper = "^0.20.0"
 tabled = "0.16.0"
-tokio-stream = "^0.1.14"
+tokio-stream = "^0.1.16"
 which = "^6.0.0"
 
 clap = { version = "^4.5.20", features = ["derive", "env"] }
