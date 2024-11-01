@@ -4,8 +4,8 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
-      
+
     # For all packages, ignore all patch updates
-    ignore:
-    - dependency-name: "*"
-      update-types: ["version-update:semver-patch"]
+    # ignore:
+    # - dependency-name: "*"
+    #   update-types: ["version-update:semver-patch"]
