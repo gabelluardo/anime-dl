@@ -3,8 +3,8 @@ use clap::Parser;
 use std::path::PathBuf;
 
 use super::Site;
-use crate::anime::InfoNum;
 use crate::parser;
+use crate::parser::InfoNum;
 use crate::range::Range;
 use crate::scraper::select_proxy;
 use crate::tui;

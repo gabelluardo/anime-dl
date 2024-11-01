@@ -1,12 +1,7 @@
 #[cfg(feature = "anilist")]
 use crate::anilist;
+use crate::parser::{parse_number, parse_url, InfoNum};
 use crate::range::Range;
-
-#[derive(Clone, Copy, Default, Debug, PartialEq, Eq)]
-pub struct InfoNum {
-    pub value: u32,
-    pub alignment: usize,
-}
 
 #[derive(Clone, Default, Debug, PartialEq, Eq)]
 pub struct AnimeInfo {
@@ -21,34 +16,8 @@ pub struct AnimeInfo {
 
 impl AnimeInfo {
     pub fn new(name: &str, input: &str, id: Option<u32>, episodes: Option<Range<u32>>) -> Self {
-        // find episode number position in input
-        let (mut opt_start, mut opt_end) = (None, None);
-        for i in 0..input.len() - 1 {
-            match (
-                input.chars().nth(i).unwrap(),
-                input.chars().nth(i + 1).unwrap(),
-            ) {
-                ('_', next) if next.is_ascii_digit() => opt_start = Some(i),
-                (curr, '_') if curr.is_ascii_digit() => opt_end = Some(i),
-                _ => continue,
-            }
-        }
-
-        let (url, info_num) = match (opt_start, opt_end) {
-            (Some(start_pos), Some(end_pos)) => {
-                let sub_str = input[start_pos..end_pos + 1]
-                    .chars()
-                    .filter(char::is_ascii_digit)
-                    .collect::<String>();
-                let url = input.replace(&sub_str, "{}");
-                let info_num = sub_str.parse::<u32>().ok().map(|value| InfoNum {
-                    value,
-                    alignment: sub_str.len(),
-                });
-                (url, info_num)
-            }
-            _ => (input.into(), None),
-        };
+        let info_num = parse_number(input);
+        let url = parse_url(input, info_num);
 
         AnimeInfo {
             id,

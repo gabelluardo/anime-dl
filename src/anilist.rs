@@ -1,3 +1,5 @@
+use anyhow::{anyhow, Result};
+
 use graphql_client::{GraphQLQuery, Response};
 use reqwest::{header, header::HeaderValue, Client};
 
@@ -20,6 +22,13 @@ pub struct WatchingAnime {
 )]
 struct ProgressQuery;
 
+#[derive(GraphQLQuery, Debug)]
+#[graphql(
+    schema_path = "graphql/anilist_schema.graphql",
+    query_path = "graphql/progress_mutation.graphql"
+)]
+struct ProgressMutation;
+
 #[derive(GraphQLQuery)]
 #[graphql(
     schema_path = "graphql/anilist_schema.graphql",
@@ -35,29 +44,8 @@ struct WatchingQuery;
 )]
 struct UserQuery;
 
-pub async fn last_watched(client_id: Option<u32>, anime_id: Option<u32>) -> Option<u32> {
-    let client = new_client(client_id)?;
-
-    let variables = progress_query::Variables {
-        id: anime_id.map(|u| u as i64),
-    };
-    let query = ProgressQuery::build_query(variables);
-    let res = client.post(ENDPOINT).json(&query).send().await.ok()?;
-    let response_body = res
-        .json::<Response<progress_query::ResponseData>>()
-        .await
-        .ok()?;
-
-    response_body
-        .data?
-        .media?
-        .media_list_entry?
-        .progress
-        .map(|p| p as u32)
-}
-
 pub async fn get_watching_list(client_id: Option<u32>) -> Option<Vec<WatchingAnime>> {
-    let client = new_client(client_id)?;
+    let client = new_client(client_id).ok()?;
 
     let query = UserQuery::build_query(user_query::Variables);
     let res = client.post(ENDPOINT).json(&query).send().await.ok()?;
@@ -112,9 +100,58 @@ pub async fn get_watching_list(client_id: Option<u32>) -> Option<Vec<WatchingAni
     Some(list)
 }
 
-fn new_client(client_id: Option<u32>) -> Option<Client> {
+pub async fn last_watched(client_id: Option<u32>, anime_id: Option<u32>) -> Option<u32> {
+    let client = new_client(client_id).ok()?;
+
+    let variables = progress_query::Variables {
+        id: anime_id.map(|u| u as i64),
+    };
+    let query = ProgressQuery::build_query(variables);
+    let res = client.post(ENDPOINT).json(&query).send().await.ok()?;
+    let response_body = res
+        .json::<Response<progress_query::ResponseData>>()
+        .await
+        .ok()?;
+
+    response_body
+        .data?
+        .media?
+        .media_list_entry?
+        .progress
+        .map(|p| p as u32)
+}
+
+pub async fn update_watched(
+    client_id: Option<u32>,
+    anime_id: Option<u32>,
+    number: u32,
+) -> Result<()> {
+    if last_watched(client_id, anime_id).await > Some(number) {
+        return Ok(());
+    }
+
+    let client = new_client(client_id)?;
+
+    let variables = progress_mutation::Variables {
+        id: anime_id.map(|u| u as i64),
+        progress: Some(number as i64),
+    };
+    let query = ProgressMutation::build_query(variables);
+    client
+        .post(ENDPOINT)
+        .json(&query)
+        .send()
+        .await?
+        .error_for_status()?;
+
+    // println!("Updating episode {} for anime {:?}", number, anime_id);
+
+    Ok(())
+}
+
+fn new_client(client_id: Option<u32>) -> Result<Client> {
     let client_id = client_id.unwrap_or(4047);
-    let token = load_config().map_or_else(|_| oauth_token(client_id), Some)?;
+    let token = load_config().map_or_else(|_| oauth_token(client_id), Ok)?;
 
     let mut headers = header::HeaderMap::new();
     headers.insert(header::ACCEPT, HeaderValue::from_static("application/json"));
@@ -127,15 +164,18 @@ fn new_client(client_id: Option<u32>) -> Option<Client> {
         HeaderValue::from_static("application/json"),
     );
 
-    Client::builder().default_headers(headers).build().ok()
+    Client::builder()
+        .default_headers(headers)
+        .build()
+        .map_err(|_| anyhow!("Unable to create client"))
 }
 
-fn oauth_token(client_id: u32) -> Option<String> {
+fn oauth_token(client_id: u32) -> Result<String> {
     let url = format!(
         "https://anilist.co/api/v2/oauth/authorize?response_type=token&client_id={client_id}"
     );
-    let token = tui::get_token(&url).ok()?;
-    save_config(&token).ok()?;
+    let token = tui::get_token(&url)?;
+    save_config(&token)?;
 
-    Some(token)
+    Ok(token)
 }
