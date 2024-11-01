@@ -42,7 +42,7 @@ rustyline = "^14.0"
 scraper = "^0.20.0"
 tabled = "0.16.0"
 tokio-stream = "^0.1.16"
-which = "^6.0.0"
+which = "^6.0.3"
 
 clap = { version = "^4.5.20", features = ["derive", "env"] }
 reqwest = { default-features = false, version = "^0.12.9", features = [
