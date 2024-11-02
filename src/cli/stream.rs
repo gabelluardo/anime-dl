@@ -11,9 +11,9 @@ use tokio_stream::wrappers::LinesStream;
 use tokio_stream::StreamExt;
 use which::which;
 
-use super::Site;
+use super::{Progress, Site};
 use crate::anilist::update_watched;
-use crate::parser::{parse_number, parse_percentage, parse_url, InfoNum};
+use crate::parser::{parse_number, parse_percentage, parse_url};
 use crate::scraper::select_proxy;
 use crate::tui;
 
@@ -89,29 +89,24 @@ pub async fn execute(cmd: Args) -> Result<()> {
 
         let mut merged = tokio_stream::StreamExt::merge(stdout_lines, stderr_lines);
 
-        let mut anime_id = None;
-        let mut ep_num = None;
-        let mut updated = false;
-        let mut cnt = 0;
-
+        let mut progress = Progress::new();
         while let Some(Ok(line)) = merged.next().await {
             if line.contains("Opening done") {
                 let url = line.split_whitespace().last().unwrap();
+                let num = parse_number(url);
+                let origin = parse_url(url, num);
+                let id = ids.get(&origin).copied().flatten();
 
-                ep_num = parse_number(url);
-                anime_id = ids.get(&parse_url(url, ep_num)).copied().flatten();
-
-                updated = false;
-                cnt = 0;
-            } else if line.contains('%') && !line.contains("(Paused)") && !updated {
+                progress.anime_id(id).episode(num.map(|n| n.value));
+            } else if !progress.is_updated() && line.contains('%') && !line.contains("(Paused)") {
                 let watched_percentage = parse_percentage(&line);
+                progress.percentage(watched_percentage);
 
-                cnt += 1;
-
-                if watched_percentage >= Some(80) && cnt > 5 {
-                    if let Some(InfoNum { value, .. }) = ep_num {
-                        updated = update_watched(client_id, anime_id, value).await.is_ok();
-                    }
+                if let Some(number) = progress.to_update() {
+                    let updated = update_watched(client_id, progress.anime_id, number)
+                        .await
+                        .is_ok();
+                    progress.updated(updated);
                 }
             }
         }
