@@ -33,7 +33,7 @@ default = ["anilist"]
 anilist = ["graphql_client", "serde"]
 
 [dependencies]
-anyhow = "^1.0.92"
+anyhow = "^1.0.93"
 futures = "^0.3.31"
 indicatif = "^0.17.8"
 owo-colors = "^4.1"
