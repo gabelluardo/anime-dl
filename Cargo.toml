@@ -60,4 +60,4 @@ tokio = { default-features = false, version = "^1.41.1", features = [
 
 ## anilist
 graphql_client = { version = "^0.14.0", optional = true }
-serde = { version = "^1.0.214", optional = true }
+serde = { version = "^1.0.215", optional = true }
