@@ -62,6 +62,7 @@ impl Progress {
 
     fn episode(&mut self, ep: Option<u32>) -> &mut Self {
         self.episode = ep;
+        self.updated = false;
         self
     }
 
