@@ -40,6 +40,53 @@ enum Command {
     Clean,
 }
 
+#[derive(Default, Debug)]
+struct Progress {
+    anime_id: Option<u32>,
+    episode: Option<u32>,
+    percentage: Option<u32>,
+    count: u32,
+    updated: bool,
+}
+
+impl Progress {
+    fn new() -> Self {
+        Progress::default()
+    }
+
+    fn anime_id(&mut self, id: Option<u32>) -> &mut Self {
+        self.anime_id = id;
+        self.count = 0;
+        self
+    }
+
+    fn episode(&mut self, ep: Option<u32>) -> &mut Self {
+        self.episode = ep;
+        self.updated = false;
+        self
+    }
+
+    fn percentage(&mut self, perc: Option<u32>) {
+        self.percentage = perc;
+        self.count += 1;
+    }
+
+    fn updated(&mut self, updated: bool) {
+        self.updated = updated;
+    }
+
+    fn to_update(&self) -> Option<u32> {
+        match self.episode {
+            ep if self.percentage >= Some(80) && self.count >= 5 => ep,
+            _ => None,
+        }
+    }
+
+    fn is_updated(&self) -> bool {
+        self.updated
+    }
+}
+
 pub async fn run() -> Result<()> {
     let args = Args::parse();
 
