@@ -48,7 +48,7 @@ reqwest = { default-features = false, version = "^0.12.9", features = [
     "json",
     "rustls-tls",
 ] }
-tokio = { default-features = false, version = "^1.41.1", features = [
+tokio = { default-features = false, version = "^1.42.0", features = [
     "fs",
     "macros",
     "process",
