@@ -39,7 +39,7 @@ indicatif = "^0.17.8"
 owo-colors = "^4.1"
 rand = "^0.8"
 rustyline = "^15.0"
-scraper = "^0.21.0"
+scraper = "^0.22.0"
 tabled = "0.17.0"
 which = "^7.0.0"
 
