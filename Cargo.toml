@@ -43,7 +43,7 @@ scraper = "^0.22.0"
 tabled = "0.17.0"
 which = "^7.0.1"
 
-clap = { version = "^4.5.26", features = ["derive", "env"] }
+clap = { version = "^4.5.27", features = ["derive", "env"] }
 reqwest = { default-features = false, version = "^0.12.12", features = [
     "json",
     "rustls-tls",
