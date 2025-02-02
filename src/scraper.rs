@@ -23,15 +23,19 @@ pub struct Scraper {
 }
 
 impl Scraper {
-    pub fn new(proxy: Option<String>) -> Self {
-        let user_agent = "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)";
-        let accept =
-            "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8";
+    pub fn new(proxy: Option<String>, cookie: Option<String>) -> Self {
+        // let user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
         let mut headers = header::HeaderMap::new();
-        headers.insert(header::ACCEPT, HeaderValue::from_static(accept));
-        headers.insert(header::ACCEPT_LANGUAGE, HeaderValue::from_static("it"));
-        headers.insert(header::USER_AGENT, HeaderValue::from_static(user_agent));
+        // headers.insert(header::ACCEPT_LANGUAGE, HeaderValue::from_static("it"));
+        // headers.insert(header::USER_AGENT, HeaderValue::from_static(user_agent));
+
+        if let Some(cookie) = cookie {
+            if let Ok(value) = HeaderValue::from_str(&cookie) {
+                headers.insert(header::COOKIE, value);
+            }
+        }
+
         let mut builder = Client::builder().default_headers(headers);
         if let Some(proxy) = proxy {
             if let Ok(req_proxy) = reqwest::Proxy::http(proxy) {
@@ -67,6 +71,11 @@ impl Scraper {
 
         Ok((anime_vec, referrer))
     }
+
+    #[cfg(test)]
+    pub fn client(&self) -> Arc<Client> {
+        self.client.clone()
+    }
 }
 
 pub async fn select_proxy(disable: bool) -> Option<String> {
@@ -85,6 +94,21 @@ pub async fn select_proxy(disable: bool) -> Option<String> {
     Some(proxy)
 }
 
+pub async fn find_cookie(site: Site) -> Option<String> {
+    let url = match site {
+        Site::AW => AnimeWorld::REFERRER,
+    }?;
+
+    let security = reqwest::get(url).await.ok()?.text().await.ok()?;
+
+    security
+        .split("SecurityAW")
+        .nth(1)?
+        .split(" ;  path=/")
+        .next()
+        .map(|s| "SecurityAW".to_owned() + s.trim())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -101,18 +125,35 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_find_cookie() {
+        let text = r#"<html><body><script>document.cookie="SecurityAW-E4=ccf64e38a09ed38849d9ae72e1931e5b ;  path=/";location.href="http://www.animeworld.so/?d=1";</script></body></html>"#;
+
+        let res = text
+            .split("SecurityAW")
+            .nth(1)
+            .unwrap()
+            .split("path=/")
+            .next()
+            .map(|s| "SecurityAW".to_owned() + s.trim())
+            .unwrap();
+
+        assert_eq!(res, "SecurityAW-E4=ccf64e38a09ed38849d9ae72e1931e5b ;")
+    }
+
+    #[tokio::test]
     #[ignore]
     async fn test_remote_scraper() {
         let file = "SeishunButaYarouWaBunnyGirlSenpaiNoYumeWoMinai_Ep_01_SUB_ITA.mp4";
 
         let site = Site::AW;
         let proxy = select_proxy(false).await;
+        let cookie = find_cookie(Site::AW).await;
         let search = vec![Search {
             string: "bunny girl".into(),
             id: None,
         }];
 
-        let (anime, _) = Scraper::new(proxy)
+        let (anime, _) = Scraper::new(proxy, cookie)
             .run(search.into_iter(), site)
             .await
             .unwrap();
@@ -132,6 +173,8 @@ mod tests {
 
         let site = Site::AW;
         let proxy = select_proxy(false).await;
+        let cookie = find_cookie(Site::AW).await;
+
         let search = vec![
             Search {
                 string: "bunny girl".into(),
@@ -147,7 +190,7 @@ mod tests {
             },
         ];
 
-        let (anime, _) = Scraper::new(proxy)
+        let (anime, _) = Scraper::new(proxy, cookie)
             .run(search.into_iter(), site)
             .await
             .unwrap();

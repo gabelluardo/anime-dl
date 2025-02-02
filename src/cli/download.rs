@@ -6,7 +6,7 @@ use super::Site;
 use crate::parser;
 use crate::parser::InfoNum;
 use crate::range::Range;
-use crate::scraper::select_proxy;
+use crate::scraper::{find_cookie, select_proxy, Scraper};
 use crate::tui;
 
 use anyhow::{ensure, Result};
@@ -74,14 +74,21 @@ pub struct Args {
 }
 
 pub async fn execute(cmd: Args) -> Result<()> {
+    let client_id = cmd.anilist_id;
     let site = cmd.site.unwrap_or_default();
+
+    let cookie = find_cookie(site).await;
     let proxy = select_proxy(cmd.no_proxy).await;
 
-    let (vec_anime, referrer) = if cmd.watching {
-        super::get_from_watching_list(cmd.anilist_id, proxy, site).await?
+    let search = if cmd.watching {
+        super::get_from_watching_list(client_id).await?
     } else {
-        super::get_from_input(cmd.entries, proxy, site).await?
+        super::get_from_input(cmd.entries).await?
     };
+
+    let (vec_anime, referrer) = Scraper::new(proxy, cookie)
+        .run(search.into_iter(), site)
+        .await?;
 
     let bars = tui::Bars::new();
     let mut pool = vec![];

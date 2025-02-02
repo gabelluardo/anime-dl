@@ -14,7 +14,7 @@ use which::which;
 use super::{Progress, Site};
 use crate::anilist::update_watched;
 use crate::parser::{parse_number, parse_percentage, parse_url};
-use crate::scraper::select_proxy;
+use crate::scraper::{find_cookie, select_proxy, Scraper};
 use crate::tui;
 
 /// Stream anime in a media player
@@ -48,13 +48,19 @@ pub struct Args {
 pub async fn execute(cmd: Args) -> Result<()> {
     let client_id = cmd.anilist_id;
     let site = cmd.site.unwrap_or_default();
+
+    let cookie = find_cookie(site).await;
     let proxy = select_proxy(cmd.no_proxy).await;
 
-    let (vec_anime, referrer) = if cmd.watching {
-        super::get_from_watching_list(client_id, proxy, site).await?
+    let search = if cmd.watching {
+        super::get_from_watching_list(client_id).await?
     } else {
-        super::get_from_input(cmd.entries, proxy, site).await?
+        super::get_from_input(cmd.entries).await?
     };
+
+    let (vec_anime, referrer) = Scraper::new(proxy, cookie)
+        .run(search.into_iter(), site)
+        .await?;
 
     let referrer = referrer.unwrap_or_default();
     let (cmd, cmd_referrer) = match which("mpv") {
