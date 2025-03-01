@@ -94,7 +94,7 @@ pub fn recase_string(s: &str, separator: char, all_lowercase: bool) -> String {
     v
 }
 
-pub fn is_web_url(s: &str) -> bool {
+pub fn _is_web_url(s: &str) -> bool {
     reqwest::Url::parse(s).is_ok()
 }
 
@@ -139,7 +139,7 @@ mod tests {
     fn test_is_web_url() {
         let url = "https://www.domain.tld/sub/anotherSub/AnimeName/AnimeName_Ep_15_SUB_ITA.mp4";
         let not_url = "ciao ciao ciao";
-        assert!(is_web_url(url));
-        assert!(!is_web_url(not_url));
+        assert!(_is_web_url(url));
+        assert!(!_is_web_url(not_url));
     }
 }

@@ -24,7 +24,7 @@ pub trait Archive {
 
 pub struct AnimeWorld;
 impl Archive for AnimeWorld {
-    const REFERRER: Option<&'static str> = Some("https://www.animeworld.tv");
+    const REFERRER: Option<&'static str> = Some("https://www.animeworld.so");
 
     async fn run(
         search: Search,
@@ -189,19 +189,6 @@ impl AnimeWorld {
     }
 }
 
-pub struct Placeholder;
-impl Archive for Placeholder {
-    const REFERRER: Option<&'static str> = None;
-
-    async fn run(
-        _search: Search,
-        _client: Arc<Client>,
-        _vec: Arc<Mutex<Vec<AnimeInfo>>>,
-    ) -> Result<()> {
-        unimplemented!()
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -217,6 +204,11 @@ mod tests {
     }
 
     mod animeworld {
+        use crate::{
+            cli::Site,
+            scraper::{find_cookie, Scraper},
+        };
+
         use super::*;
 
         #[test]
@@ -334,13 +326,14 @@ mod tests {
         async fn test_remote() {
             let file = "SeishunButaYarouWaBunnyGirlSenpaiNoYumeWoMinai_Ep_01_SUB_ITA.mp4";
             let anime = Arc::new(Mutex::new(Vec::new()));
-            let client = Arc::new(Client::default());
+            let cookie = find_cookie(Site::AW).await;
+            let scraper = Scraper::new(None, cookie);
             let search = Search {
                 string: "bunny girl".into(),
                 id: None,
             };
 
-            AnimeWorld::run(search, client, anime.clone())
+            AnimeWorld::run(search, scraper.client(), anime.clone())
                 .await
                 .unwrap();
 

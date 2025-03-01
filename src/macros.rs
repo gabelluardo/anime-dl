@@ -13,6 +13,7 @@ macro_rules! zfill {
 }
 
 /// Convert a string from CamelCase to Title Case
+#[cfg(test)]
 macro_rules! to_title_case {
     ($str:expr) => {
         crate::parser::recase_string(&$str, ' ', false)
