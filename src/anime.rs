@@ -1,6 +1,6 @@
 #[cfg(feature = "anilist")]
 use crate::anilist;
-use crate::parser::{parse_number, parse_url, InfoNum};
+use crate::parser::{InfoNum, parse_number, parse_url};
 use crate::range::Range;
 
 #[derive(Clone, Default, Debug, PartialEq, Eq)]

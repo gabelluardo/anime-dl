@@ -1,7 +1,7 @@
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 
 use graphql_client::{GraphQLQuery, Response};
-use reqwest::{header, header::HeaderValue, Client};
+use reqwest::{Client, header, header::HeaderValue};
 
 use crate::config::{load_config, save_config};
 use crate::tui;

@@ -4,7 +4,7 @@ use anyhow::Result;
 use futures::future::join_all;
 use owo_colors::OwoColorize;
 use rand::seq::IteratorRandom;
-use reqwest::{header, header::HeaderValue, Client};
+use reqwest::{Client, header, header::HeaderValue};
 use tokio::sync::Mutex;
 
 use crate::anime::Anime;

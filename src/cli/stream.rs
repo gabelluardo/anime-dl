@@ -7,14 +7,14 @@ use std::process::Stdio;
 use anyhow::Result;
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
-use tokio_stream::wrappers::LinesStream;
 use tokio_stream::StreamExt;
+use tokio_stream::wrappers::LinesStream;
 use which::which;
 
 use super::{Progress, Site};
 use crate::anilist::update_watched;
 use crate::parser::{parse_number, parse_percentage, parse_url};
-use crate::scraper::{find_cookie, select_proxy, Scraper};
+use crate::scraper::{Scraper, find_cookie, select_proxy};
 use crate::tui;
 
 /// Stream anime in a media player

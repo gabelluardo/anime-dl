@@ -13,7 +13,7 @@ mod range;
 mod scraper;
 mod tui;
 
-use cli::{download, stream, Args, Command, Parser};
+use cli::{Args, Command, Parser, download, stream};
 use config::clean_config;
 use owo_colors::OwoColorize;
 

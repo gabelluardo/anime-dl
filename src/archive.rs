@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use anyhow::{bail, ensure, Context, Result};
+use anyhow::{Context, Result, bail, ensure};
 
 use futures::stream::StreamExt;
 use reqwest::{Client, Url};
@@ -206,7 +206,7 @@ mod tests {
     mod animeworld {
         use crate::{
             cli::Site,
-            scraper::{find_cookie, Scraper},
+            scraper::{Scraper, find_cookie},
         };
 
         use super::*;

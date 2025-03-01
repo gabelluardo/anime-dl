@@ -6,13 +6,13 @@ use super::Site;
 use crate::parser;
 use crate::parser::InfoNum;
 use crate::range::Range;
-use crate::scraper::{find_cookie, select_proxy, Scraper};
+use crate::scraper::{Scraper, find_cookie, select_proxy};
 use crate::tui;
 
-use anyhow::{ensure, Result};
+use anyhow::{Result, ensure};
 use futures::stream::StreamExt;
-use reqwest::header::{CONTENT_LENGTH, RANGE, REFERER};
 use reqwest::Client;
+use reqwest::header::{CONTENT_LENGTH, RANGE, REFERER};
 use tokio::{fs, io::AsyncWriteExt};
 use tokio_stream as stream;
 

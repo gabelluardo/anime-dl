@@ -1,14 +1,14 @@
 use std::ops::Deref;
 
-use anyhow::{bail, ensure, Result};
+use anyhow::{Result, bail, ensure};
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use owo_colors::OwoColorize;
-use rustyline::{config::Configurer, ColorMode, DefaultEditor};
+use rustyline::{ColorMode, DefaultEditor, config::Configurer};
 use tabled::{
     settings::{
+        Alignment, Color, Modify,
         object::{Columns, Rows, Segment},
         themes::Colorization,
-        Alignment, Color, Modify,
     },
     {builder::Builder, settings::Style},
 };
