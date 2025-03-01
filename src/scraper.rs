@@ -87,7 +87,7 @@ pub async fn select_proxy(disable: bool) -> Option<String> {
     let list = reqwest::get(url).await.ok()?.text().await.ok()?;
     let proxy = list
         .split_ascii_whitespace()
-        .choose(&mut rand::thread_rng())
+        .choose(&mut rand::rng())
         .map(|s| format!("https://{s}"))
         .unwrap_or_default();
 
