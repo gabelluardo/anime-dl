@@ -63,8 +63,8 @@ impl Progress {
         self
     }
 
-    fn percentage(&mut self, perc: Option<u32>) {
-        self.percentage = perc;
+    fn percentage(&mut self, percentage: Option<u32>) {
+        self.percentage = percentage;
         self.count += 1;
     }
 
@@ -110,22 +110,6 @@ async fn get_from_watching_list(anilist_id: Option<u32>) -> Result<Vec<Search>> 
 }
 
 async fn get_from_input(entries: Vec<String>) -> Result<Vec<Search>> {
-    // if let Some(entry) = entries.first() {
-    //     if parser::is_web_url(entry) {
-    //         let items = entries
-    //             .iter()
-    //             .map(|s| {
-    //                 let name = to_title_case!(parser::parse_name(s).unwrap_or_default());
-    //                 let info = AnimeInfo::new(&name, s, None, None);
-
-    //                 Anime::new(&info)
-    //             })
-    //             .collect();
-
-    //         return Ok((items, None));
-    //     }
-    // }
-
     let input = &entries.join(" ");
     let search = input
         .split(',')

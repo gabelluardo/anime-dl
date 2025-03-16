@@ -105,8 +105,7 @@ pub async fn execute(cmd: Args) -> Result<()> {
 
                 progress.anime_id(id).episode(num.map(|n| n.value));
             } else if !progress.is_updated() && line.contains('%') && !line.contains("(Paused)") {
-                let watched_percentage = parse_percentage(&line);
-                progress.percentage(watched_percentage);
+                progress.percentage(parse_percentage(&line));
 
                 if let Some(number) = progress.to_update() {
                     let updated = update_watched(client_id, progress.anime_id, number)

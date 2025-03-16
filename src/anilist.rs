@@ -15,7 +15,7 @@ pub struct WatchingAnime {
     pub title: String,
 }
 
-#[derive(GraphQLQuery)]
+#[derive(GraphQLQuery, Debug)]
 #[graphql(
     schema_path = "graphql/anilist_schema.graphql",
     query_path = "graphql/progress_query.graphql"
@@ -29,7 +29,7 @@ struct ProgressQuery;
 )]
 struct ProgressMutation;
 
-#[derive(GraphQLQuery)]
+#[derive(GraphQLQuery, Debug)]
 #[graphql(
     schema_path = "graphql/anilist_schema.graphql",
     query_path = "graphql/watching_query.graphql",
@@ -37,7 +37,7 @@ struct ProgressMutation;
 )]
 struct WatchingQuery;
 
-#[derive(GraphQLQuery)]
+#[derive(GraphQLQuery, Debug)]
 #[graphql(
     schema_path = "graphql/anilist_schema.graphql",
     query_path = "graphql/user_query.graphql"
@@ -121,21 +121,47 @@ pub async fn last_watched(client_id: Option<u32>, anime_id: Option<u32>) -> Opti
         .map(|p| p as u32)
 }
 
+pub async fn last_episode(client_id: Option<u32>, anime_id: Option<u32>) -> Option<u32> {
+    let client = new_client(client_id).ok()?;
+
+    let variables = progress_query::Variables {
+        id: anime_id.map(|u| u as i64),
+    };
+    let query = ProgressQuery::build_query(variables);
+    let res = client.post(ENDPOINT).json(&query).send().await.ok()?;
+    let response_body = res
+        .json::<Response<progress_query::ResponseData>>()
+        .await
+        .ok()?;
+
+    response_body.data?.media?.episodes.map(|p| p as u32)
+}
+
 pub async fn update_watched(
     client_id: Option<u32>,
     anime_id: Option<u32>,
     number: u32,
 ) -> Result<()> {
-    if last_watched(client_id, anime_id).await > Some(number) {
+    let last_watched = last_watched(client_id, anime_id).await;
+    if last_watched.is_some_and(|e| e > number) {
         return Ok(());
     }
 
     let client = new_client(client_id)?;
 
+    let last_episode = last_episode(client_id, anime_id).await;
+    let status = if last_episode.is_some_and(|e| e <= number) {
+        progress_mutation::MediaListStatus::COMPLETED
+    } else {
+        progress_mutation::MediaListStatus::CURRENT
+    };
+
     let variables = progress_mutation::Variables {
+        status: Some(status),
         id: anime_id.map(|u| u as i64),
         progress: Some(number as i64),
     };
+
     let query = ProgressMutation::build_query(variables);
     client
         .post(ENDPOINT)
