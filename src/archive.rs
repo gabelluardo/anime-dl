@@ -57,23 +57,23 @@ impl Archive for AnimeWorld {
 
         search_results.sort_unstable();
 
-        let mut pool = vec![];
-        for url in search_results {
-            let client = client.clone();
-            let future = async move {
+        let pool = search_results
+            .into_iter()
+            .map(async |url| {
                 let url = Self::REFERRER.unwrap().to_string() + &url;
-                let page = parse_url(&client, &url).await?;
+                let page = parse_url(&client.clone(), &url).await?;
 
                 let mut info = Self::parser(page)?;
                 info.last_watched = anime::last_watched(search.id, info.id).await;
 
                 Ok::<AnimeInfo, anyhow::Error>(info)
-            };
+            })
+            .collect::<Vec<_>>();
 
-            pool.push(future);
-        }
-
-        let stream = stream::iter(pool).buffered(20).collect::<Vec<_>>().await;
+        let stream = stream::iter(pool)
+            .buffer_unordered(8)
+            .collect::<Vec<_>>()
+            .await;
         let mut anime = stream.into_iter().filter_map(|a| a.ok());
 
         if search.id.is_some() {

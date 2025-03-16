@@ -24,11 +24,7 @@ pub struct Scraper {
 
 impl Scraper {
     pub fn new(proxy: Option<String>, cookie: Option<String>) -> Self {
-        // let user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
-
         let mut headers = header::HeaderMap::new();
-        // headers.insert(header::ACCEPT_LANGUAGE, HeaderValue::from_static("it"));
-        // headers.insert(header::USER_AGENT, HeaderValue::from_static(user_agent));
 
         if let Some(cookie) = cookie {
             if let Ok(value) = HeaderValue::from_str(&cookie) {
@@ -53,18 +49,16 @@ impl Scraper {
     where
         I: Iterator<Item = Search>,
     {
-        let (scraper_fun, referrer) = match site {
+        let (scrape, referrer) = match site {
             Site::AW => (AnimeWorld::run, AnimeWorld::REFERRER),
         };
 
         let vec = Arc::new(Mutex::new(Vec::new()));
-        let tasks = search
-            .map(|s| scraper_fun(s.clone(), self.client.clone(), vec.clone()))
-            .map(|f| async move {
-                if let Err(err) = f.await {
-                    eprintln!("{}", err.red());
-                }
-            });
+        let tasks = search.map(async |s| {
+            if let Err(err) = scrape(s, self.client.clone(), vec.clone()).await {
+                eprintln!("{}", err.red());
+            }
+        });
         join_all(tasks).await;
 
         let anime_vec = vec.lock_owned().await.iter().map(Anime::new).collect();
@@ -95,18 +89,17 @@ pub async fn select_proxy(disable: bool) -> Option<String> {
 }
 
 pub async fn find_cookie(site: Site) -> Option<String> {
-    let url = match site {
-        Site::AW => AnimeWorld::REFERRER,
-    }?;
+    let (str, url) = match site {
+        Site::AW => ("SecurityAW", AnimeWorld::REFERRER?),
+    };
 
     let security = reqwest::get(url).await.ok()?.text().await.ok()?;
-
     security
-        .split("SecurityAW")
+        .split(str)
         .nth(1)?
         .split(" ;  path=/")
         .next()
-        .map(|s| "SecurityAW".to_owned() + s.trim())
+        .map(|s| str.to_owned() + s.trim())
 }
 
 #[cfg(test)]

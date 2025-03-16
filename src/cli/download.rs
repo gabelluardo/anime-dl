@@ -94,11 +94,10 @@ pub async fn execute(cmd: Args) -> Result<()> {
     let mut pool = vec![];
 
     for mut anime in vec_anime.into_iter() {
-        anime.range(cmd.range);
-
         if cmd.interactive {
             tui::episodes_choice(&mut anime)?;
         } else {
+            anime.range(cmd.range);
             anime.expand();
         }
 
@@ -178,6 +177,7 @@ pub async fn execute(cmd: Args) -> Result<()> {
 
                 Ok(())
             };
+
             pool.push(future);
         }
     }
