@@ -1,5 +1,4 @@
 #[cfg(feature = "anilist")]
-use crate::anilist;
 use crate::parser::{InfoNum, parse_number, parse_url};
 use crate::range::Range;
 
@@ -77,7 +76,13 @@ impl Anime {
 
 #[cfg(feature = "anilist")]
 pub async fn last_watched(client_id: Option<u32>, anime_id: Option<u32>) -> Option<u32> {
-    anilist::last_watched(client_id, anime_id).await
+    use crate::anilist::Anilist;
+
+    if let Ok(anilist) = Anilist::new(client_id) {
+        return anilist.get_last_watched(anime_id).await;
+    }
+
+    None
 }
 
 #[cfg(not(feature = "anilist"))]

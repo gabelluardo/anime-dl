@@ -12,7 +12,7 @@ use tokio_stream::wrappers::LinesStream;
 use which::which;
 
 use super::{Progress, Site};
-use crate::anilist::update_watched;
+use crate::anilist::Anilist;
 use crate::parser::{parse_number, parse_percentage, parse_url};
 use crate::scraper::{Scraper, find_cookie, select_proxy};
 use crate::tui;
@@ -96,6 +96,7 @@ pub async fn execute(cmd: Args) -> Result<()> {
         let mut merged = tokio_stream::StreamExt::merge(stdout_lines, stderr_lines);
 
         let mut progress = Progress::new();
+        let anilist = Anilist::new(client_id)?;
         while let Some(Ok(line)) = merged.next().await {
             if line.contains("Opening done") {
                 let url = line.split_whitespace().last().unwrap();
@@ -108,9 +109,7 @@ pub async fn execute(cmd: Args) -> Result<()> {
                 progress.percentage(parse_percentage(&line));
 
                 if let Some(number) = progress.to_update() {
-                    let updated = update_watched(client_id, progress.anime_id, number)
-                        .await
-                        .is_ok();
+                    let updated = anilist.update(progress.anime_id, number).await.is_ok();
                     progress.updated(updated);
                 }
             }

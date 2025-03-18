@@ -2,7 +2,7 @@ use anyhow::{Context, Result};
 pub use clap::Parser;
 
 use crate::{
-    anilist::{self, WatchingAnime},
+    anilist::{Anilist, WatchingAnime},
     scraper::Search,
     tui,
 };
@@ -85,7 +85,8 @@ impl Progress {
 }
 
 async fn get_from_watching_list(anilist_id: Option<u32>) -> Result<Vec<Search>> {
-    let mut series = anilist::get_watching_list(anilist_id)
+    let mut series = Anilist::new(anilist_id)?
+        .get_watching_list()
         .await
         .context("Unable to get data from watching list")?;
 
