@@ -95,24 +95,20 @@ pub async fn execute(cmd: Args) -> Result<()> {
 
         let mut merged = tokio_stream::StreamExt::merge(stdout_lines, stderr_lines);
 
-        let mut progress = Progress::new();
-        let anilist = Anilist::new(client_id)?;
+        let mut progress = Progress::new(Anilist::new(client_id)?);
         while let Some(Ok(line)) = merged.next().await {
             if line.contains("Opening done") {
                 let url = line.split_whitespace().last().unwrap();
                 let num = parse_number(url);
                 let origin = parse_url(url, num);
-                let id = ids.get(&origin).copied().flatten();
 
-                progress.anime_id(id).episode(num.map(|n| n.value));
-            } else if !progress.is_updated() && line.contains('%') && !line.contains("(Paused)") {
+                progress.anime_id(ids.get(&origin).copied().flatten());
+                progress.episode(num.map(|n| n.value));
+            } else if line.contains('%') && !line.contains("(Paused)") {
                 progress.percentage(parse_percentage(&line));
-
-                if let Some(number) = progress.to_update() {
-                    let updated = anilist.update(progress.anime_id, number).await.is_ok();
-                    progress.updated(updated);
-                }
             }
+
+            progress.update().await;
         }
     }
 

@@ -46,6 +46,7 @@ struct WatchingQuery;
 )]
 struct UserQuery;
 
+#[derive(Default, Debug)]
 pub struct Anilist(Client);
 
 impl Deref for Anilist {

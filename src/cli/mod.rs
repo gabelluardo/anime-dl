@@ -39,6 +39,7 @@ pub enum Command {
 
 #[derive(Default, Debug)]
 struct Progress {
+    anilist: Anilist,
     anime_id: Option<u32>,
     episode: Option<u32>,
     percentage: Option<u32>,
@@ -47,20 +48,21 @@ struct Progress {
 }
 
 impl Progress {
-    fn new() -> Self {
-        Progress::default()
+    fn new(anilist: Anilist) -> Self {
+        Self {
+            anilist,
+            ..Default::default()
+        }
     }
 
-    fn anime_id(&mut self, id: Option<u32>) -> &mut Self {
+    fn anime_id(&mut self, id: Option<u32>) {
         self.anime_id = id;
         self.count = 0;
-        self
     }
 
-    fn episode(&mut self, ep: Option<u32>) -> &mut Self {
+    fn episode(&mut self, ep: Option<u32>) {
         self.episode = ep;
         self.updated = false;
-        self
     }
 
     fn percentage(&mut self, percentage: Option<u32>) {
@@ -68,19 +70,17 @@ impl Progress {
         self.count += 1;
     }
 
-    fn updated(&mut self, updated: bool) {
-        self.updated = updated;
-    }
-
-    fn to_update(&self) -> Option<u32> {
-        match self.episode {
-            ep if self.percentage >= Some(80) && self.count >= 5 => ep,
-            _ => None,
+    async fn update(&mut self) {
+        if self.to_update() {
+            if let Some(number) = self.episode {
+                let result = self.anilist.update(self.anime_id, number).await;
+                self.updated = result.is_ok();
+            }
         }
     }
 
-    fn is_updated(&self) -> bool {
-        self.updated
+    fn to_update(&self) -> bool {
+        !self.updated && self.count >= 5 && self.percentage.is_some_and(|p| p > 80)
     }
 }
 
