@@ -24,7 +24,7 @@ pub trait Archive {
 
 pub struct AnimeWorld;
 impl Archive for AnimeWorld {
-    const REFERRER: Option<&'static str> = Some("https://www.animeworld.so");
+    const REFERRER: Option<&'static str> = Some("https://www.animeworld.ac");
 
     async fn run(
         search: Search,
