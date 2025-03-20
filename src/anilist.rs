@@ -100,7 +100,7 @@ impl Anilist {
             .ok()?;
 
         let mut list = response_body.data?.media_list_collection?.lists?[0]
-            .clone()?
+            .take()?
             .entries?
             .into_iter()
             .filter_map(|e| {

@@ -97,7 +97,7 @@ async fn get_from_watching_list(anilist_id: Option<u32>) -> Result<Vec<Search>> 
         .map(|WatchingAnime { title, id, .. }| {
             let string = title
                 .split_ascii_whitespace()
-                .take(2)
+                .take(3)
                 .fold(String::new(), |acc, s| acc + "+" + s.trim());
 
             Search {

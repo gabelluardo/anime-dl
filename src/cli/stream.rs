@@ -73,7 +73,7 @@ pub async fn execute(cmd: Args) -> Result<()> {
 
     let mut episodes = vec![];
     let mut ids = HashMap::new();
-    for mut anime in vec_anime.clone().into_iter() {
+    for mut anime in vec_anime.into_iter() {
         ids.insert(anime.info.url.clone(), anime.info.id);
         tui::episodes_choice(&mut anime)?;
         episodes.extend(anime.episodes);
