@@ -15,7 +15,7 @@ use super::{Progress, Site};
 use crate::anilist::Anilist;
 use crate::parser::{parse_number, parse_percentage, parse_url};
 use crate::scraper::{Scraper, find_cookie, select_proxy};
-use crate::tui;
+use crate::tui::Tui;
 
 /// Stream anime in a media player
 #[derive(Parser, Debug)]
@@ -75,7 +75,7 @@ pub async fn execute(cmd: Args) -> Result<()> {
     let mut ids = HashMap::new();
     for anime in &vec_anime {
         ids.insert(&anime.url, anime.id);
-        episodes.extend(tui::episodes_choice(anime)?);
+        episodes.extend(Tui::select_episodes(anime)?);
     }
 
     let mut child = Command::new(cmd)

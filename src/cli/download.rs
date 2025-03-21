@@ -8,7 +8,7 @@ use crate::parser::InfoNum;
 use crate::parser::{self, parse_number};
 use crate::range::Range;
 use crate::scraper::{Scraper, find_cookie, select_proxy};
-use crate::tui;
+use crate::tui::Tui;
 
 use anyhow::{Result, ensure};
 use futures::stream::StreamExt;
@@ -91,13 +91,13 @@ pub async fn execute(cmd: Args) -> Result<()> {
         .run(search.into_iter(), site)
         .await?;
 
-    let bars = tui::Bars::new();
+    let ui = Tui::new();
     let client = Arc::new(Client::new());
     let mut pool = vec![];
     for anime in &vec_anime {
         let episodes = match cmd.range {
             Some(range) if !cmd.interactive => anime.select_from_range(range),
-            _ => tui::episodes_choice(anime)?,
+            _ => Tui::select_episodes(anime)?,
         };
 
         let mut parent = cmd.dir.clone();
@@ -109,7 +109,7 @@ pub async fn execute(cmd: Args) -> Result<()> {
         }
 
         for url in episodes {
-            let pb = bars.add_bar();
+            let pb = ui.add_bar();
             let mut path = parent.clone();
             let client = client.clone();
 
@@ -146,9 +146,7 @@ pub async fn execute(cmd: Args) -> Result<()> {
                 ensure!(file_size < source_size, filename + " already exists");
 
                 let msg = match parse_number(&url) {
-                    Some(InfoNum { value, alignment }) => {
-                        "Ep. ".to_string() + &zfill!(value, alignment) + " " + &anime.name
-                    }
+                    Some(InfoNum { value, alignment }) => gen_msg!(value, alignment, anime.name),
                     _ => anime.name.clone(),
                 };
 

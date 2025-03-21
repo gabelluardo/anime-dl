@@ -1,4 +1,3 @@
-use std::ops::RangeInclusive;
 use std::str::FromStr;
 
 use anyhow::{Result, bail};
@@ -9,16 +8,30 @@ pub struct Range<T> {
     pub end: T,
 }
 
+impl<T> Iterator for Range<T>
+where
+    T: Copy + PartialOrd + std::ops::AddAssign<T> + From<u8>,
+{
+    type Item = T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.start <= self.end {
+            let current = self.start;
+            self.start += T::from(1);
+
+            Some(current)
+        } else {
+            None
+        }
+    }
+}
+
 impl<T> Range<T>
 where
     T: Copy + FromStr + Ord,
 {
     pub fn new(start: T, end: T) -> Self {
         Self { start, end }
-    }
-
-    pub fn expand(&self) -> RangeInclusive<T> {
-        (*self).into()
     }
 
     pub fn parse(s: &str, end: Option<T>) -> Result<Self, <Self as FromStr>::Err> {
@@ -34,12 +47,6 @@ where
 impl Default for Range<u32> {
     fn default() -> Self {
         Self { start: 1, end: 0 }
-    }
-}
-
-impl<T> From<Range<T>> for RangeInclusive<T> {
-    fn from(val: Range<T>) -> Self {
-        val.start..=val.end
     }
 }
 
@@ -95,7 +102,7 @@ mod tests {
         let range1 = Range::new(0, 1);
         let range2 = Range::<u32>::from_str("(0..1)").unwrap();
 
-        assert!(range1.expand().eq(range2.expand()));
+        assert!(range1.eq(range2));
     }
 
     #[test]

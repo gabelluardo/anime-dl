@@ -12,6 +12,13 @@ macro_rules! zfill {
     };
 }
 
+/// Format message with anime info
+macro_rules! gen_msg {
+    ($num:expr, $alignment:expr, $name:expr) => {
+        format!("Ep. {:0fill$} {}", $num, $name, fill = $alignment)
+    };
+}
+
 /// Convert a string from CamelCase to Title Case
 #[cfg(test)]
 macro_rules! to_title_case {

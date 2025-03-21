@@ -4,7 +4,7 @@ pub use clap::Parser;
 use crate::{
     anilist::{Anilist, WatchingAnime},
     scraper::Search,
-    tui,
+    tui::Tui,
 };
 
 pub mod download;
@@ -90,7 +90,7 @@ async fn get_from_watching_list(anilist_id: Option<u32>) -> Result<Vec<Search>> 
         .await
         .context("Unable to get data from watching list")?;
 
-    let search = tui::watching_choice(&list)?
+    let search = Tui::select_from_watching(&list)?
         .iter()
         .map(|WatchingAnime { title, id, .. }| Search {
             string: title

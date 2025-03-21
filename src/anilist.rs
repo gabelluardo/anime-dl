@@ -6,7 +6,7 @@ use graphql_client::{GraphQLQuery, Response};
 use reqwest::{Client, header, header::HeaderValue};
 
 use crate::config::{load_config, save_config};
-use crate::tui;
+use crate::tui::Tui;
 
 const ENDPOINT: &str = "https://graphql.anilist.co";
 
@@ -204,7 +204,7 @@ fn oauth_token(client_id: u32) -> Result<String> {
     let url = format!(
         "https://anilist.co/api/v2/oauth/authorize?response_type=token&client_id={client_id}"
     );
-    let token = tui::get_token(&url)?;
+    let token = Tui::get_token(&url)?;
     save_config(&token)?;
 
     Ok(token)

@@ -33,14 +33,13 @@ impl Anime {
     pub fn select_from_index(&self, start: u32) -> Vec<String> {
         match self.range {
             Some(Range { end, .. }) => self.select_from_range(Range::new(start, end)),
-            _ => vec![self.url.to_owned()],
+            _ => vec![self.url.clone()],
         }
     }
 
     pub fn select_from_range(&self, range: Range<u32>) -> Vec<String> {
         match self.num {
             Some(InfoNum { alignment, value }) => range
-                .expand()
                 .map(|i| {
                     gen_url!(
                         self.url,
@@ -49,7 +48,7 @@ impl Anime {
                     )
                 })
                 .collect(),
-            _ => vec![self.url.to_owned()],
+            _ => vec![self.url.clone()],
         }
     }
 
@@ -59,7 +58,7 @@ impl Anime {
                 .iter()
                 .map(|&i| gen_url!(self.url, i as u32, alignment))
                 .collect(),
-            _ => vec![self.url.to_owned()],
+            _ => vec![self.url.clone()],
         }
     }
 }

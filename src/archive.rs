@@ -10,7 +10,7 @@ use tokio_stream as stream;
 
 use crate::anime::{self, Anime};
 use crate::scraper::Search;
-use crate::tui;
+use crate::tui::Tui;
 
 pub trait Archive {
     const REFERRER: Option<&'static str>;
@@ -74,13 +74,13 @@ impl Archive for AnimeWorld {
                 lock.push(anime);
             }
         } else {
-            let mut choice = anime.collect::<Vec<_>>();
-            if choice.len() > 1 {
-                tui::series_choice(&mut choice, &search.string)?;
+            let mut series = anime.collect::<Vec<_>>();
+            if series.len() > 1 {
+                Tui::select_series(&mut series)?;
             }
 
             let mut lock = vec.lock().await;
-            lock.extend(choice);
+            lock.extend(series);
         }
 
         Ok(())
