@@ -3,73 +3,63 @@ use crate::parser::{InfoNum, parse_number, parse_url};
 use crate::range::Range;
 
 #[derive(Clone, Default, Debug, PartialEq, Eq)]
-pub struct AnimeInfo {
-    pub id: Option<u32>,
-    pub name: String,
-    pub origin: String,
-    pub num: Option<InfoNum>,
-    pub url: String,
-    pub episodes: Option<Range<u32>>,
-    pub last_watched: Option<u32>,
-}
-
-impl AnimeInfo {
-    pub fn new(name: &str, input: &str, id: Option<u32>, episodes: Option<Range<u32>>) -> Self {
-        let info_num = parse_number(input);
-        let url = parse_url(input, info_num);
-
-        AnimeInfo {
-            id,
-            episodes,
-            url,
-            name: name.into(),
-            num: info_num,
-            origin: input.into(),
-            ..Default::default()
-        }
-    }
-}
-
-#[derive(Default, Debug, Clone)]
 pub struct Anime {
-    pub episodes: Vec<String>,
-    pub info: AnimeInfo,
+    pub id: Option<u32>,
+    pub last_watched: Option<u32>,
+    pub name: String,
+    pub num: Option<InfoNum>,
+    pub origin: String,
+    pub range: Option<Range<u32>>,
     pub start: u32,
+    pub url: String,
 }
 
 impl Anime {
-    pub fn new(info: &AnimeInfo) -> Self {
+    pub fn new(name: &str, input: &str, id: Option<u32>, range: Option<Range<u32>>) -> Self {
+        let num = parse_number(input);
+        let url = parse_url(input, num);
+
         Anime {
-            episodes: vec![],
-            info: info.to_owned(),
-            start: info.num.unwrap_or_default().value,
+            id,
+            num,
+            range,
+            url,
+            name: name.into(),
+            origin: input.into(),
+            start: num.unwrap_or_default().value,
+            ..Default::default()
+        }
+    }
+    pub fn select_from_index(&self, start: u32) -> Vec<String> {
+        match self.range {
+            Some(Range { end, .. }) => self.select_from_range(Range::new(start, end)),
+            _ => vec![self.url.to_owned()],
         }
     }
 
-    pub fn range(&mut self, range: Option<Range<u32>>) {
-        self.info.episodes = range
-    }
-
-    pub fn expand(&mut self) {
-        self.episodes = match &self.info {
-            AnimeInfo {
-                url,
-                num: Some(InfoNum { alignment, value }),
-                episodes: Some(Range { start, end }),
-                ..
-            } => (*start..=*end)
-                .map(|i| gen_url!(url, i + value.checked_sub(1).unwrap_or(*value), alignment))
+    pub fn select_from_range(&self, range: Range<u32>) -> Vec<String> {
+        match self.num {
+            Some(InfoNum { alignment, value }) => range
+                .expand()
+                .map(|i| {
+                    gen_url!(
+                        self.url,
+                        i + value.checked_sub(1).unwrap_or(value),
+                        alignment
+                    )
+                })
                 .collect(),
-            _ => vec![self.info.url.to_owned()],
-        };
+            _ => vec![self.url.to_owned()],
+        }
     }
 
-    pub fn select_episodes(&mut self, selection: &[usize]) {
-        if let Some(InfoNum { alignment, .. }) = self.info.num {
-            self.episodes = selection
+    pub fn select_from_slice(&self, slice: &[usize]) -> Vec<String> {
+        match self.num {
+            Some(InfoNum { alignment, .. }) => slice
                 .iter()
-                .map(|&i| gen_url!(self.info.url, i as u32, alignment))
-                .collect()
+                .map(|&i| gen_url!(self.url, i as u32, alignment))
+                .collect(),
+            _ => vec![self.url.to_owned()],
         }
     }
 }
@@ -98,10 +88,10 @@ mod tests {
     fn test_extract_info() {
         let origin = "https://www.domain.tld/sub/anotherSub/AnimeName/AnimeName_Ep_15_SUB_ITA.mp4";
         let url = "https://www.domain.tld/sub/anotherSub/AnimeName/AnimeName_Ep_{}_SUB_ITA.mp4";
-        let res = AnimeInfo::new("Anime Name", origin, None, None);
+        let res = Anime::new("Anime Name", origin, None, None);
         assert_eq!(
             res,
-            AnimeInfo {
+            Anime {
                 name: "Anime Name".into(),
                 url: url.into(),
                 origin: origin.into(),
@@ -109,17 +99,18 @@ mod tests {
                     value: 15,
                     alignment: 2
                 }),
+                start: 15,
                 ..Default::default()
             }
         );
 
         let origin = "https://www.domain.tld/sub/anotherSub/AnimeName/AnimeName_Ep_016_SUB_ITA.mp4";
         let url = "https://www.domain.tld/sub/anotherSub/AnimeName/AnimeName_Ep_{}_SUB_ITA.mp4";
-        let mut res = AnimeInfo::new("Anime Name", origin, Some(14), None);
+        let mut res = Anime::new("Anime Name", origin, Some(14), None);
         res.last_watched = Some(3);
         assert_eq!(
             res,
-            AnimeInfo {
+            Anime {
                 name: "Anime Name".into(),
                 url: url.into(),
                 origin: origin.into(),
@@ -129,6 +120,7 @@ mod tests {
                     value: 16,
                     alignment: 3
                 }),
+                start: 16,
                 ..Default::default()
             }
         );

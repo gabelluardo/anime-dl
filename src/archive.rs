@@ -8,29 +8,21 @@ use scraper::{Html, Selector};
 use tokio::sync::Mutex;
 use tokio_stream as stream;
 
-use crate::anime::{self, AnimeInfo};
+use crate::anime::{self, Anime};
 use crate::scraper::Search;
 use crate::tui;
 
 pub trait Archive {
     const REFERRER: Option<&'static str>;
 
-    async fn run(
-        search: Search,
-        client: Arc<Client>,
-        vec: Arc<Mutex<Vec<AnimeInfo>>>,
-    ) -> Result<()>;
+    async fn run(search: Search, client: Arc<Client>, vec: Arc<Mutex<Vec<Anime>>>) -> Result<()>;
 }
 
 pub struct AnimeWorld;
 impl Archive for AnimeWorld {
     const REFERRER: Option<&'static str> = Some("https://www.animeworld.ac");
 
-    async fn run(
-        search: Search,
-        client: Arc<Client>,
-        vec: Arc<Mutex<Vec<AnimeInfo>>>,
-    ) -> Result<()> {
+    async fn run(search: Search, client: Arc<Client>, vec: Arc<Mutex<Vec<Anime>>>) -> Result<()> {
         async fn parse_url(client: &Arc<Client>, url: &str) -> Result<Html> {
             let response = client.get(url).send().await?.error_for_status()?;
             let fragment = Html::parse_fragment(&response.text().await?);
@@ -66,7 +58,7 @@ impl Archive for AnimeWorld {
                 let mut info = Self::parser(page)?;
                 info.last_watched = anime::last_watched(search.id, info.id).await;
 
-                Ok::<AnimeInfo, anyhow::Error>(info)
+                Ok::<Anime, anyhow::Error>(info)
             })
             .collect::<Vec<_>>();
 
@@ -96,13 +88,13 @@ impl Archive for AnimeWorld {
 }
 
 impl AnimeWorld {
-    fn parser(page: Html) -> Result<AnimeInfo> {
+    fn parser(page: Html) -> Result<Anime> {
         let episodes = Self::parse_episodes(&page);
         let id = Self::parse_id(&page);
         let name = Self::parse_name(&page)?;
         let url = Self::parse_url(&page)?;
 
-        Ok(AnimeInfo::new(&name, &url, id, episodes.map(|e| e.into())))
+        Ok(Anime::new(&name, &url, id, episodes.map(|e| e.into())))
     }
 
     fn parse_name(page: &Html) -> Result<String> {

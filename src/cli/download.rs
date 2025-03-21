@@ -1,10 +1,11 @@
 use clap::Parser;
 
 use std::path::PathBuf;
+use std::sync::Arc;
 
 use super::Site;
-use crate::parser;
 use crate::parser::InfoNum;
+use crate::parser::{self, parse_number};
 use crate::range::Range;
 use crate::scraper::{Scraper, find_cookie, select_proxy};
 use crate::tui;
@@ -91,31 +92,28 @@ pub async fn execute(cmd: Args) -> Result<()> {
         .await?;
 
     let bars = tui::Bars::new();
+    let client = Arc::new(Client::new());
     let mut pool = vec![];
-
-    for mut anime in vec_anime.into_iter() {
-        if cmd.interactive {
-            tui::episodes_choice(&mut anime)?;
-        } else {
-            anime.range(cmd.range);
-            anime.expand();
-        }
+    for anime in &vec_anime {
+        let episodes = match cmd.range {
+            Some(range) if !cmd.interactive => anime.select_from_range(range),
+            _ => tui::episodes_choice(anime)?,
+        };
 
         let mut parent = cmd.dir.clone();
         if cmd.auto_dir {
-            let name = parser::parse_name(&anime.info.url)?;
+            let name = parser::parse_name(&anime.url)?;
             let dir = to_snake_case!(name);
 
             parent.push(dir);
         }
 
-        for (i, url) in anime.episodes.into_iter().enumerate() {
+        for url in episodes {
             let pb = bars.add_bar();
             let mut path = parent.clone();
-            let info = anime.info.clone();
+            let client = client.clone();
 
             let future = async move {
-                let client = Client::new();
                 let filename = parser::parse_filename(&url)?;
                 let source_size = client
                     .head(&url)
@@ -147,14 +145,11 @@ pub async fn execute(cmd: Args) -> Result<()> {
                 let file_size = dest.metadata().await?.len();
                 ensure!(file_size < source_size, filename + " already exists");
 
-                let msg = match (info.num, info.episodes) {
-                    (Some(InfoNum { value, alignment }), Some(Range { start, .. })) => {
-                        "Ep. ".to_string()
-                            + &zfill!(value + start + i as u32, alignment)
-                            + " "
-                            + &info.name
+                let msg = match parse_number(&url) {
+                    Some(InfoNum { value, alignment }) => {
+                        "Ep. ".to_string() + &zfill!(value, alignment) + " " + &anime.name
                     }
-                    _ => info.name.clone(),
+                    _ => anime.name.clone(),
                 };
 
                 pb.set_position(file_size);

@@ -61,9 +61,9 @@ impl Scraper {
         });
         join_all(tasks).await;
 
-        let anime_vec = vec.lock_owned().await.iter().map(Anime::new).collect();
+        let anime = vec.lock_owned().await.to_vec();
 
-        Ok((anime_vec, referrer))
+        Ok((anime, referrer))
     }
 
     #[cfg(test)]
@@ -150,7 +150,7 @@ mod tests {
             .run(search.into_iter(), site)
             .await
             .unwrap();
-        let info = get_url(&anime.first().unwrap().info.origin);
+        let info = get_url(&anime.first().unwrap().origin);
 
         assert_eq!(file, info)
     }
@@ -191,7 +191,7 @@ mod tests {
         let mut anime = anime
             .iter()
             .map(|a| {
-                Url::parse(&a.info.origin)
+                Url::parse(&a.origin)
                     .unwrap()
                     .path_segments()
                     .and_then(|segments| segments.last())

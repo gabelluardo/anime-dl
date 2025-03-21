@@ -14,7 +14,7 @@ use tabled::{
 };
 
 use crate::anilist::WatchingAnime;
-use crate::anime::{Anime, AnimeInfo};
+use crate::anime::Anime;
 use crate::range::Range;
 
 enum Command {
@@ -59,17 +59,18 @@ fn parse_input(line: &str, index_start: usize, content_len: usize) -> Result<Vec
     Ok(selected)
 }
 
-pub fn watching_choice(series: &mut Vec<WatchingAnime>) -> Result<()> {
+pub fn watching_choice(series: &[WatchingAnime]) -> Result<Vec<&WatchingAnime>> {
     let mut builder = Builder::default();
     builder.push_record(["Index", "Name", "Episodes Behind"]);
-    series.iter().enumerate().for_each(|(i, c)| {
+
+    for (i, c) in series.iter().enumerate() {
         let behind = match c.behind {
             0 => "•".to_string(),
             n => n.to_string(),
         };
 
         builder.push_record([(i + 1).to_string(), c.title.clone(), behind]);
-    });
+    }
 
     let mut table = builder.build();
     table
@@ -92,26 +93,22 @@ pub fn watching_choice(series: &mut Vec<WatchingAnime>) -> Result<()> {
         "Make your selection (eg: 1 2 3 or 1-3) [<u> for unwatched, <q> for exit]".bold()
     );
 
-    match parse_commands()? {
-        Command::Default(input) => {
-            *series = parse_input(&input, 1, series.len())?
-                .iter()
-                .filter_map(|i| series.get(i - 1).cloned())
-                .collect()
-        }
-        Command::Unwatched => {
-            *series = series.iter().filter(|s| s.behind > 0).cloned().collect();
-
-            ensure!(!series.is_empty(), "Invalid input");
-        }
+    let series: Vec<_> = match parse_commands()? {
+        Command::Default(input) => parse_input(&input, 1, series.len())?
+            .iter()
+            .filter_map(|i| series.get(i - 1))
+            .collect(),
+        Command::Unwatched => series.iter().filter(|s| s.behind > 0).collect(),
         Command::Quit => quit!(),
     };
     println!();
 
-    Ok(())
+    ensure!(!series.is_empty(), "Invalid input");
+
+    Ok(series)
 }
 
-pub fn series_choice(series: &mut Vec<AnimeInfo>, search: &str) -> Result<()> {
+pub fn series_choice(series: &mut Vec<Anime>, search: &str) -> Result<()> {
     let len = series.len();
     let query = search.replace('+', " ");
     let results = format!("{len} results found for `{query}`");
@@ -119,9 +116,9 @@ pub fn series_choice(series: &mut Vec<AnimeInfo>, search: &str) -> Result<()> {
 
     let mut builder = Builder::default();
     builder.push_record(["Index", "Name"]);
-    series.iter().enumerate().for_each(|(i, c)| {
+    for (i, c) in series.iter().enumerate() {
         builder.push_record([(i + 1).to_string(), c.name.clone()]);
-    });
+    }
 
     let mut table = builder.build();
     table
@@ -151,14 +148,14 @@ pub fn series_choice(series: &mut Vec<AnimeInfo>, search: &str) -> Result<()> {
     Ok(())
 }
 
-pub fn episodes_choice(anime: &mut Anime) -> Result<()> {
+pub fn episodes_choice(anime: &Anime) -> Result<Vec<String>> {
     let mut next_to_watch = None;
     let mut builder = Builder::default();
     builder.push_record(["Episode", "Seen"]);
-    if let Some(Range { start, end }) = anime.info.episodes {
+    if let Some(Range { start, end }) = anime.range {
         for i in 0..end {
             let index = start + i;
-            let watched = anime.info.last_watched > Some(i);
+            let watched = anime.last_watched > Some(i);
             let check = if watched { "✔" } else { "✗" };
 
             if next_to_watch.is_none() && !watched {
@@ -169,7 +166,7 @@ pub fn episodes_choice(anime: &mut Anime) -> Result<()> {
         }
     } else {
         #[rustfmt::skip]
-        let check = if anime.info.last_watched > Some(0) { "✔" } else { "✗" };
+        let check = if anime.last_watched > Some(0) { "✔" } else { "✗" };
         builder.push_record([1.to_string(), check.to_string()]);
     }
 
@@ -187,7 +184,7 @@ pub fn episodes_choice(anime: &mut Anime) -> Result<()> {
         ));
     }
 
-    println!("{}\n", anime.info.name.cyan().bold());
+    println!("{}\n", anime.name.cyan().bold());
     println!("{}", table);
     println!(
         "\n{} {}",
@@ -195,26 +192,25 @@ pub fn episodes_choice(anime: &mut Anime) -> Result<()> {
         "Make your selection (eg: 1 2 3 or 1-3) [<u> for unwatched, <q> for exit]".bold()
     );
 
-    match parse_commands()? {
-        Command::Default(input) => anime.select_episodes(&parse_input(
-            &input,
-            anime.start as usize,
-            anime.info.episodes.unwrap_or_default().end as usize,
-        )?),
+    let episodes = match parse_commands()? {
+        Command::Default(input) => {
+            let selection = parse_input(
+                &input,
+                anime.start as usize,
+                anime.range.unwrap_or_default().end as usize,
+            )?;
+
+            anime.select_from_slice(&selection)
+        }
         Command::Unwatched => match next_to_watch {
-            Some(index) => {
-                if let Some(Range { end, .. }) = anime.info.episodes {
-                    anime.range(Some(Range::new(index as u32, end)))
-                }
-                anime.expand();
-            }
+            Some(index) => anime.select_from_index(index as u32),
             _ => bail!("Invalid input"),
         },
         Command::Quit => quit!(),
     };
     println!();
 
-    Ok(())
+    Ok(episodes)
 }
 
 #[cfg(feature = "anilist")]

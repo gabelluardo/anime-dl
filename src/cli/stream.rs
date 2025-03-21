@@ -73,10 +73,9 @@ pub async fn execute(cmd: Args) -> Result<()> {
 
     let mut episodes = vec![];
     let mut ids = HashMap::new();
-    for mut anime in vec_anime.into_iter() {
-        ids.insert(anime.info.url.clone(), anime.info.id);
-        tui::episodes_choice(&mut anime)?;
-        episodes.extend(anime.episodes);
+    for anime in &vec_anime {
+        ids.insert(&anime.url, anime.id);
+        episodes.extend(tui::episodes_choice(anime)?);
     }
 
     let mut child = Command::new(cmd)

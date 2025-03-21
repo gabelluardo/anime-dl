@@ -85,25 +85,19 @@ impl Progress {
 }
 
 async fn get_from_watching_list(anilist_id: Option<u32>) -> Result<Vec<Search>> {
-    let mut series = Anilist::new(anilist_id)?
+    let list = Anilist::new(anilist_id)?
         .get_watching_list()
         .await
         .context("Unable to get data from watching list")?;
 
-    tui::watching_choice(&mut series)?;
-
-    let search = series
+    let search = tui::watching_choice(&list)?
         .iter()
-        .map(|WatchingAnime { title, id, .. }| {
-            let string = title
+        .map(|WatchingAnime { title, id, .. }| Search {
+            string: title
                 .split_ascii_whitespace()
                 .take(3)
-                .fold(String::new(), |acc, s| acc + "+" + s.trim());
-
-            Search {
-                string,
-                id: Some(*id),
-            }
+                .fold(String::new(), |acc, s| acc + "+" + s),
+            id: Some(*id),
         })
         .collect();
 
@@ -111,8 +105,8 @@ async fn get_from_watching_list(anilist_id: Option<u32>) -> Result<Vec<Search>> 
 }
 
 async fn get_from_input(entries: Vec<String>) -> Result<Vec<Search>> {
-    let input = &entries.join(" ");
-    let search = input
+    let search = entries
+        .join(" ")
         .split(',')
         .map(|s| s.trim().replace(' ', "+"))
         .map(|s| Search {
