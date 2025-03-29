@@ -22,7 +22,6 @@ use crate::tui::Tui;
 #[command(arg_required_else_help(true))]
 pub struct Args {
     /// Source urls or scraper's queries
-    #[arg(required_unless_present("watching"))]
     pub entries: Vec<String>,
 
     /*  Common paramenters */
@@ -45,17 +44,17 @@ pub struct Args {
     pub watching: bool,
 }
 
-pub async fn execute(cmd: Args) -> Result<()> {
-    let client_id = cmd.anilist_id;
-    let site = cmd.site.unwrap_or_default();
+pub async fn execute(args: Args) -> Result<()> {
+    let client_id = args.anilist_id;
+    let site = args.site.unwrap_or_default();
 
     let cookie = find_cookie(site).await;
-    let proxy = select_proxy(cmd.no_proxy).await;
+    let proxy = select_proxy(args.no_proxy).await;
 
-    let search = if cmd.watching {
+    let search = if args.watching || args.entries.is_empty() {
         super::get_from_watching_list(client_id).await?
     } else {
-        super::get_from_input(cmd.entries).await?
+        super::get_from_input(args.entries).await?
     };
 
     let (vec_anime, referrer) = Scraper::new(proxy, cookie)

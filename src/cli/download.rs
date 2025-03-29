@@ -22,7 +22,6 @@ use tokio_stream as stream;
 #[command(arg_required_else_help(true))]
 pub struct Args {
     /// Source urls or scraper's queries
-    #[arg(required_unless_present("watching"))]
     pub entries: Vec<String>,
 
     /// Save files in a folder with a default name
@@ -74,17 +73,17 @@ pub struct Args {
     pub watching: bool,
 }
 
-pub async fn execute(cmd: Args) -> Result<()> {
-    let client_id = cmd.anilist_id;
-    let site = cmd.site.unwrap_or_default();
+pub async fn execute(args: Args) -> Result<()> {
+    let client_id = args.anilist_id;
+    let site = args.site.unwrap_or_default();
 
     let cookie = find_cookie(site).await;
-    let proxy = select_proxy(cmd.no_proxy).await;
+    let proxy = select_proxy(args.no_proxy).await;
 
-    let search = if cmd.watching {
+    let search = if args.watching || args.entries.is_empty() {
         super::get_from_watching_list(client_id).await?
     } else {
-        super::get_from_input(cmd.entries).await?
+        super::get_from_input(args.entries).await?
     };
 
     let (vec_anime, referrer) = Scraper::new(proxy, cookie)
@@ -95,13 +94,13 @@ pub async fn execute(cmd: Args) -> Result<()> {
     let client = Arc::new(Client::new());
     let mut pool = vec![];
     for anime in &vec_anime {
-        let episodes = match cmd.range {
-            Some(range) if !cmd.interactive => anime.select_from_range(range),
+        let episodes = match args.range {
+            Some(range) if !args.interactive => anime.select_from_range(range),
             _ => Tui::select_episodes(anime)?,
         };
 
-        let mut parent = cmd.dir.clone();
-        if cmd.auto_dir {
+        let mut parent = args.dir.clone();
+        if args.auto_dir {
             let name = parser::parse_name(&anime.url)?;
             let dir = to_snake_case!(name);
 
@@ -134,9 +133,9 @@ pub async fn execute(cmd: Args) -> Result<()> {
                     path.push(&filename);
 
                     fs::OpenOptions::new()
-                        .append(!cmd.force)
-                        .truncate(cmd.force)
-                        .write(cmd.force)
+                        .append(!args.force)
+                        .truncate(args.force)
+                        .write(args.force)
                         .create(true)
                         .open(path)
                         .await?
@@ -176,7 +175,7 @@ pub async fn execute(cmd: Args) -> Result<()> {
     }
 
     stream::iter(pool)
-        .buffer_unordered(cmd.dim_buff.max(1))
+        .buffer_unordered(args.dim_buff.max(1))
         .collect::<Vec<_>>()
         .await;
 
