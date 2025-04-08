@@ -9,7 +9,7 @@ pub struct InfoNum {
 pub fn parse_name(input: &str) -> Result<String> {
     let url = reqwest::Url::parse(input)?;
     url.path_segments()
-        .and_then(|s| s.last())
+        .and_then(|mut s| s.next_back())
         .and_then(|s| s.split('_').next())
         .map(|s| s.into())
         .ok_or(anyhow!("Unable to parse {input}"))
@@ -18,7 +18,7 @@ pub fn parse_name(input: &str) -> Result<String> {
 pub fn parse_filename(input: &str) -> Result<String> {
     reqwest::Url::parse(input)?
         .path_segments()
-        .and_then(|segments| segments.last())
+        .and_then(|mut s| s.next_back())
         .map(|s| s.into())
         .ok_or(anyhow!("Unable to parse {input}"))
 }

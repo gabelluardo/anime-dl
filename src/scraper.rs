@@ -112,7 +112,7 @@ mod tests {
         Url::parse(raw_url)
             .unwrap()
             .path_segments()
-            .and_then(|segments| segments.last())
+            .and_then(|mut s| s.next_back())
             .unwrap()
             .into()
     }
@@ -194,7 +194,7 @@ mod tests {
                 Url::parse(&a.origin)
                     .unwrap()
                     .path_segments()
-                    .and_then(|segments| segments.last())
+                    .and_then(|mut s| s.next_back())
                     .map(|s| s.to_string())
                     .unwrap_or_default()
             })

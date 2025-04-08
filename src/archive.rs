@@ -108,14 +108,23 @@ impl AnimeWorld {
 
     fn parse_url(page: &Html) -> Result<String> {
         let a = Selector::parse(r#"a[id="alternativeDownloadLink"]"#).unwrap();
-        let mut url = page.select(&a).last().and_then(|a| a.value().attr("href"));
+        let mut url = page
+            .select(&a)
+            .next_back()
+            .and_then(|a| a.value().attr("href"));
         if url.is_none() || url == Some("") {
             let a = Selector::parse(r#"a[id="downloadLink"]"#).unwrap();
-            url = page.select(&a).last().and_then(|a| a.value().attr("href"))
+            url = page
+                .select(&a)
+                .next_back()
+                .and_then(|a| a.value().attr("href"))
         }
         if url.is_none() || url == Some("") {
             let a = Selector::parse(r#"a[id="customDownloadButton"]"#).unwrap();
-            url = page.select(&a).last().and_then(|a| a.value().attr("href"))
+            url = page
+                .select(&a)
+                .next_back()
+                .and_then(|a| a.value().attr("href"))
         }
         let url = match url {
             Some(u) => u.replace("download-file.php?id=", ""),
@@ -128,13 +137,13 @@ impl AnimeWorld {
     fn parse_id(page: &Html) -> Option<u32> {
         let btn = Selector::parse(r#"a[id="anilist-button"]"#).unwrap();
         page.select(&btn)
-            .last()
+            .next_back()
             .and_then(|a| a.value().attr("href"))
             .and_then(|u| {
                 Url::parse(u)
                     .unwrap()
                     .path_segments()
-                    .and_then(|s| s.last())
+                    .and_then(|mut s| s.next_back())
                     .and_then(|s| s.parse::<u32>().ok())
             })
     }
@@ -190,7 +199,7 @@ mod tests {
         Url::parse(raw_url)
             .unwrap()
             .path_segments()
-            .and_then(|segments| segments.last())
+            .and_then(|mut s| s.next_back())
             .unwrap()
             .to_owned()
     }
