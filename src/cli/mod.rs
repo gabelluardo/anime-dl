@@ -57,12 +57,12 @@ impl Progress {
 
     fn anime_id(&mut self, id: Option<u32>) {
         self.anime_id = id;
-        self.count = 0;
+        self.reset();
     }
 
     fn episode(&mut self, ep: Option<u32>) {
         self.episode = ep;
-        self.updated = false;
+        self.reset();
     }
 
     fn percentage(&mut self, percentage: Option<u32>) {
@@ -81,6 +81,12 @@ impl Progress {
 
     fn to_update(&self) -> bool {
         !self.updated && self.count >= 5 && self.percentage.is_some_and(|p| p > 80)
+    }
+
+    fn reset(&mut self) {
+        self.count = 0;
+        self.updated = false;
+        self.percentage = None;
     }
 }
 
