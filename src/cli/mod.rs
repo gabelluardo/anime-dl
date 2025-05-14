@@ -102,7 +102,8 @@ async fn get_from_watching_list(anilist_id: Option<u32>) -> Result<Vec<Search>> 
             string: title
                 .split_ascii_whitespace()
                 .take(3)
-                .fold(String::new(), |acc, s| acc + "+" + s),
+                .collect::<Vec<_>>()
+                .join("+"),
             id: Some(*id),
         })
         .collect();
