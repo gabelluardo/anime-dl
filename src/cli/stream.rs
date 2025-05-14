@@ -100,8 +100,10 @@ pub async fn execute(args: Args) -> Result<()> {
                 let num = parse_number(url);
                 let origin = parse_url(url, num);
 
-                progress.anime_id(ids.get(&origin).copied().flatten());
-                progress.episode(num.map(|n| n.value));
+                let anime_id = ids.get(&origin).copied().flatten();
+                let episode = num.map(|n| n.value);
+
+                progress.push(anime_id, episode);
             } else if line.contains('%') && !line.contains("(Paused)") {
                 progress.percentage(parse_percentage(&line));
             }

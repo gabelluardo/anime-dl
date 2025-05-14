@@ -169,8 +169,8 @@ impl Anilist {
     }
 
     pub async fn update(&self, anime_id: Option<u32>, number: u32) -> Result<()> {
-        let last_watched: Option<u32> = self.get_last_watched(anime_id).await;
-        if last_watched.is_some_and(|e| e > number) {
+        let last_watched = self.get_last_watched(anime_id).await;
+        if last_watched.is_some_and(|e| e >= number) {
             return Ok(());
         }
 
