@@ -36,38 +36,34 @@ pub fn parse_percentage(input: &str) -> Option<u32> {
 
 pub fn parse_number(input: &str) -> Option<InfoNum> {
     // find episode number position in input
-    let (mut opt_start, mut opt_end) = (None, None);
+    let (mut start, mut end) = (None, None);
     for i in 0..input.len() - 1 {
-        match (
-            input.chars().nth(i).unwrap(),
-            input.chars().nth(i + 1).unwrap(),
-        ) {
-            ('_', next) if next.is_ascii_digit() => opt_start = Some(i),
-            (curr, '_') if curr.is_ascii_digit() => opt_end = Some(i),
+        match (input.chars().nth(i), input.chars().nth(i + 1)) {
+            (Some('_'), Some(next)) if next.is_ascii_digit() => start = Some(i),
+            (Some(curr), Some('_')) if curr.is_ascii_digit() => end = Some(i),
             _ => continue,
         }
     }
 
-    match (opt_start, opt_end) {
-        (Some(start_pos), Some(end_pos)) => {
-            let sub_str = input[start_pos..end_pos + 1]
-                .chars()
-                .filter(char::is_ascii_digit)
-                .collect::<String>();
-            sub_str.parse::<u32>().ok().map(|value| InfoNum {
-                value,
-                alignment: sub_str.len(),
-            })
-        }
-        _ => None,
+    if start.is_none() || end.is_none() {
+        return None;
     }
+
+    let sub_str = input[start.unwrap()..end.unwrap() + 1]
+        .chars()
+        .filter(char::is_ascii_digit)
+        .collect::<String>();
+    let num = sub_str.parse::<u32>().ok();
+
+    num.map(|value| InfoNum {
+        value,
+        alignment: sub_str.len(),
+    })
 }
 
 pub fn parse_url(input: &str, num: Option<InfoNum>) -> String {
-    match num {
-        Some(InfoNum { value, alignment }) => input.replace(&zfill!(value, alignment), "{}"),
-        _ => input.into(),
-    }
+    num.map(|info| input.replace(&zfill!(info.value, info.alignment), "{}"))
+        .unwrap_or(input.into())
 }
 
 pub fn recase_string(s: &str, separator: char, all_lowercase: bool) -> String {
@@ -83,24 +79,28 @@ pub fn recase_string(s: &str, separator: char, all_lowercase: bool) -> String {
         if c.is_ascii_digit() && pos.is_none() {
             pos = Some(v.len());
         }
+
         v.push(c);
     }
+
     if let Some(i) = pos {
         v.insert(i, separator)
     }
+
     if all_lowercase {
         v = v.to_lowercase();
     }
-    v
-}
 
-pub fn _is_web_url(s: &str) -> bool {
-    reqwest::Url::parse(s).is_ok()
+    v
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    pub fn is_web_url(s: &str) -> bool {
+        reqwest::Url::parse(s).is_ok()
+    }
 
     #[test]
     fn test_parse_name() {
@@ -139,7 +139,7 @@ mod tests {
     fn test_is_web_url() {
         let url = "https://www.domain.tld/sub/anotherSub/AnimeName/AnimeName_Ep_15_SUB_ITA.mp4";
         let not_url = "ciao ciao ciao";
-        assert!(_is_web_url(url));
-        assert!(!_is_web_url(not_url));
+        assert!(is_web_url(url));
+        assert!(!is_web_url(not_url));
     }
 }

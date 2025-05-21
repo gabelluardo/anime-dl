@@ -119,25 +119,32 @@ impl Tui {
     }
 
     pub fn select_episodes(anime: &Anime) -> Result<Vec<String>> {
+        pub fn icon(last: Option<u32>, index: u32) -> String {
+            if last.is_some_and(|i| i > index) {
+                "✔".to_string()
+            } else {
+                "✗".to_string()
+            }
+        }
+
         let mut next_to_watch = None;
         let mut builder = Builder::default();
         builder.push_record(["Episode", "Seen"]);
-        if let Some(Range { start, end }) = anime.range {
-            for i in 0..end {
-                let index = start + i;
-                let watched = anime.last_watched > Some(i);
-                let check = if watched { "✔" } else { "✗" };
 
-                if next_to_watch.is_none() && !watched {
-                    next_to_watch = Some(builder.count_records())
+        match anime.range {
+            Some(Range { start, end }) => {
+                for i in 0..end {
+                    let index = start + i;
+                    let watched = anime.last_watched.is_some_and(|l| l > i);
+
+                    if next_to_watch.is_none() && !watched {
+                        next_to_watch = Some(builder.count_records())
+                    }
+
+                    builder.push_record([index.to_string(), icon(anime.last_watched, i)]);
                 }
-
-                builder.push_record([index.to_string(), check.to_string()]);
             }
-        } else {
-            #[rustfmt::skip]
-        let check = if anime.last_watched > Some(0) { "✔" } else { "✗" };
-            builder.push_record([1.to_string(), check.to_string()]);
+            _ => builder.push_record([1.to_string(), icon(anime.last_watched, 0)]),
         }
 
         let mut table = builder.build();
@@ -223,11 +230,12 @@ fn parse_commands() -> Result<TuiCommand> {
 
 fn parse_input(line: &str, index_start: usize, content_len: usize) -> Result<Vec<usize>> {
     let mut selected = vec![];
-    for s in line
-        .split_terminator([' ', ','])
+    let selection = line
+        .split_terminator(&[' ', ','])
         .filter(|s| !s.is_empty())
-        .map(|s| s.trim())
-    {
+        .map(|s| s.trim());
+
+    for s in selection {
         if let Ok(num) = s.parse::<usize>() {
             selected.push(num)
         } else if let Ok(range) = Range::parse(s, Some(content_len + index_start - 1)) {

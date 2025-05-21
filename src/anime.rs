@@ -39,24 +39,22 @@ impl Anime {
 
     pub fn select_from_range(&self, range: Range<u32>) -> Vec<String> {
         match self.num {
-            Some(InfoNum { alignment, value }) => range
-                .map(|i| {
-                    gen_url!(
-                        self.url,
-                        i + value.checked_sub(1).unwrap_or(value),
-                        alignment
-                    )
-                })
-                .collect(),
+            Some(num) => {
+                let value = num.value.checked_sub(1).unwrap_or(num.value);
+
+                range
+                    .map(|i| gen_url!(self.url, i + value, num.alignment))
+                    .collect()
+            }
             _ => vec![self.url.clone()],
         }
     }
 
     pub fn select_from_slice(&self, slice: &[usize]) -> Vec<String> {
         match self.num {
-            Some(InfoNum { alignment, .. }) => slice
+            Some(num) => slice
                 .iter()
-                .map(|&i| gen_url!(self.url, i as u32, alignment))
+                .map(|&i| gen_url!(self.url, i as u32, num.alignment))
                 .collect(),
             _ => vec![self.url.clone()],
         }

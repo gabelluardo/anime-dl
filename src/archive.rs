@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use anyhow::{Context, Result, bail, ensure};
+use anyhow::{Context, Result, anyhow, ensure};
 
 use futures::stream::StreamExt;
 use reqwest::{Client, Url};
@@ -112,24 +112,24 @@ impl AnimeWorld {
             .select(&a)
             .next_back()
             .and_then(|a| a.value().attr("href"));
-        if url.is_none() || url == Some("") {
+        if url.is_none_or(|u| u.is_empty()) {
             let a = Selector::parse(r#"a[id="downloadLink"]"#).unwrap();
             url = page
                 .select(&a)
                 .next_back()
                 .and_then(|a| a.value().attr("href"))
         }
-        if url.is_none() || url == Some("") {
+        if url.is_none_or(|u| u.is_empty()) {
             let a = Selector::parse(r#"a[id="customDownloadButton"]"#).unwrap();
             url = page
                 .select(&a)
                 .next_back()
                 .and_then(|a| a.value().attr("href"))
         }
-        let url = match url {
-            Some(u) => u.replace("download-file.php?id=", ""),
-            _ => bail!("No url found"),
-        };
+
+        let url = url
+            .map(|u| u.replace("download-file.php?id=", ""))
+            .ok_or(anyhow!("No url found"))?;
 
         Ok(url)
     }

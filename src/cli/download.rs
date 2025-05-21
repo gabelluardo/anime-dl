@@ -4,7 +4,6 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use super::Site;
-use crate::parser::InfoNum;
 use crate::parser::{self, parse_number};
 use crate::range::Range;
 use crate::scraper::{Scraper, find_cookie, select_proxy};
@@ -145,7 +144,7 @@ pub async fn execute(args: Args) -> Result<()> {
                 ensure!(file_size < source_size, filename + " already exists");
 
                 let msg = match parse_number(&url) {
-                    Some(InfoNum { value, alignment }) => gen_msg!(value, alignment, anime.name),
+                    Some(num) => gen_msg!(num.value, num.alignment, anime.name),
                     _ => anime.name.clone(),
                 };
 
