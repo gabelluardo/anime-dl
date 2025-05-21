@@ -60,7 +60,7 @@ impl Deref for Anilist {
 impl Anilist {
     pub fn new(client_id: Option<u32>) -> Result<Self> {
         let client_id = client_id.unwrap_or(4047);
-        let token = load_config().map_or_else(|_| oauth_token(client_id), Ok)?;
+        let token = load_config("anilist", "token").map_or_else(|_| oauth_token(client_id), Ok)?;
 
         let mut headers = header::HeaderMap::new();
         headers.insert(header::ACCEPT, HeaderValue::from_static("application/json"));
@@ -205,7 +205,7 @@ fn oauth_token(client_id: u32) -> Result<String> {
         "https://anilist.co/api/v2/oauth/authorize?response_type=token&client_id={client_id}"
     );
     let token = Tui::get_token(&url)?;
-    save_config(&token)?;
+    save_config("anilist", "token", &token)?;
 
     Ok(token)
 }
