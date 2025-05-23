@@ -56,7 +56,7 @@ pub fn save_config(table: &str, key: &str, value: &str) -> Result<()> {
     file.rewind()?;
 
     let mut doc = toml.parse::<DocumentMut>()?;
-    if toml.is_empty() {
+    if !toml.contains(table) {
         doc[table] = toml_edit::table();
     }
 
@@ -64,13 +64,13 @@ pub fn save_config(table: &str, key: &str, value: &str) -> Result<()> {
     doc.fmt();
 
     file.write_all(doc.to_string().as_bytes())
-        .context("Unable to write file")
+        .context("Unable to write configuration")
 }
 
 pub fn clean_config() -> Result<()> {
     let path = default_path();
 
-    fs::remove_file(path).context("Unable to remove file")
+    fs::remove_file(path).context("Unable to delete configuration")
 }
 
 #[cfg(all(test, not(windows)))]
