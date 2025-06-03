@@ -32,7 +32,9 @@ impl Scraper {
             }
         }
 
-        let mut builder = Client::builder().default_headers(headers);
+        let mut builder = Client::builder()
+            .default_headers(headers)
+            .danger_accept_invalid_certs(true);
         if let Some(proxy) = proxy {
             if let Ok(req_proxy) = reqwest::Proxy::http(proxy) {
                 builder = builder.proxy(req_proxy)
