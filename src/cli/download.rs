@@ -154,7 +154,7 @@ pub async fn execute(args: Args) -> Result<()> {
 
                 let mut source = client
                     .get(url)
-                    .header(RANGE, format!("bytes={}-", file_size))
+                    .header(RANGE, format!("bytes={file_size}-"))
                     .header(REFERER, referrer.unwrap_or_default())
                     .send()
                     .await?

@@ -97,10 +97,11 @@ impl Progress {
     }
 
     fn to_update(&self) -> bool {
-        match self.queue.front() {
-            Some(p) => p.count >= 5 && !p.updated && p.percentage.is_some_and(|p| p > 80),
-            _ => false,
+        if let Some(p) = self.queue.front() {
+            return !p.updated && p.count >= 5 && p.percentage.is_some_and(|p| p > 80);
         }
+
+        false
     }
 }
 

@@ -31,33 +31,34 @@ impl Anime {
         }
     }
     pub fn select_from_index(&self, start: u32) -> Vec<String> {
-        match self.range {
-            Some(Range { end, .. }) => self.select_from_range(Range::new(start, end)),
-            _ => vec![self.url.clone()],
+        if let Some(Range { end, .. }) = self.range {
+            return self.select_from_range(Range::new(start, end));
         }
+
+        vec![self.url.clone()]
     }
 
     pub fn select_from_range(&self, range: Range<u32>) -> Vec<String> {
-        match self.num {
-            Some(num) => {
-                let value = num.value.checked_sub(1).unwrap_or(num.value);
+        if let Some(num) = self.num {
+            let value = num.value.checked_sub(1).unwrap_or(num.value);
 
-                range
-                    .map(|i| gen_url!(self.url, i + value, num.alignment))
-                    .collect()
-            }
-            _ => vec![self.url.clone()],
+            return range
+                .map(|i| gen_url!(self.url, i + value, num.alignment))
+                .collect();
         }
+
+        vec![self.url.clone()]
     }
 
     pub fn select_from_slice(&self, slice: &[usize]) -> Vec<String> {
-        match self.num {
-            Some(num) => slice
+        if let Some(num) = self.num {
+            return slice
                 .iter()
                 .map(|&i| gen_url!(self.url, i as u32, num.alignment))
-                .collect(),
-            _ => vec![self.url.clone()],
+                .collect();
         }
+
+        vec![self.url.clone()]
     }
 }
 

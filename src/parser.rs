@@ -70,11 +70,15 @@ pub fn recase_string(s: &str, separator: char, all_lowercase: bool) -> String {
     let mut v = String::new();
     let mut pos = None;
     for (i, c) in s.char_indices() {
-        if let Some(next) = s.chars().nth(i + 1) {
-            if i != 0 && c.is_uppercase() && !next.is_uppercase() && !next.is_ascii_digit() {
-                v.push(separator)
-            }
+        if i != 0
+            && c.is_uppercase()
+            && let Some(next) = s.chars().nth(i + 1)
+            && !next.is_uppercase()
+            && !next.is_ascii_digit()
+        {
+            v.push(separator);
         }
+
         // save position of the first digit
         if c.is_ascii_digit() && pos.is_none() {
             pos = Some(v.len());

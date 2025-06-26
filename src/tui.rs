@@ -61,7 +61,7 @@ impl Tui {
 
         let str = "You are watching these series".cyan().bold().to_string();
         println!("{str}\n",);
-        println!("{}", table);
+        println!("{table}");
         println!(
             "\n{} {}",
             "::".red(),
@@ -97,7 +97,7 @@ impl Tui {
             .with(Modify::new(Rows::first()).with(Color::FG_WHITE))
             .with(Modify::new(Columns::first()).with(Alignment::center()));
 
-        println!("{}", table);
+        println!("{table}");
         println!(
             "\n{} {}",
             "::".red(),
@@ -162,7 +162,7 @@ impl Tui {
         }
 
         println!("{}\n", anime.name.cyan().bold());
-        println!("{}", table);
+        println!("{table}");
         println!(
             "\n{} {}",
             "::".red(),
