@@ -41,7 +41,7 @@ rand = "0.9"
 rustyline = "16.0"
 scraper = "0.23.1"
 tabled = "0.19.0"
-which = "7.0.3"
+which = "8.0.0"
 
 clap = { version = "4.5.40", features = ["derive", "env"] }
 reqwest = { default-features = false, version = "0.12.21", features = [
