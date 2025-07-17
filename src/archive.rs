@@ -50,9 +50,9 @@ impl Archive for AnimeWorld {
         search_results.sort_unstable();
 
         let pool = search_results
-            .into_iter()
+            .iter()
             .map(async |url| {
-                let url = Self::REFERRER.unwrap().to_string() + &url;
+                let url = Self::REFERRER.unwrap().to_string() + url;
                 let page = parse_url(&client.clone(), &url).await?;
 
                 let mut info = Self::parser(page)?;
@@ -68,20 +68,22 @@ impl Archive for AnimeWorld {
             .await;
         let mut anime = stream.into_iter().filter_map(|a| a.ok());
 
-        if search.id.is_some() {
-            if let Some(anime) = anime.find(|a| a.id == search.id && !a.name.contains("(ITA)")) {
+        if let Some(id) = search.id {
+            if let Some(anime) = anime.find(|a| a.id == Some(id) && !a.name.contains("(ITA)")) {
                 let mut lock = vec.lock().await;
                 lock.push(anime);
-            }
-        } else {
-            let mut series = anime.collect::<Vec<_>>();
-            if series.len() > 1 {
-                Tui::select_series(&mut series)?;
-            }
 
-            let mut lock = vec.lock().await;
-            lock.extend(series);
+                return Ok(());
+            }
         }
+
+        let mut series = anime.collect::<Vec<_>>();
+        if series.len() > 1 {
+            Tui::select_series(&mut series)?;
+        }
+
+        let mut lock = vec.lock().await;
+        lock.extend(series);
 
         Ok(())
     }
@@ -99,6 +101,7 @@ impl AnimeWorld {
 
     fn parse_name(page: &Html) -> Result<String> {
         let h1 = Selector::parse(r#"h1[id="anime-title"]"#).unwrap();
+
         page.select(&h1)
             .next()
             .and_then(|e| e.first_child().and_then(|a| a.value().as_text()))
@@ -112,6 +115,7 @@ impl AnimeWorld {
             .select(&a)
             .next_back()
             .and_then(|a| a.value().attr("href"));
+
         if url.is_none_or(|u| u.is_empty()) {
             let a = Selector::parse(r#"a[id="downloadLink"]"#).unwrap();
             url = page
@@ -119,6 +123,7 @@ impl AnimeWorld {
                 .next_back()
                 .and_then(|a| a.value().attr("href"))
         }
+
         if url.is_none_or(|u| u.is_empty()) {
             let a = Selector::parse(r#"a[id="customDownloadButton"]"#).unwrap();
             url = page
@@ -136,6 +141,7 @@ impl AnimeWorld {
 
     fn parse_id(page: &Html) -> Option<u32> {
         let btn = Selector::parse(r#"a[id="anilist-button"]"#).unwrap();
+
         page.select(&btn)
             .next_back()
             .and_then(|a| a.value().attr("href"))
@@ -151,6 +157,7 @@ impl AnimeWorld {
     fn parse_episodes(page: &Html) -> Option<(u32, u32)> {
         let range = Selector::parse("div.range").unwrap();
         let span = Selector::parse("span.rangetitle").unwrap();
+
         match page.select(&range).next() {
             Some(range) if range.select(&span).next().is_some() => {
                 let mut list = range.select(&span);
