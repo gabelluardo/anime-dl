@@ -157,7 +157,7 @@ impl Tui {
         if let Some(index) = next_to_watch {
             table.with(Colorization::exact(
                 [Color::FG_BLACK | Color::BG_WHITE],
-                Rows::single(index),
+                Rows::one(index),
             ));
         }
 
