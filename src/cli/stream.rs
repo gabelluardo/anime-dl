@@ -54,7 +54,7 @@ pub async fn execute(args: Args) -> Result<()> {
     let search = if args.watching || args.entries.is_empty() {
         super::get_from_watching_list(client_id).await?
     } else {
-        super::get_from_input(args.entries).await?
+        super::get_from_input(args.entries)?
     };
 
     let (vec_anime, referrer) = Scraper::new(proxy, cookie)

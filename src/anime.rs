@@ -30,6 +30,7 @@ impl Anime {
             ..Default::default()
         }
     }
+
     pub fn select_from_index(&self, start: u32) -> Vec<String> {
         if let Some(Range { end, .. }) = self.range {
             return self.select_from_range(Range::new(start, end));
