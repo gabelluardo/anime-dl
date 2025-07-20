@@ -1,15 +1,14 @@
 use std::sync::Arc;
+use std::time::Duration;
 
 use anyhow::Result;
 use futures::future::join_all;
 use owo_colors::OwoColorize;
 use rand::seq::IteratorRandom;
 use reqwest::{Client, header, header::HeaderValue};
-use tokio::sync::Mutex;
 
 use crate::anime::Anime;
-use crate::archive::{AnimeWorld, Archive};
-use crate::cli::Site;
+use crate::archive::Archive;
 
 #[derive(Debug, Clone)]
 pub struct Search {
@@ -18,24 +17,33 @@ pub struct Search {
 }
 
 #[derive(Debug)]
+pub struct ScraperConfig {
+    pub cookie: Option<String>,
+    pub proxy: Option<String>,
+}
+
+#[derive(Debug)]
 pub struct Scraper {
     client: Arc<Client>,
 }
 
 impl Scraper {
-    pub fn new(proxy: Option<String>, cookie: Option<String>) -> Self {
+    pub fn new(config: ScraperConfig) -> Self {
         let mut headers = header::HeaderMap::new();
 
-        if let Some(cookie) = cookie {
-            if let Ok(value) = HeaderValue::from_str(&cookie) {
+        if let Some(cookie) = &config.cookie {
+            if let Ok(value) = HeaderValue::from_str(cookie) {
                 headers.insert(header::COOKIE, value);
             }
         }
 
         let mut builder = Client::builder()
             .default_headers(headers)
-            .danger_accept_invalid_certs(true);
-        if let Some(proxy) = proxy {
+            .danger_accept_invalid_certs(true)
+            .timeout(Duration::from_secs(30))
+            .connect_timeout(Duration::from_secs(10));
+
+        if let Some(proxy) = &config.proxy {
             if let Ok(req_proxy) = reqwest::Proxy::http(proxy) {
                 builder = builder.proxy(req_proxy)
             }
@@ -47,25 +55,21 @@ impl Scraper {
         }
     }
 
-    pub async fn run<I>(self, search: I, site: Site) -> Result<(Vec<Anime>, Option<&'static str>)>
-    where
-        I: Iterator<Item = Search>,
-    {
-        let (scrape, referrer) = match site {
-            Site::AW => (AnimeWorld::run, AnimeWorld::REFERRER),
-        };
+    pub async fn search<T: Archive>(self, searches: &[Search]) -> Result<Vec<Anime>> {
+        let tasks =
+            searches.iter().map(
+                async |s| match T::search(s.clone(), self.client.clone()).await {
+                    Ok(v) => v,
+                    Err(err) => {
+                        eprintln!("{}", err.red());
+                        vec![]
+                    }
+                },
+            );
 
-        let vec = Arc::new(Mutex::new(Vec::new()));
-        let tasks = search.map(async |s| {
-            if let Err(err) = scrape(s, self.client.clone(), vec.clone()).await {
-                eprintln!("{}", err.red());
-            }
-        });
-        join_all(tasks).await;
+        let anime = join_all(tasks).await.into_iter().flatten().collect();
 
-        let anime = vec.lock_owned().await.to_vec();
-
-        Ok((anime, referrer))
+        Ok(anime)
     }
 
     #[cfg(test)]
@@ -74,39 +78,59 @@ impl Scraper {
     }
 }
 
-pub async fn select_proxy(disable: bool) -> Option<String> {
-    if disable {
-        return None;
+pub struct ProxyManager;
+
+impl ProxyManager {
+    pub async fn proxy(disable: bool) -> Option<String> {
+        if disable {
+            return None;
+        }
+
+        Self::get_random_proxy().await.ok()
     }
 
-    let url = "https://api.proxyscrape.com/?request=getproxies&proxytype=http&timeout=2000&country=all&ssl=all&anonymity=elite";
-    let list = reqwest::get(url).await.ok()?.text().await.ok()?;
-    let proxy = list
-        .split_ascii_whitespace()
-        .choose(&mut rand::rng())
-        .map(|s| format!("https://{s}"))
-        .unwrap_or_default();
+    async fn get_random_proxy() -> Result<String> {
+        let url = "https://api.proxyscrape.com/?request=getproxies&proxytype=http&timeout=2000&country=all&ssl=all&anonymity=elite";
+        let list = reqwest::get(url).await?.text().await?;
 
-    Some(proxy)
+        let proxy = list
+            .split_ascii_whitespace()
+            .choose(&mut rand::rng())
+            .map(|s| format!("https://{s}"))
+            .ok_or_else(|| anyhow::anyhow!("No proxy found"))?;
+
+        Ok(proxy)
+    }
 }
 
-pub async fn find_cookie(site: Site) -> Option<String> {
-    let (str, url) = match site {
-        Site::AW => ("SecurityAW", AnimeWorld::REFERRER?),
-    };
+pub struct CookieManager;
 
-    let security = reqwest::get(url).await.ok()?.text().await.ok()?;
-    security
-        .split(str)
-        .nth(1)?
-        .split(" ;  path=/")
-        .next()
-        .map(|s| str.to_owned() + s.trim())
+impl CookieManager {
+    pub async fn extract_cookie_for_site<T: Archive>() -> Option<String> {
+        Self::extract_cookie_from_url(T::REFERRER, T::COOKIE_NAME)
+            .await
+            .ok()
+            .flatten()
+    }
+
+    async fn extract_cookie_from_url(url: &str, cookie_name: &str) -> Result<Option<String>> {
+        let response = reqwest::get(url).await?.text().await?;
+
+        let cookie = response
+            .split(cookie_name)
+            .nth(1)
+            .and_then(|s| s.split(" ;  path=/").next())
+            .map(|s| cookie_name.to_owned() + s.trim());
+
+        Ok(cookie)
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    use crate::archive::AnimeWorld;
 
     use reqwest::Url;
 
@@ -140,16 +164,18 @@ mod tests {
     async fn test_remote_scraper() {
         let file = "SeishunButaYarouWaBunnyGirlSenpaiNoYumeWoMinai_Ep_01_SUB_ITA.mp4";
 
-        let site = Site::AW;
-        let proxy = select_proxy(false).await;
-        let cookie = find_cookie(Site::AW).await;
+        let cookie = CookieManager::extract_cookie_for_site::<AnimeWorld>().await;
+        let config = ScraperConfig {
+            cookie,
+            proxy: None,
+        };
         let search = vec![Search {
             string: "bunny girl".into(),
             id: None,
         }];
 
-        let (anime, _) = Scraper::new(proxy, cookie)
-            .run(search.into_iter(), site)
+        let anime = Scraper::new(config)
+            .search::<AnimeWorld>(&search)
             .await
             .unwrap();
         let info = get_url(&anime.first().unwrap().origin);
@@ -166,9 +192,11 @@ mod tests {
             "Promare_Movie_ITA.mp4",
         ];
 
-        let site = Site::AW;
-        let proxy = select_proxy(false).await;
-        let cookie = find_cookie(Site::AW).await;
+        let cookie = CookieManager::extract_cookie_for_site::<AnimeWorld>().await;
+        let config = ScraperConfig {
+            cookie,
+            proxy: None,
+        };
 
         let search = vec![
             Search {
@@ -185,8 +213,8 @@ mod tests {
             },
         ];
 
-        let (anime, _) = Scraper::new(proxy, cookie)
-            .run(search.into_iter(), site)
+        let anime = Scraper::new(config)
+            .search::<AnimeWorld>(&search)
             .await
             .unwrap();
 

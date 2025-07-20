@@ -5,7 +5,6 @@ use anyhow::{Context, Result, anyhow, ensure};
 use futures::stream::StreamExt;
 use reqwest::{Client, Url};
 use scraper::{Html, Selector};
-use tokio::sync::Mutex;
 use tokio_stream as stream;
 
 use crate::anime::{self, Anime};
@@ -13,16 +12,18 @@ use crate::scraper::Search;
 use crate::tui::Tui;
 
 pub trait Archive {
-    const REFERRER: Option<&'static str>;
+    const REFERRER: &'static str;
+    const COOKIE_NAME: &'static str;
 
-    async fn run(search: Search, client: Arc<Client>, vec: Arc<Mutex<Vec<Anime>>>) -> Result<()>;
+    async fn search(search: Search, client: Arc<Client>) -> Result<Vec<Anime>>;
 }
 
 pub struct AnimeWorld;
 impl Archive for AnimeWorld {
-    const REFERRER: Option<&'static str> = Some("https://www.animeworld.ac");
+    const REFERRER: &'static str = "https://www.animeworld.ac";
+    const COOKIE_NAME: &'static str = "SecurityAW";
 
-    async fn run(search: Search, client: Arc<Client>, vec: Arc<Mutex<Vec<Anime>>>) -> Result<()> {
+    async fn search(search: Search, client: Arc<Client>) -> Result<Vec<Anime>> {
         async fn parse_url(client: &Arc<Client>, url: &str) -> Result<Html> {
             let response = client.get(url).send().await?.error_for_status()?;
             let fragment = Html::parse_fragment(&response.text().await?);
@@ -31,7 +32,7 @@ impl Archive for AnimeWorld {
 
         let mut search_results = {
             let keyword = &search.string;
-            let referrer = Self::REFERRER.unwrap();
+            let referrer = Self::REFERRER;
             let search_url = format!("{referrer}/search?keyword={keyword}");
             let search_page = parse_url(&client, &search_url).await?;
             let anime_list = Selector::parse("div.film-list").unwrap();
@@ -52,7 +53,7 @@ impl Archive for AnimeWorld {
         let pool = search_results
             .iter()
             .map(async |url| {
-                let url = Self::REFERRER.unwrap().to_string() + url;
+                let url = Self::REFERRER.to_string() + url;
                 let page = parse_url(&client.clone(), &url).await?;
 
                 let mut info = Self::parser(page)?;
@@ -70,10 +71,7 @@ impl Archive for AnimeWorld {
 
         if let Some(id) = search.id {
             if let Some(anime) = anime.find(|a| a.id == Some(id) && !a.name.contains("(ITA)")) {
-                let mut lock = vec.lock().await;
-                lock.push(anime);
-
-                return Ok(());
+                return Ok(vec![anime]);
             }
         }
 
@@ -82,10 +80,7 @@ impl Archive for AnimeWorld {
             Tui::select_series(&mut series)?;
         }
 
-        let mut lock = vec.lock().await;
-        lock.extend(series);
-
-        Ok(())
+        Ok(series)
     }
 }
 
@@ -212,10 +207,7 @@ mod tests {
     }
 
     mod animeworld {
-        use crate::{
-            cli::Site,
-            scraper::{Scraper, find_cookie},
-        };
+        use crate::scraper::{CookieManager, Scraper, ScraperConfig};
 
         use super::*;
 
@@ -333,19 +325,21 @@ mod tests {
         #[ignore]
         async fn test_remote() {
             let file = "SeishunButaYarouWaBunnyGirlSenpaiNoYumeWoMinai_Ep_01_SUB_ITA.mp4";
-            let anime = Arc::new(Mutex::new(Vec::new()));
-            let cookie = find_cookie(Site::AW).await;
-            let scraper = Scraper::new(None, cookie);
+            let cookie = CookieManager::extract_cookie_for_site::<AnimeWorld>().await;
+            let config = ScraperConfig {
+                cookie,
+                proxy: None,
+            };
+
+            let scraper = Scraper::new(config);
+
             let search = Search {
                 string: "bunny girl".into(),
                 id: None,
             };
 
-            AnimeWorld::run(search, scraper.client(), anime.clone())
-                .await
-                .unwrap();
+            let anime = AnimeWorld::search(search, scraper.client()).await.unwrap();
 
-            let anime = anime.lock().await.clone();
             let info = get_url(&anime.first().unwrap().origin);
 
             assert_eq!(file, info)

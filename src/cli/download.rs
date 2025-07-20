@@ -4,9 +4,10 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use super::Site;
+use crate::archive::{AnimeWorld, Archive};
 use crate::parser::{self, parse_number};
 use crate::range::Range;
-use crate::scraper::{Scraper, find_cookie, select_proxy};
+use crate::scraper::{CookieManager, ProxyManager, Scraper, ScraperConfig};
 use crate::tui::Tui;
 
 use anyhow::{Result, ensure};
@@ -72,22 +73,29 @@ pub struct Args {
     pub watching: bool,
 }
 
-pub async fn execute(args: Args) -> Result<()> {
+pub async fn exec(args: Args) -> Result<()> {
     let client_id = args.anilist_id;
     let site = args.site.unwrap_or_default();
 
-    let cookie = find_cookie(site).await;
-    let proxy = select_proxy(args.no_proxy).await;
-
-    let search = if args.watching || args.entries.is_empty() {
+    let searches = if args.watching || args.entries.is_empty() {
         super::get_from_watching_list(client_id).await?
     } else {
         super::get_from_input(args.entries)?
     };
 
-    let (vec_anime, referrer) = Scraper::new(proxy, cookie)
-        .run(search.into_iter(), site)
-        .await?;
+    let proxy = ProxyManager::proxy(args.no_proxy).await;
+
+    let (vec_anime, referrer) = match site {
+        Site::AW => {
+            let cookie = CookieManager::extract_cookie_for_site::<AnimeWorld>().await;
+            let config = ScraperConfig { proxy, cookie };
+
+            (
+                Scraper::new(config).search::<AnimeWorld>(&searches).await?,
+                AnimeWorld::REFERRER,
+            )
+        }
+    };
 
     let ui = Tui::new();
     let client = Arc::new(Client::new());
@@ -115,7 +123,7 @@ pub async fn execute(args: Args) -> Result<()> {
                 let filename = parser::parse_filename(&url)?;
                 let source_size = client
                     .head(&url)
-                    .header(REFERER, referrer.unwrap_or_default())
+                    .header(REFERER, referrer)
                     .send()
                     .await?
                     .error_for_status()?
@@ -155,7 +163,7 @@ pub async fn execute(args: Args) -> Result<()> {
                 let mut source = client
                     .get(url)
                     .header(RANGE, format!("bytes={file_size}-"))
-                    .header(REFERER, referrer.unwrap_or_default())
+                    .header(REFERER, referrer)
                     .send()
                     .await?
                     .error_for_status()?;
