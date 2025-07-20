@@ -22,8 +22,8 @@ async fn main() {
     let args = Args::parse();
 
     let result = match args.command {
-        Command::Stream(cmd) => stream::execute(cmd).await,
-        Command::Download(cmd) => download::execute(cmd).await,
+        Command::Stream(cmd) => stream::exec(cmd).await,
+        Command::Download(cmd) => download::exec(cmd).await,
         #[cfg(feature = "anilist")]
         Command::Clean => clean_config(),
     };
