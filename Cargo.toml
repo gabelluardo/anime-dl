@@ -35,7 +35,7 @@ anilist = ["graphql_client", "serde", "toml_edit"]
 [dependencies]
 anyhow = "1.0.98"
 futures = "0.3.31"
-indicatif = "0.17.8"
+indicatif = "0.18.0"
 owo-colors = "4.2"
 rand = "0.9"
 rustyline = "16.0"
