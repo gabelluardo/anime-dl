@@ -126,7 +126,7 @@ async fn get_from_watching_list(anilist_id: Option<u32>) -> Result<Vec<Search>> 
     Ok(search)
 }
 
-async fn get_from_input(entries: Vec<String>) -> Result<Vec<Search>> {
+fn get_from_input(entries: Vec<String>) -> Result<Vec<Search>> {
     let search = entries
         .join(" ")
         .split(',')
