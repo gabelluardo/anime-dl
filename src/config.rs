@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use std::{fs, io::Read, io::Write};
 
 use anyhow::{Context, Result, anyhow};
-use toml_edit::{DocumentMut, ImDocument};
+use toml_edit::{Document, DocumentMut};
 
 #[cfg(all(not(test), not(windows)))]
 fn default_path() -> PathBuf {
@@ -29,7 +29,7 @@ pub fn load_config(table: &str, key: &str) -> Result<String> {
     let mut toml = String::new();
     file.read_to_string(&mut toml)?;
 
-    let doc = toml.parse::<ImDocument<String>>()?;
+    let doc = toml.parse::<Document<String>>()?;
     let token = doc[table][key]
         .as_str()
         .ok_or_else(|| anyhow!("Unable to load configuration"))?
