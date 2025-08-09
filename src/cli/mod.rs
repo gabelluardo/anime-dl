@@ -86,13 +86,12 @@ impl Progress {
     }
 
     pub async fn update(&mut self) {
-        if self.to_update() {
-            if let Some(progress) = self.queue.front_mut() {
-                if let Some(number) = progress.episode {
-                    let result = self.anilist.update(progress.anime_id, number).await;
-                    progress.updated = result.is_ok();
-                }
-            }
+        if self.to_update()
+            && let Some(progress) = self.queue.front_mut()
+            && let Some(number) = progress.episode
+        {
+            let result = self.anilist.update(progress.anime_id, number).await;
+            progress.updated = result.is_ok();
         }
     }
 

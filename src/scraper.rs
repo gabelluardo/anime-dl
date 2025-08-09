@@ -26,19 +26,19 @@ impl Scraper {
     pub fn new(proxy: Option<String>, cookie: Option<String>) -> Self {
         let mut headers = header::HeaderMap::new();
 
-        if let Some(cookie) = cookie {
-            if let Ok(value) = HeaderValue::from_str(&cookie) {
-                headers.insert(header::COOKIE, value);
-            }
+        if let Some(cookie) = cookie
+            && let Ok(value) = HeaderValue::from_str(&cookie)
+        {
+            headers.insert(header::COOKIE, value);
         }
 
         let mut builder = Client::builder()
             .default_headers(headers)
             .danger_accept_invalid_certs(true);
-        if let Some(proxy) = proxy {
-            if let Ok(req_proxy) = reqwest::Proxy::http(proxy) {
-                builder = builder.proxy(req_proxy)
-            }
+        if let Some(proxy) = proxy
+            && let Ok(req_proxy) = reqwest::Proxy::http(proxy)
+        {
+            builder = builder.proxy(req_proxy)
         }
         let client = builder.build().unwrap_or_default();
 
