@@ -155,38 +155,45 @@ impl AnimeWorld {
 
         match page.select(&range).next() {
             Some(range) if range.select(&span).next().is_some() => {
-                let mut list = range.select(&span);
+                let spans = range.select(&span).collect::<Vec<_>>();
 
-                let start = list
-                    .next()?
-                    .inner_html()
-                    .split_ascii_whitespace()
-                    .next()?
-                    .parse::<u32>()
-                    .ok()?;
-                let end = list
-                    .last()?
-                    .inner_html()
-                    .split_ascii_whitespace()
-                    .last()?
-                    .parse::<u32>()
-                    .ok()?;
+                match spans.as_slice() {
+                    [first, .., last] => {
+                        let start = first
+                            .inner_html()
+                            .split_ascii_whitespace()
+                            .next()?
+                            .parse::<u32>()
+                            .ok()?;
 
-                Some((start, end))
+                        let end = last
+                            .inner_html()
+                            .split_ascii_whitespace()
+                            .last()?
+                            .parse::<u32>()
+                            .ok()?;
+
+                        Some((start, end))
+                    }
+                    _ => None,
+                }
             }
             _ => {
                 let ul = Selector::parse("ul.episodes").unwrap();
                 let a = Selector::parse("a").unwrap();
-                let mut list = page
+
+                let episodes = page
                     .select(&ul)
                     .next()?
                     .select(&a)
-                    .filter_map(|a| a.inner_html().parse::<u32>().ok());
+                    .filter_map(|a| a.inner_html().parse::<u32>().ok())
+                    .collect::<Vec<_>>();
 
-                let start = list.next()?;
-                let end = list.last().unwrap_or(start);
-
-                Some((start, end))
+                match episodes.as_slice() {
+                    [start, .., end] => Some((*start, *end)),
+                    [single] => Some((*single, *single)),
+                    [] => None,
+                }
             }
         }
     }
