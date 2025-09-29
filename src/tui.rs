@@ -218,9 +218,10 @@ fn parse_commands() -> Result<TuiCommand> {
     let mut rl = DefaultEditor::new()?;
     rl.set_color_mode(ColorMode::Enabled);
     let prompt = "~❯ ".red().to_string();
+
     let cmd = match rl.readline(&prompt).map(|line| line.trim().to_owned()) {
-        Ok(line) if line.len() == 1 && line.contains(['q', 'Q']) => TuiCommand::Quit,
-        Ok(line) if line.len() == 1 && line.contains(['u', 'U']) => TuiCommand::Unwatched,
+        Ok(line) if matches!(line.as_str(), "q" | "Q") => TuiCommand::Quit,
+        Ok(line) if matches!(line.as_str(), "u" | "U") => TuiCommand::Unwatched,
         Ok(line) => TuiCommand::Default(line),
         Err(err) => bail!(err),
     };

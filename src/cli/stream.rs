@@ -89,6 +89,7 @@ pub async fn exec(args: Args) -> Result<()> {
         .args(&episodes)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
+        .kill_on_drop(true)
         .spawn()?;
 
     {
@@ -101,24 +102,29 @@ pub async fn exec(args: Args) -> Result<()> {
 
         let mut progress = Progress::new(Anilist::new(client_id)?);
         while let Some(Ok(line)) = merged.next().await {
-            if line.contains("Opening done") {
-                let url = line.split_whitespace().last().unwrap();
-                let num = parse_number(url);
-                let origin = parse_url(url, num);
+            match line.as_str() {
+                line if line.contains("Opening done") => {
+                    if let Some(url) = line.split_whitespace().last() {
+                        let num = parse_number(url);
+                        let origin = parse_url(url, num);
 
-                let anime_id = ids.get(&origin).copied().flatten();
-                let episode = num.map(|n| n.value);
+                        let anime_id = ids.get(&origin).copied().flatten();
+                        let episode = num.map(|n| n.value);
 
-                progress.push(anime_id, episode);
-            } else if line.contains('%') && !line.contains("(Paused)") {
-                progress.percentage(parse_percentage(&line));
+                        progress.push(anime_id, episode);
+                    }
+                }
+
+                line if line.contains('%') && !line.contains("(Paused)") => {
+                    progress.percentage(parse_percentage(&line));
+                }
+
+                _ => {}
             }
 
             progress.update().await;
         }
     }
-
-    let _ = child.wait().await?;
 
     Ok(())
 }

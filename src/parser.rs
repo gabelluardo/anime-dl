@@ -35,30 +35,32 @@ pub fn parse_percentage(input: &str) -> Option<u32> {
 }
 
 pub fn parse_number(input: &str) -> Option<InfoNum> {
-    // find episode number position in input
-    let (mut start, mut end) = (None, None);
-    for i in 0..input.len() - 1 {
-        match (input.chars().nth(i), input.chars().nth(i + 1)) {
-            (Some('_'), Some(next)) if next.is_ascii_digit() => start = Some(i),
-            (Some(curr), Some('_')) if curr.is_ascii_digit() => end = Some(i),
-            _ => continue,
+    let chars = input.chars().collect::<Vec<_>>();
+
+    let positions = chars
+        .windows(2)
+        .enumerate()
+        .filter_map(|(i, window)| match window {
+            ['_', c] if c.is_ascii_digit() => Some(i),
+            [c, '_'] if c.is_ascii_digit() => Some(i),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+
+    match positions.as_slice() {
+        [start_idx, end_idx] => {
+            let sub_str = input[*start_idx..*end_idx + 1]
+                .chars()
+                .filter(char::is_ascii_digit)
+                .collect::<String>();
+
+            sub_str.parse::<u32>().ok().map(|value| InfoNum {
+                value,
+                alignment: sub_str.len(),
+            })
         }
+        _ => None,
     }
-
-    if start.is_none() || end.is_none() {
-        return None;
-    }
-
-    let sub_str = input[start.unwrap()..end.unwrap() + 1]
-        .chars()
-        .filter(char::is_ascii_digit)
-        .collect::<String>();
-    let num = sub_str.parse::<u32>().ok();
-
-    num.map(|value| InfoNum {
-        value,
-        alignment: sub_str.len(),
-    })
 }
 
 pub fn parse_url(input: &str, num: Option<InfoNum>) -> String {
