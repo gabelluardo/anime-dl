@@ -44,7 +44,7 @@ tabled = "0.20.0"
 which = "8.0.0"
 
 clap = { version = "4.5.48", features = ["derive", "env"] }
-reqwest = { default-features = false, version = "0.12.23", features = [
+reqwest = { default-features = false, version = "0.12.24", features = [
     "json",
     "rustls-tls",
 ] }
