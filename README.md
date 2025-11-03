@@ -76,6 +76,18 @@ adl stream <entries>
 
 Currently, there is only an **italian** language scraper, contributions for support other languages are welcome (see [#83](https://github.com/gabelluardo/anime-dl/issues/83)).
 
+#### Development Setup
+
+This project uses [pre-commit](https://pre-commit.com/) hooks to ensure code quality. To set up:
+
+```sh
+pip install pre-commit
+pre-commit install
+pre-commit install --hook-type commit-msg
+```
+
+The hooks will automatically run clippy, tests, and validate conventional commit messages.
+
 ### License
 
 Made with 🫶 by **[@gabelluardo](https://github.com/gabelluardo)** in [GPLv3](LICENSE)
