@@ -87,3 +87,78 @@ pub fn print_title(title: &str) {
     let formatted = title.cyan().bold().to_string();
     println!("{formatted}\n");
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_build_watching_table() {
+        let headers = vec!["Index", "Name", "Behind"];
+        let rows = vec![
+            vec!["1".to_string(), "Anime 1".to_string(), "3".to_string()],
+            vec!["2".to_string(), "Anime 2".to_string(), "0".to_string()],
+        ];
+
+        let table = build_watching_table(headers, rows);
+
+        // Verify table contains expected data
+        assert!(table.contains("Index"));
+        assert!(table.contains("Name"));
+        assert!(table.contains("Behind"));
+        assert!(table.contains("Anime 1"));
+        assert!(table.contains("Anime 2"));
+        assert!(table.contains("3"));
+    }
+
+    #[test]
+    fn test_build_series_table() {
+        let headers = vec!["Index", "Name"];
+        let rows = vec![
+            vec!["1".to_string(), "Series 1".to_string()],
+            vec!["2".to_string(), "Series 2".to_string()],
+        ];
+
+        let table = build_series_table(headers, rows);
+
+        // Verify table contains expected data
+        assert!(table.contains("Index"));
+        assert!(table.contains("Name"));
+        assert!(table.contains("Series 1"));
+        assert!(table.contains("Series 2"));
+    }
+
+    #[test]
+    fn test_build_episodes_table_no_highlight() {
+        let headers = vec!["Episode", "Seen"];
+        let rows = vec![
+            vec!["1".to_string(), "✔".to_string()],
+            vec!["2".to_string(), "✗".to_string()],
+        ];
+
+        let table = build_episodes_table(headers, rows, None);
+
+        // Verify table contains expected data
+        assert!(table.contains("Episode"));
+        assert!(table.contains("Seen"));
+        assert!(table.contains("1"));
+        assert!(table.contains("2"));
+    }
+
+    #[test]
+    fn test_build_episodes_table_with_highlight() {
+        let headers = vec!["Episode", "Seen"];
+        let rows = vec![
+            vec!["1".to_string(), "✔".to_string()],
+            vec!["2".to_string(), "✗".to_string()],
+        ];
+
+        let table = build_episodes_table(headers, rows, Some(2));
+
+        // Verify table contains expected data
+        assert!(table.contains("Episode"));
+        assert!(table.contains("Seen"));
+        assert!(table.contains("1"));
+        assert!(table.contains("2"));
+    }
+}

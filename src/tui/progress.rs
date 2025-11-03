@@ -27,3 +27,24 @@ impl Default for ProgressManager {
         Self::new()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_progress_manager_creation() {
+        let manager = ProgressManager::new();
+        // Just verify we can create a progress manager
+        // We can't easily test the actual progress bar without a TTY
+        let pb = manager.add_bar();
+        assert_eq!(pb.position(), 0);
+    }
+
+    #[test]
+    fn test_progress_manager_default() {
+        let manager = ProgressManager::default();
+        let pb = manager.add_bar();
+        assert_eq!(pb.position(), 0);
+    }
+}
