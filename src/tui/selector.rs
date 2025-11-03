@@ -93,7 +93,8 @@ pub fn select_episodes(anime: &Anime) -> Result<Vec<String>> {
                 let watched = anime.last_watched.is_some_and(|l| l > i);
 
                 if next_to_watch.is_none() && !watched {
-                    // +1 because we're adding the header row
+                    // rows.len() equals i at this point (before pushing the current row)
+                    // We need i+1 because episode numbering starts at 1
                     next_to_watch = Some(rows.len() + 1)
                 }
 
@@ -123,7 +124,7 @@ pub fn select_episodes(anime: &Anime) -> Result<Vec<String>> {
             anime.select_from_slice(&selection)
         }
         Command::Unwatched => match next_to_watch {
-            Some(index) => anime.select_from_index((index - 1) as u32),
+            Some(index) => anime.select_from_index(index as u32),
             _ => anyhow::bail!("Invalid input"),
         },
         Command::Quit => quit!(),
