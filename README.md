@@ -91,4 +91,3 @@ The hooks will automatically run clippy, tests, and validate conventional commit
 ### License
 
 Made with 🫶 by **[@gabelluardo](https://github.com/gabelluardo)** in [GPLv3](LICENSE)
-# Test
