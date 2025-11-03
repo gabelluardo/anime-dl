@@ -86,7 +86,7 @@ pre-commit install
 pre-commit install --hook-type commit-msg
 ```
 
-The hooks will automatically run clippy, tests, and validate conventional commit messages.
+The hooks will automatically run formatting, clippy, and validate conventional commit messages.
 
 ### License
 
