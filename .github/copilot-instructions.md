@@ -56,6 +56,16 @@ stream::iter(urls).buffer_unordered(dim_buff)
 
 ## Project-Specific Conventions
 
+### Commit Messages
+- **MUST** follow [Conventional Commits](https://www.conventionalcommits.org/) format: `<type>[optional scope]: <description>`
+- Allowed types: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert`
+- Subject must start with lowercase
+- Examples:
+  - `feat: add Italian subtitle support`
+  - `fix: correct episode number parsing`
+  - `docs: update installation instructions`
+  - `chore: upgrade dependencies`
+
 ### Naming
 - Snake_case with underscores separates anime name from episode: `anime_name_01_sub_ita.mp4`
 - Episode numbers extracted via `parser::parse_number()` - looks for `_digit_` patterns
