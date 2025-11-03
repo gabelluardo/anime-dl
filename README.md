@@ -76,8 +76,6 @@ adl stream <entries>
 
 Currently, there is only an **italian** language scraper, contributions for support other languages are welcome (see [#83](https://github.com/gabelluardo/anime-dl/issues/83)).
 
-This project follows [Conventional Commits](https://www.conventionalcommits.org/) for commit messages and PR titles. See our [Conventional Commits guide](.github/CONVENTIONAL_COMMITS.md) for more details.
-
 ### License
 
 Made with 🫶 by **[@gabelluardo](https://github.com/gabelluardo)** in [GPLv3](LICENSE)
