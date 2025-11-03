@@ -1,5 +1,7 @@
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 
+use super::style::*;
+
 /// Manages progress bars for downloads
 pub struct ProgressManager {
     bars: MultiProgress,
@@ -8,6 +10,7 @@ pub struct ProgressManager {
 impl ProgressManager {
     pub fn new() -> Self {
         let bars = MultiProgress::new();
+
         // NOTE: fix for flickering bar bug on windows (https://github.com/mitsuhiko/indicatif/issues/143)
         bars.set_move_cursor(cfg!(windows));
 
@@ -15,7 +18,7 @@ impl ProgressManager {
     }
 
     pub fn add_bar(&self) -> ProgressBar {
-        let style = ProgressStyle::with_template("{spinner:.green} [{elapsed:.magenta}] [{bar:20.cyan/blue}] {binary_bytes_per_sec} {bytes:.cyan}/{total_bytes:.blue} ({eta:.magenta}) {msg:.green}").unwrap();
+        let style = ProgressStyle::with_template(PROGRESS_BAR_TEMPLATE).unwrap();
         let pb = ProgressBar::new(0).with_style(style.progress_chars("#>-"));
 
         self.bars.add(pb)

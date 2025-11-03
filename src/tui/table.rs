@@ -78,14 +78,13 @@ pub fn build_episodes_table(
 }
 
 /// Prints a selection prompt with consistent formatting
-pub fn print_prompt(_message: &str, instructions: &str) {
+pub fn print_prompt(instructions: &str) {
     println!("\n{} {}", "::".red(), instructions.bold());
 }
 
 /// Prints a title header with consistent formatting
 pub fn print_title(title: &str) {
-    let formatted = title.cyan().bold().to_string();
-    println!("{formatted}\n");
+    println!("{}\n", title.cyan().bold());
 }
 
 #[cfg(test)]

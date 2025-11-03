@@ -24,10 +24,7 @@ pub fn select_from_watching(series: &[WatchingAnime]) -> Result<Vec<&WatchingAni
 
     print_title("You are watching these series");
     println!("{table}");
-    print_prompt(
-        "",
-        "Make your selection (eg: 1 2 3 or 1-3) [<u> for unwatched, <q> for exit]",
-    );
+    print_prompt("Make your selection (eg: 1 2 3 or 1-3) [<u> for unwatched, <q> for exit]");
 
     let series: Vec<_> = match parse_commands()? {
         Command::Default(input) => parse_input(&input, 1, series.len())?
@@ -54,10 +51,7 @@ pub fn select_series(series: &mut Vec<Anime>) -> Result<()> {
     let table = build_series_table(vec!["Index", "Name"], rows);
 
     println!("{table}");
-    print_prompt(
-        "",
-        "Make your selection (eg: 1 2 3 or 1-3) [<enter> for all, <q> for exit]",
-    );
+    print_prompt("Make your selection (eg: 1 2 3 or 1-3) [<enter> for all, <q> for exit]");
 
     match parse_commands()? {
         Command::Default(input) => {
@@ -108,10 +102,7 @@ pub fn select_episodes(anime: &Anime) -> Result<Vec<String>> {
 
     print_title(&anime.name);
     println!("{table}");
-    print_prompt(
-        "",
-        "Make your selection (eg: 1 2 3 or 1-3) [<u> for unwatched, <q> for exit]",
-    );
+    print_prompt("Make your selection (eg: 1 2 3 or 1-3) [<u> for unwatched, <q> for exit]");
 
     let episodes = match parse_commands()? {
         Command::Default(input) => {

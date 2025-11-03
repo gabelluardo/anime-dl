@@ -18,6 +18,12 @@ pub struct Tui {
     progress: ProgressManager,
 }
 
+impl Default for Tui {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Tui {
     pub fn new() -> Self {
         Self {
@@ -56,11 +62,5 @@ impl Tui {
         };
 
         Ok(res)
-    }
-}
-
-impl Default for Tui {
-    fn default() -> Self {
-        Self::new()
     }
 }
