@@ -101,7 +101,7 @@ pub async fn exec(args: Args) -> Result<()> {
     let client = Arc::new(Client::new());
     let mut pool = vec![];
     for anime in &vec_anime {
-        let episodes = match args.range {
+        let episodes: Vec<String> = match args.range {
             Some(range) if !args.interactive => anime.select_from_range(range),
             _ => Tui::select_episodes(anime)?,
         };
@@ -161,7 +161,7 @@ pub async fn exec(args: Args) -> Result<()> {
                 pb.set_message(msg);
 
                 let mut source = client
-                    .get(url)
+                    .get(&url)
                     .header(RANGE, format!("bytes={file_size}-"))
                     .header(REFERER, referrer)
                     .send()
