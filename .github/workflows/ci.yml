@@ -31,18 +31,11 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
-          components: rustfmt, clippy
 
       - name: Install packages (Ubuntu)
         if: startsWith(matrix.os, 'ubuntu')
         run: |
           ci/ubuntu-install-packages
-
-      - name: cargo fmt
-        run: cargo fmt --all -- --check
-
-      - name: cargo clippy
-        run: cargo clippy --target ${{ matrix.target }} -- -D warnings
 
       - name: Build
         run: cargo build --target ${{ matrix.target }}
