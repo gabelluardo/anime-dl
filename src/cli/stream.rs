@@ -116,7 +116,7 @@ pub async fn exec(args: Args) -> Result<()> {
                 }
 
                 line if line.contains('%') && !line.contains("(Paused)") => {
-                    progress.percentage(parse_percentage(&line));
+                    progress.percentage(parse_percentage(line));
                 }
 
                 _ => {}

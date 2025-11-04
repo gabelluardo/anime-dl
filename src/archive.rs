@@ -69,10 +69,10 @@ impl Archive for AnimeWorld {
             .await;
         let mut anime = stream.into_iter().filter_map(|a| a.ok());
 
-        if let Some(id) = search.id {
-            if let Some(anime) = anime.find(|a| a.id == Some(id) && !a.name.contains("(ITA)")) {
-                return Ok(vec![anime]);
-            }
+        if let Some(id) = search.id
+            && let Some(anime) = anime.find(|a| a.id == Some(id) && !a.name.contains("(ITA)"))
+        {
+            return Ok(vec![anime]);
         }
 
         let mut series = anime.collect::<Vec<_>>();

@@ -31,10 +31,10 @@ impl Scraper {
     pub fn new(config: ScraperConfig) -> Self {
         let mut headers = header::HeaderMap::new();
 
-        if let Some(cookie) = &config.cookie {
-            if let Ok(value) = HeaderValue::from_str(cookie) {
-                headers.insert(header::COOKIE, value);
-            }
+        if let Some(cookie) = &config.cookie
+            && let Ok(value) = HeaderValue::from_str(cookie)
+        {
+            headers.insert(header::COOKIE, value);
         }
 
         let mut builder = Client::builder()
@@ -43,10 +43,10 @@ impl Scraper {
             .timeout(Duration::from_secs(30))
             .connect_timeout(Duration::from_secs(10));
 
-        if let Some(proxy) = &config.proxy {
-            if let Ok(req_proxy) = reqwest::Proxy::http(proxy) {
-                builder = builder.proxy(req_proxy)
-            }
+        if let Some(proxy) = &config.proxy
+            && let Ok(req_proxy) = reqwest::Proxy::http(proxy)
+        {
+            builder = builder.proxy(req_proxy)
         }
         let client = builder.build().unwrap_or_default();
 

@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use std::{fs, io::Read, io::Write};
 
 use anyhow::{Context, Result, anyhow};
-use toml_edit::{DocumentMut, Document};
+use toml_edit::{Document, DocumentMut};
 
 #[cfg(all(not(test), not(windows)))]
 fn default_path() -> PathBuf {
