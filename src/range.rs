@@ -74,8 +74,7 @@ where
 
         let range = match range_str.as_slice() {
             [start] => Self::new(*start, *start),
-            [start, end] => Self::new(*start, *end),
-            [start, .., end] if range_str.len() > 2 => Self::new(*start, *end),
+            [start, end] | [start, .., end] => Self::new(*start, *end),
             _ => bail!("Invalid range"),
         };
 

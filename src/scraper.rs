@@ -56,17 +56,18 @@ impl Scraper {
         }
     }
 
-    pub async fn search<T: Archive>(self, searches: &[Search]) -> Result<Vec<Anime>> {
-        let tasks =
-            searches.iter().map(
-                async |s| match T::search(s.clone(), self.client.clone()).await {
-                    Ok(v) => v,
-                    Err(err) => {
-                        eprintln!("{}", err.red());
-                        vec![]
-                    }
-                },
-            );
+    pub async fn search<T: Archive>(&self, searches: &[Search]) -> Result<Vec<Anime>> {
+        let tasks = searches.iter().map(|search| {
+            let client = self.client.clone();
+            let search = search.clone();
+
+            async move {
+                T::search(search, client).await.unwrap_or_else(|err| {
+                    eprintln!("{}", err.red());
+                    vec![]
+                })
+            }
+        });
 
         let anime = join_all(tasks).await.into_iter().flatten().collect();
 
