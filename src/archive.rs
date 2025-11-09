@@ -5,7 +5,6 @@ use anyhow::{Context, Result, anyhow, ensure};
 use futures::stream::StreamExt;
 use reqwest::{Client, Url};
 use scraper::{Html, Selector};
-use tokio::sync::Mutex;
 use tokio_stream as stream;
 
 use crate::anime::{self, Anime};
@@ -13,16 +12,18 @@ use crate::scraper::Search;
 use crate::tui::Tui;
 
 pub trait Archive {
-    const REFERRER: Option<&'static str>;
+    const REFERRER: &'static str;
+    const COOKIE_NAME: &'static str;
 
-    async fn run(search: Search, client: Arc<Client>, vec: Arc<Mutex<Vec<Anime>>>) -> Result<()>;
+    async fn search(search: Search, client: Arc<Client>) -> Result<Vec<Anime>>;
 }
 
 pub struct AnimeWorld;
 impl Archive for AnimeWorld {
-    const REFERRER: Option<&'static str> = Some("https://www.animeworld.ac");
+    const REFERRER: &'static str = "https://www.animeworld.ac";
+    const COOKIE_NAME: &'static str = "SecurityAW";
 
-    async fn run(search: Search, client: Arc<Client>, vec: Arc<Mutex<Vec<Anime>>>) -> Result<()> {
+    async fn search(search: Search, client: Arc<Client>) -> Result<Vec<Anime>> {
         async fn parse_url(client: &Arc<Client>, url: &str) -> Result<Html> {
             let response = client.get(url).send().await?.error_for_status()?;
             let fragment = Html::parse_fragment(&response.text().await?);
@@ -31,7 +32,7 @@ impl Archive for AnimeWorld {
 
         let mut search_results = {
             let keyword = &search.string;
-            let referrer = Self::REFERRER.unwrap();
+            let referrer = Self::REFERRER;
             let search_url = format!("{referrer}/search?keyword={keyword}");
             let search_page = parse_url(&client, &search_url).await?;
             let anime_list = Selector::parse("div.film-list").unwrap();
@@ -50,9 +51,9 @@ impl Archive for AnimeWorld {
         search_results.sort_unstable();
 
         let pool = search_results
-            .into_iter()
+            .iter()
             .map(async |url| {
-                let url = Self::REFERRER.unwrap().to_string() + &url;
+                let url = Self::REFERRER.to_string() + url;
                 let page = parse_url(&client.clone(), &url).await?;
 
                 let mut info = Self::parser(page)?;
@@ -68,22 +69,18 @@ impl Archive for AnimeWorld {
             .await;
         let mut anime = stream.into_iter().filter_map(|a| a.ok());
 
-        if search.id.is_some() {
-            if let Some(anime) = anime.find(|a| a.id == search.id && !a.name.contains("(ITA)")) {
-                let mut lock = vec.lock().await;
-                lock.push(anime);
-            }
-        } else {
-            let mut series = anime.collect::<Vec<_>>();
-            if series.len() > 1 {
-                Tui::select_series(&mut series)?;
-            }
-
-            let mut lock = vec.lock().await;
-            lock.extend(series);
+        if let Some(id) = search.id
+            && let Some(anime) = anime.find(|a| a.id == Some(id) && !a.name.contains("(ITA)"))
+        {
+            return Ok(vec![anime]);
         }
 
-        Ok(())
+        let mut series = anime.collect::<Vec<_>>();
+        if series.len() > 1 {
+            Tui::select_series(&mut series)?;
+        }
+
+        Ok(series)
     }
 }
 
@@ -99,6 +96,7 @@ impl AnimeWorld {
 
     fn parse_name(page: &Html) -> Result<String> {
         let h1 = Selector::parse(r#"h1[id="anime-title"]"#).unwrap();
+
         page.select(&h1)
             .next()
             .and_then(|e| e.first_child().and_then(|a| a.value().as_text()))
@@ -112,6 +110,7 @@ impl AnimeWorld {
             .select(&a)
             .next_back()
             .and_then(|a| a.value().attr("href"));
+
         if url.is_none_or(|u| u.is_empty()) {
             let a = Selector::parse(r#"a[id="downloadLink"]"#).unwrap();
             url = page
@@ -119,6 +118,7 @@ impl AnimeWorld {
                 .next_back()
                 .and_then(|a| a.value().attr("href"))
         }
+
         if url.is_none_or(|u| u.is_empty()) {
             let a = Selector::parse(r#"a[id="customDownloadButton"]"#).unwrap();
             url = page
@@ -136,6 +136,7 @@ impl AnimeWorld {
 
     fn parse_id(page: &Html) -> Option<u32> {
         let btn = Selector::parse(r#"a[id="anilist-button"]"#).unwrap();
+
         page.select(&btn)
             .next_back()
             .and_then(|a| a.value().attr("href"))
@@ -151,40 +152,48 @@ impl AnimeWorld {
     fn parse_episodes(page: &Html) -> Option<(u32, u32)> {
         let range = Selector::parse("div.range").unwrap();
         let span = Selector::parse("span.rangetitle").unwrap();
+
         match page.select(&range).next() {
             Some(range) if range.select(&span).next().is_some() => {
-                let mut list = range.select(&span);
+                let spans = range.select(&span).collect::<Vec<_>>();
 
-                let start = list
-                    .next()?
-                    .inner_html()
-                    .split_ascii_whitespace()
-                    .next()?
-                    .parse::<u32>()
-                    .ok()?;
-                let end = list
-                    .last()?
-                    .inner_html()
-                    .split_ascii_whitespace()
-                    .last()?
-                    .parse::<u32>()
-                    .ok()?;
+                match spans.as_slice() {
+                    [first, .., last] => {
+                        let start = first
+                            .inner_html()
+                            .split_ascii_whitespace()
+                            .next()?
+                            .parse::<u32>()
+                            .ok()?;
 
-                Some((start, end))
+                        let end = last
+                            .inner_html()
+                            .split_ascii_whitespace()
+                            .last()?
+                            .parse::<u32>()
+                            .ok()?;
+
+                        Some((start, end))
+                    }
+                    _ => None,
+                }
             }
             _ => {
                 let ul = Selector::parse("ul.episodes").unwrap();
                 let a = Selector::parse("a").unwrap();
-                let mut list = page
+
+                let episodes = page
                     .select(&ul)
                     .next()?
                     .select(&a)
-                    .filter_map(|a| a.inner_html().parse::<u32>().ok());
+                    .filter_map(|a| a.inner_html().parse::<u32>().ok())
+                    .collect::<Vec<_>>();
 
-                let start = list.next()?;
-                let end = list.last().unwrap_or(start);
-
-                Some((start, end))
+                match episodes.as_slice() {
+                    [start, .., end] => Some((*start, *end)),
+                    [single] => Some((*single, *single)),
+                    [] => None,
+                }
             }
         }
     }
@@ -205,10 +214,7 @@ mod tests {
     }
 
     mod animeworld {
-        use crate::{
-            cli::Site,
-            scraper::{Scraper, find_cookie},
-        };
+        use crate::scraper::{CookieManager, Scraper, ScraperConfig};
 
         use super::*;
 
@@ -326,19 +332,21 @@ mod tests {
         #[ignore]
         async fn test_remote() {
             let file = "SeishunButaYarouWaBunnyGirlSenpaiNoYumeWoMinai_Ep_01_SUB_ITA.mp4";
-            let anime = Arc::new(Mutex::new(Vec::new()));
-            let cookie = find_cookie(Site::AW).await;
-            let scraper = Scraper::new(None, cookie);
+            let cookie = CookieManager::extract_cookie_for_site::<AnimeWorld>().await;
+            let config = ScraperConfig {
+                cookie,
+                proxy: None,
+            };
+
+            let scraper = Scraper::new(config);
+
             let search = Search {
                 string: "bunny girl".into(),
                 id: None,
             };
 
-            AnimeWorld::run(search, scraper.client(), anime.clone())
-                .await
-                .unwrap();
+            let anime = AnimeWorld::search(search, scraper.client()).await.unwrap();
 
-            let anime = anime.lock().await.clone();
             let info = get_url(&anime.first().unwrap().origin);
 
             assert_eq!(file, info)

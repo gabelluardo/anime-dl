@@ -1,10 +1,9 @@
 use clap::Parser;
 
 use std::collections::HashMap;
-use std::path::PathBuf;
 use std::process::Stdio;
 
-use anyhow::Result;
+use anyhow::{Result, bail};
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
 use tokio_stream::StreamExt;
@@ -13,8 +12,9 @@ use which::which;
 
 use super::{Progress, Site};
 use crate::anilist::Anilist;
+use crate::archive::{AnimeWorld, Archive};
 use crate::parser::{parse_number, parse_percentage, parse_url};
-use crate::scraper::{Scraper, find_cookie, select_proxy};
+use crate::scraper::{CookieManager, ProxyManager, Scraper, ScraperConfig};
 use crate::tui::Tui;
 
 /// Stream anime in a media player
@@ -44,30 +44,36 @@ pub struct Args {
     pub watching: bool,
 }
 
-pub async fn execute(args: Args) -> Result<()> {
+pub async fn exec(args: Args) -> Result<()> {
     let client_id = args.anilist_id;
     let site = args.site.unwrap_or_default();
 
-    let cookie = find_cookie(site).await;
-    let proxy = select_proxy(args.no_proxy).await;
-
-    let search = if args.watching || args.entries.is_empty() {
+    let searches = if args.watching || args.entries.is_empty() {
         super::get_from_watching_list(client_id).await?
     } else {
-        super::get_from_input(args.entries).await?
+        super::get_from_input(args.entries)?
     };
 
-    let (vec_anime, referrer) = Scraper::new(proxy, cookie)
-        .run(search.into_iter(), site)
-        .await?;
+    let proxy = ProxyManager::proxy(args.no_proxy).await;
 
-    let referrer = referrer.unwrap_or_default();
-    let (cmd, cmd_referrer) = match which("mpv") {
-        Ok(c) => (c, format!("--referrer={referrer}")),
-        _ => (
-            which("vlc").unwrap_or_else(|_| PathBuf::from(r"C:\Program Files\VideoLAN\VLC\vlc")),
-            format!("--http-referrer={referrer}"),
-        ),
+    let (vec_anime, referrer) = match site {
+        Site::AW => {
+            let cookie = CookieManager::extract_cookie_for_site::<AnimeWorld>().await;
+            let config = ScraperConfig { proxy, cookie };
+
+            (
+                Scraper::new(config).search::<AnimeWorld>(&searches).await?,
+                AnimeWorld::REFERRER,
+            )
+        }
+    };
+
+    let (cmd, cmd_referrer) = if let Ok(c) = which("mpv") {
+        (c, format!("--referrer={referrer}"))
+    } else if let Ok(c) = which("vlc") {
+        (c, format!("--http-referrer={referrer}"))
+    } else {
+        bail!("No supported media player found. Please install mpv or vlc.")
     };
 
     let mut episodes = vec![];
@@ -83,6 +89,7 @@ pub async fn execute(args: Args) -> Result<()> {
         .args(&episodes)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
+        .kill_on_drop(true)
         .spawn()?;
 
     {
@@ -95,24 +102,29 @@ pub async fn execute(args: Args) -> Result<()> {
 
         let mut progress = Progress::new(Anilist::new(client_id)?);
         while let Some(Ok(line)) = merged.next().await {
-            if line.contains("Opening done") {
-                let url = line.split_whitespace().last().unwrap();
-                let num = parse_number(url);
-                let origin = parse_url(url, num);
+            match line.as_str() {
+                line if line.contains("Opening done") => {
+                    if let Some(url) = line.split_whitespace().last() {
+                        let num = parse_number(url);
+                        let origin = parse_url(url, num);
 
-                let anime_id = ids.get(&origin).copied().flatten();
-                let episode = num.map(|n| n.value);
+                        let anime_id = ids.get(&origin).copied().flatten();
+                        let episode = num.map(|n| n.value);
 
-                progress.push(anime_id, episode);
-            } else if line.contains('%') && !line.contains("(Paused)") {
-                progress.percentage(parse_percentage(&line));
+                        progress.push(anime_id, episode);
+                    }
+                }
+
+                line if line.contains('%') && !line.contains("(Paused)") => {
+                    progress.percentage(parse_percentage(line));
+                }
+
+                _ => {}
             }
 
             progress.update().await;
         }
     }
-
-    let _ = child.wait().await?;
 
     Ok(())
 }

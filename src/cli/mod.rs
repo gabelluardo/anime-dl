@@ -71,16 +71,18 @@ impl Progress {
     }
 
     pub fn percentage(&mut self, percentage: Option<u32>) {
-        match self.queue.front_mut() {
+        match (self.queue.front_mut(), percentage) {
             // update current episode
-            Some(p) if p.percentage <= percentage => {
+            (Some(p), Some(_)) if p.percentage <= percentage => {
                 p.percentage = percentage;
                 p.count += 1;
             }
+
             // new episode is selected, pass to the next
-            Some(p) if percentage.is_some_and(|p| p == 0) && p.updated => {
+            (Some(EpisodeProgress { updated: true, .. }), Some(0)) => {
                 self.queue.pop_front();
             }
+
             _ => (),
         }
     }
@@ -125,7 +127,7 @@ async fn get_from_watching_list(anilist_id: Option<u32>) -> Result<Vec<Search>> 
     Ok(search)
 }
 
-async fn get_from_input(entries: Vec<String>) -> Result<Vec<Search>> {
+fn get_from_input(entries: Vec<String>) -> Result<Vec<Search>> {
     let search = entries
         .join(" ")
         .split(',')

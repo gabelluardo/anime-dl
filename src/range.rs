@@ -71,9 +71,10 @@ where
             .split(&[',', '-', '.'])
             .filter_map(|c| c.parse::<T>().ok())
             .collect::<Vec<_>>();
-        let range = match range_str[..] {
-            [start, .., end] => Self::new(start, end),
-            [start] => Self::new(start, start),
+
+        let range = match range_str.as_slice() {
+            [start] => Self::new(*start, *start),
+            [start, end] | [start, .., end] => Self::new(*start, *end),
             _ => bail!("Invalid range"),
         };
 
