@@ -41,6 +41,10 @@ pub struct Args {
     #[arg(default_value = ".", short, long)]
     pub dir: PathBuf,
 
+    /// Perform a dry run without actually downloading files
+    #[arg(long)]
+    pub dry_run: bool,
+
     /// Override existent files
     #[arg(short, long)]
     pub force: bool,
@@ -115,76 +119,92 @@ pub async fn exec(args: Args) -> Result<()> {
         }
 
         for url in episodes {
-            let pb = ui.add_bar();
-            let mut path = parent.clone();
-            let client = client.clone();
-
-            let future = async move {
+            if args.dry_run {
+                // Dry run: just print what would be downloaded
+                let mut path = parent.clone();
                 let filename = parser::parse_filename(&url)?;
-                let source_size = client
-                    .head(&url)
-                    .header(REFERER, referrer)
-                    .send()
-                    .await?
-                    .error_for_status()?
-                    .headers()
-                    .get(CONTENT_LENGTH)
-                    .and_then(|ct_len| ct_len.to_str().ok())
-                    .and_then(|ct_len| ct_len.parse().ok())
-                    .unwrap_or_default();
-
-                let mut dest = {
-                    if !path.exists() {
-                        fs::create_dir_all(&path).await?;
-                    }
-                    path.push(&filename);
-
-                    fs::OpenOptions::new()
-                        .append(!args.force)
-                        .truncate(args.force)
-                        .write(args.force)
-                        .create(true)
-                        .open(path)
-                        .await?
-                };
-
-                let file_size = dest.metadata().await?.len();
-                ensure!(file_size < source_size, filename + " already exists");
+                path.push(&filename);
 
                 let msg = match parse_number(&url) {
                     Some(num) => gen_msg!(num.value, num.alignment, anime.name),
                     _ => anime.name.clone(),
                 };
 
-                pb.set_position(file_size);
-                pb.set_length(source_size);
-                pb.set_message(msg);
+                println!("Would download: {} -> {}", msg, path.display());
+            } else {
+                let pb = ui.add_bar();
+                let mut path = parent.clone();
+                let client = client.clone();
 
-                let mut source = client
-                    .get(&url)
-                    .header(RANGE, format!("bytes={file_size}-"))
-                    .header(REFERER, referrer)
-                    .send()
-                    .await?
-                    .error_for_status()?;
-                while let Some(chunk) = source.chunk().await? {
-                    dest.write_all(&chunk).await?;
-                    pb.inc(chunk.len() as u64);
-                }
+                let future = async move {
+                    let filename = parser::parse_filename(&url)?;
+                    let source_size = client
+                        .head(&url)
+                        .header(REFERER, referrer)
+                        .send()
+                        .await?
+                        .error_for_status()?
+                        .headers()
+                        .get(CONTENT_LENGTH)
+                        .and_then(|ct_len| ct_len.to_str().ok())
+                        .and_then(|ct_len| ct_len.parse().ok())
+                        .unwrap_or_default();
 
-                pb.finish_with_message(pb.message() + " 👍");
+                    let mut dest = {
+                        if !path.exists() {
+                            fs::create_dir_all(&path).await?;
+                        }
+                        path.push(&filename);
 
-                Ok(())
-            };
+                        fs::OpenOptions::new()
+                            .append(!args.force)
+                            .truncate(args.force)
+                            .write(args.force)
+                            .create(true)
+                            .open(path)
+                            .await?
+                    };
 
-            pool.push(future);
+                    let file_size = dest.metadata().await?.len();
+                    ensure!(file_size < source_size, filename + " already exists");
+
+                    let msg = match parse_number(&url) {
+                        Some(num) => gen_msg!(num.value, num.alignment, anime.name),
+                        _ => anime.name.clone(),
+                    };
+
+                    pb.set_position(file_size);
+                    pb.set_length(source_size);
+                    pb.set_message(msg);
+
+                    let mut source = client
+                        .get(&url)
+                        .header(RANGE, format!("bytes={file_size}-"))
+                        .header(REFERER, referrer)
+                        .send()
+                        .await?
+                        .error_for_status()?;
+                    while let Some(chunk) = source.chunk().await? {
+                        dest.write_all(&chunk).await?;
+                        pb.inc(chunk.len() as u64);
+                    }
+
+                    pb.finish_with_message(pb.message() + " 👍");
+
+                    Ok(())
+                };
+
+                pool.push(future);
+            }
         }
     }
 
-    stream::iter(pool)
-        .buffer_unordered(args.dim_buff.max(1))
-        .collect::<Vec<_>>()
-        .await;
+    if !args.dry_run {
+        stream::iter(pool)
+            .buffer_unordered(args.dim_buff.max(1))
+            .collect::<Vec<_>>()
+            .await;
+    }
 
     Ok(())
 }
