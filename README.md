@@ -30,6 +30,12 @@ adl download -D <entries>
 
 to store every anime in a properly named directory.
 
+To preview what would be downloaded without actually downloading:
+
+```sh
+adl download --dry-run -D <entries>
+```
+
 Or for stream after scraped an archive:
 
 ```sh
