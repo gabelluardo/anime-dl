@@ -1,5 +1,3 @@
-#[cfg(feature = "anilist")]
-use crate::parser::{InfoNum, parse_number, parse_url};
 use crate::range::Range;
 
 #[derive(Clone, Default, Debug, PartialEq, Eq)]
@@ -79,9 +77,56 @@ pub async fn last_watched(_: Option<u32>, _: Option<u32>) -> Option<u32> {
     None
 }
 
-/// Fill url placeholder with episode digit
+/// Fill url placeholder with zero-padded episode number.
 pub fn gen_url(url: &str, num: u32, alignment: usize) -> String {
     url.replace("_{}", &format!("_{:0fill$}", num, fill = alignment))
+}
+
+#[derive(Clone, Copy, Default, Debug, PartialEq, Eq)]
+pub struct InfoNum {
+    pub value: u32,
+    pub alignment: usize,
+}
+
+/// Replace the detected episode number in a URL with a `{}` placeholder.
+pub fn parse_url(input: &str, num: Option<InfoNum>) -> String {
+    match num {
+        Some(info) => {
+            let num = format!("{:0fill$}", info.value, fill = info.alignment);
+            input.replace(&num, "{}")
+        }
+        None => input.into(),
+    }
+}
+
+/// Extract the episode number and its zero-padding from a URL, if present.
+pub fn parse_number(input: &str) -> Option<InfoNum> {
+    let chars = input.chars().collect::<Vec<_>>();
+
+    let positions = chars
+        .windows(2)
+        .enumerate()
+        .filter_map(|(i, window)| match window {
+            ['_', c] if c.is_ascii_digit() => Some(i),
+            [c, '_'] if c.is_ascii_digit() => Some(i),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+
+    match positions.as_slice() {
+        [start_idx, end_idx] => {
+            let sub_str = input[*start_idx..*end_idx + 1]
+                .chars()
+                .filter(char::is_ascii_digit)
+                .collect::<String>();
+
+            sub_str.parse::<u32>().ok().map(|value| InfoNum {
+                value,
+                alignment: sub_str.len(),
+            })
+        }
+        _ => None,
+    }
 }
 
 #[cfg(test)]

@@ -12,8 +12,8 @@ use which::which;
 
 use super::{Progress, Site};
 use crate::anilist::Anilist;
+use crate::anime::{parse_number, parse_url};
 use crate::archive::{AnimeWorld, Archive};
-use crate::parser::{parse_number, parse_percentage, parse_url};
 use crate::scraper::{CookieManager, ProxyManager, Scraper, ScraperConfig};
 use crate::tui::Tui;
 
@@ -116,7 +116,7 @@ pub async fn exec(args: Args) -> Result<()> {
                 }
 
                 line if line.contains('%') && !line.contains("(Paused)") => {
-                    progress.percentage(parse_percentage(line));
+                    progress.percentage(get_percentage(line));
                 }
 
                 _ => {}
@@ -127,4 +127,37 @@ pub async fn exec(args: Args) -> Result<()> {
     }
 
     Ok(())
+}
+
+/// Extract the percentage value from a player output line.
+fn get_percentage(input: &str) -> Option<u32> {
+    let sym = input.find('%')?;
+
+    // SAFE: `input` is a simple ASCII string
+    let bytes = input.as_bytes();
+
+    let mut start = sym;
+    while start > 0 && bytes[start - 1].is_ascii_digit() {
+        start -= 1;
+    }
+
+    if start == sym {
+        return None;
+    }
+
+    input.get(start..sym)?.parse().ok()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::get_percentage;
+
+    #[test]
+    fn test_get_percentage() {
+        assert_eq!(get_percentage("[status] 9%"), Some(9));
+        assert_eq!(get_percentage("[status] 100%"), Some(100));
+        assert_eq!(get_percentage("[status] 09%"), Some(9));
+        assert_eq!(get_percentage("[status] %"), None);
+        assert_eq!(get_percentage("[status] no percent"), None);
+    }
 }

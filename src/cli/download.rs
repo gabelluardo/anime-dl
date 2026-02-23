@@ -4,13 +4,13 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use super::Site;
+use crate::anime::parse_number;
 use crate::archive::{AnimeWorld, Archive};
-use crate::parser::{self, parse_number};
 use crate::range::Range;
 use crate::scraper::{CookieManager, ProxyManager, Scraper, ScraperConfig};
 use crate::tui::Tui;
 
-use anyhow::{Result, ensure};
+use anyhow::{Result, anyhow, ensure};
 use futures::stream::StreamExt;
 use reqwest::Client;
 use reqwest::header::{CONTENT_LENGTH, RANGE, REFERER};
@@ -108,8 +108,8 @@ pub async fn exec(args: Args) -> Result<()> {
 
         let mut parent = args.dir.clone();
         if args.auto_dir {
-            let name = parser::parse_name(&anime.url)?;
-            let dir = parser::recase_string(&name, '_', true);
+            let name = get_dir_name(&anime.url)?;
+            let dir = camel_to_snake(&name);
 
             parent.push(dir);
         }
@@ -120,7 +120,7 @@ pub async fn exec(args: Args) -> Result<()> {
             let client = client.clone();
 
             let future = async move {
-                let filename = parser::parse_filename(&url)?;
+                let filename = get_filename(&url)?;
                 let source_size = client
                     .head(&url)
                     .header(REFERER, referrer)
@@ -192,4 +192,76 @@ pub async fn exec(args: Args) -> Result<()> {
         .await;
 
     Ok(())
+}
+
+/// Extract the filename from a media URL.
+fn get_filename(input: &str) -> Result<String> {
+    reqwest::Url::parse(input)?
+        .path_segments()
+        .and_then(|mut s| s.next_back())
+        .map(|s| s.into())
+        .ok_or(anyhow!("Unable to get {input}"))
+}
+
+/// Extract the directory name from a media URL (before the first underscore).
+fn get_dir_name(input: &str) -> Result<String> {
+    let url = reqwest::Url::parse(input)?;
+    url.path_segments()
+        .and_then(|mut s| s.next_back())
+        .and_then(|s| s.split('_').next())
+        .map(|s| s.into())
+        .ok_or(anyhow!("Unable to get {input}"))
+}
+
+/// Convert a camelCase/PascalCase string into snake_case.
+pub fn camel_to_snake(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    let mut prev = None;
+
+    for c in s.chars() {
+        if c.is_ascii_uppercase()
+            && prev.is_some_and(|p: char| p.is_ascii_lowercase() || p.is_ascii_digit())
+        {
+            out.push('_');
+        }
+
+        out.push(c.to_ascii_lowercase());
+        prev = Some(c);
+    }
+
+    out
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_get_filename() {
+        let url = "https://www.domain.tld/sub/anotherSub/AnimeName/AnimeName_Ep_15_SUB_ITA.mp4";
+        let res = get_filename(url).unwrap();
+        assert_eq!(res, "AnimeName_Ep_15_SUB_ITA.mp4")
+    }
+
+    #[test]
+    fn test_get_dir_name() {
+        let url = "https://www.domain.tld/sub/anotherSub/AnimeName/AnimeName_Ep_15_SUB_ITA.mp4";
+        let res = get_dir_name(url).unwrap();
+        assert_eq!(res, "AnimeName")
+    }
+
+    #[test]
+    fn test_camel_to_snake() {
+        let res = camel_to_snake("AnimeName");
+        assert_eq!(res, "anime_name");
+
+        let res = camel_to_snake("IDInvaded");
+        assert_eq!(res, "idinvaded");
+
+        let res = camel_to_snake("SwordArtOnline2");
+        assert_eq!(res, "sword_art_online2");
+
+        let res = camel_to_snake("SlimeTaoshite300-nen");
+        assert_eq!(res, "slime_taoshite300-nen")
+    }
 }

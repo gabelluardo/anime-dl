@@ -5,7 +5,6 @@ mod anime;
 mod archive;
 mod cli;
 mod config;
-mod parser;
 mod range;
 mod scraper;
 mod tui;
