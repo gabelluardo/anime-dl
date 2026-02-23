@@ -43,7 +43,7 @@ Usage: adl [COMMAND]
 
 Commands:
   stream    Stream anime in a media player
-  download  Donwload anime
+  download  Download anime
   clean     Delete app cache
   help      Print this message or the help of the given subcommand(s)
 
@@ -68,7 +68,7 @@ adl stream <entries>
 ### Anilist
 
 > [!NOTE]
-> For [Anilist](https://anilist.co) integration create an enviroment variable
+> For [Anilist](https://anilist.co) integration create an environment variable
 > `ANIMEDL_ID` with the ID of your [developer api client](https://anilist.co/settings/developer),
 > or use the default of the app: `4047`
 

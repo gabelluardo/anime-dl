@@ -17,7 +17,7 @@ use reqwest::header::{CONTENT_LENGTH, RANGE, REFERER};
 use tokio::{fs, io::AsyncWriteExt};
 use tokio_stream as stream;
 
-/// Donwload anime
+/// Download anime
 #[derive(Parser, Debug, Default)]
 #[command(arg_required_else_help(true))]
 pub struct Args {
@@ -67,7 +67,7 @@ pub struct Args {
     #[arg(long, short = 'S', value_enum)]
     pub site: Option<Site>,
 
-    /// Retrive anime from anilist watching list        
+    /// Retrieve anime from anilist watching list        
     #[cfg(feature = "anilist")]
     #[arg(short, long)]
     pub watching: bool,

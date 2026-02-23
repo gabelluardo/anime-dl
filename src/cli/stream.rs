@@ -24,7 +24,7 @@ pub struct Args {
     /// Source urls or scraper's queries
     pub entries: Vec<String>,
 
-    /*  Common paramenters */
+    /*  Common parameters */
     /// Override app id environment variable    
     #[cfg(feature = "anilist")]
     #[arg(short, long, env = "ANIMEDL_ID", hide_env_values = true)]
@@ -38,7 +38,7 @@ pub struct Args {
     #[arg(long, short = 'S', value_enum)]
     pub site: Option<Site>,
 
-    /// Retrive anime from anilist watching list        
+    /// Retrieve anime from anilist watching list        
     #[cfg(feature = "anilist")]
     #[arg(short, long)]
     pub watching: bool,
