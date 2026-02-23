@@ -9,6 +9,7 @@ mod range;
 mod scraper;
 mod tui;
 
+use anyhow::Result;
 use cli::{Args, Command, Parser, download, stream};
 use config::clean_config;
 use owo_colors::OwoColorize;
@@ -17,14 +18,17 @@ use owo_colors::OwoColorize;
 async fn main() {
     let args = Args::parse();
 
-    let result = match args.command {
+    if let Err(err) = run(args).await {
+        eprintln!("{}", err.red());
+    }
+}
+
+async fn run(args: Args) -> Result<()> {
+    match args.command {
         Command::Stream(cmd) => stream::exec(cmd).await,
         Command::Download(cmd) => download::exec(cmd).await,
+
         #[cfg(feature = "anilist")]
         Command::Clean => clean_config(),
-    };
-
-    if let Err(err) = result {
-        eprintln!("{}", err.red());
     }
 }
