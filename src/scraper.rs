@@ -1,4 +1,3 @@
-use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::Result;
@@ -22,43 +21,44 @@ pub struct ScraperConfig {
     pub proxy: Option<String>,
 }
 
+const CONNECTION_TIMEOUT: Duration = Duration::from_secs(10);
+const REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
+
 #[derive(Debug)]
-pub struct Scraper {
-    client: Arc<Client>,
-}
+pub struct Scraper(Client);
 
 impl Scraper {
     pub fn new(config: ScraperConfig) -> Self {
-        let mut headers = header::HeaderMap::new();
+        let ScraperConfig { cookie, proxy } = config;
 
-        if let Some(cookie) = &config.cookie
-            && let Ok(value) = HeaderValue::from_str(cookie)
+        let mut headers = header::HeaderMap::new();
+        if let Some(c) = cookie
+            && let Ok(value) = HeaderValue::from_str(&c)
         {
             headers.insert(header::COOKIE, value);
         }
 
         let mut builder = Client::builder()
             .default_headers(headers)
-            .danger_accept_invalid_certs(true)
-            .timeout(Duration::from_secs(30))
-            .connect_timeout(Duration::from_secs(10));
+            .connect_timeout(CONNECTION_TIMEOUT)
+            .timeout(REQUEST_TIMEOUT)
+            // this enables support for http only sites
+            .danger_accept_invalid_certs(true);
 
-        if let Some(proxy) = &config.proxy
-            && let Ok(req_proxy) = reqwest::Proxy::http(proxy)
+        if let Some(p) = proxy
+            && let Ok(req_proxy) = reqwest::Proxy::http(p)
         {
             builder = builder.proxy(req_proxy)
         }
 
         let client = builder.build().unwrap_or_default();
 
-        Self {
-            client: Arc::new(client),
-        }
+        Self(client)
     }
 
     pub async fn search<T: Archive>(&self, searches: &[Search]) -> Result<Vec<Anime>> {
         let tasks = searches.iter().map(|search| {
-            let client = self.client.clone();
+            let client = self.0.clone();
             let search = search.clone();
 
             async move {
@@ -75,8 +75,8 @@ impl Scraper {
     }
 
     #[cfg(test)]
-    pub fn client(&self) -> Arc<Client> {
-        self.client.clone()
+    pub fn client(&self) -> Client {
+        self.0.clone()
     }
 }
 

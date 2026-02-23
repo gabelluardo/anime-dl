@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use anyhow::{Context, Result, anyhow, ensure};
 
 use futures::stream::StreamExt;
@@ -15,7 +13,7 @@ pub trait Archive {
     const REFERRER: &'static str;
     const COOKIE_NAME: &'static str;
 
-    async fn search(search: Search, client: Arc<Client>) -> Result<Vec<Anime>>;
+    async fn search(search: Search, client: Client) -> Result<Vec<Anime>>;
 }
 
 pub struct AnimeWorld;
@@ -23,8 +21,8 @@ impl Archive for AnimeWorld {
     const REFERRER: &'static str = "https://www.animeworld.ac";
     const COOKIE_NAME: &'static str = "SecurityAW";
 
-    async fn search(search: Search, client: Arc<Client>) -> Result<Vec<Anime>> {
-        async fn parse_url(client: &Arc<Client>, url: &str) -> Result<Html> {
+    async fn search(search: Search, client: Client) -> Result<Vec<Anime>> {
+        async fn parse_url(client: &Client, url: &str) -> Result<Html> {
             let response = client.get(url).send().await?.error_for_status()?;
             let fragment = Html::parse_fragment(&response.text().await?);
             Ok(fragment)
