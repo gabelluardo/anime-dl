@@ -49,6 +49,8 @@ impl Tui {
 
     #[cfg(feature = "anilist")]
     pub fn get_token(url: &str) -> Result<String> {
+        use std::process::exit;
+
         let oauth = "Anilist Oauth".cyan().bold().to_string();
         let action = "Authenticate to:".green().to_string();
         let url = url.magenta().bold().to_string();
@@ -58,7 +60,7 @@ impl Tui {
 
         let res = match input::parse_commands()? {
             input::Command::Default(line) => line,
-            _ => quit!(),
+            _ => exit(0),
         };
 
         Ok(res)

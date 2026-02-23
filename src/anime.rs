@@ -44,7 +44,7 @@ impl Anime {
             let value = num.value.checked_sub(1).unwrap_or(num.value);
 
             return range
-                .map(|i| gen_url!(self.url, i + value, num.alignment))
+                .map(|i| gen_url(&self.url, i + value, num.alignment))
                 .collect();
         }
 
@@ -55,7 +55,7 @@ impl Anime {
         if let Some(num) = self.num {
             return slice
                 .iter()
-                .map(|&i| gen_url!(self.url, i as u32, num.alignment))
+                .map(|&i| gen_url(&self.url, i as u32, num.alignment))
                 .collect();
         }
 
@@ -79,9 +79,27 @@ pub async fn last_watched(_: Option<u32>, _: Option<u32>) -> Option<u32> {
     None
 }
 
+/// Fill url placeholder with episode digit
+pub fn gen_url(url: &str, num: u32, alignment: usize) -> String {
+    url.replace("_{}", &format!("_{:0fill$}", num, fill = alignment))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_gen_url() {
+        let url = "https://robe_{}_.tld";
+
+        assert_eq!(gen_url(url, 1, 2), "https://robe_01_.tld");
+        assert_eq!(gen_url(url, 14, 2), "https://robe_14_.tld");
+        assert_eq!(gen_url(url, 1400, 2), "https://robe_1400_.tld");
+
+        assert_eq!(gen_url(url, 1, 3), "https://robe_001_.tld");
+        assert_eq!(gen_url(url, 14, 3), "https://robe_014_.tld");
+        assert_eq!(gen_url(url, 1400, 3), "https://robe_1400_.tld");
+    }
 
     #[test]
     fn test_extract_info() {

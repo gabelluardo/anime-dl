@@ -109,7 +109,7 @@ pub async fn exec(args: Args) -> Result<()> {
         let mut parent = args.dir.clone();
         if args.auto_dir {
             let name = parser::parse_name(&anime.url)?;
-            let dir = to_snake_case!(name);
+            let dir = parser::recase_string(&name, '_', true);
 
             parent.push(dir);
         }
@@ -152,7 +152,12 @@ pub async fn exec(args: Args) -> Result<()> {
                 ensure!(file_size < source_size, filename + " already exists");
 
                 let msg = match parse_number(&url) {
-                    Some(num) => gen_msg!(num.value, num.alignment, anime.name),
+                    Some(num) => format!(
+                        "Ep. {:0fill$} {}",
+                        num.value,
+                        anime.name,
+                        fill = num.alignment
+                    ),
                     _ => anime.name.clone(),
                 };
 

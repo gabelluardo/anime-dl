@@ -64,8 +64,13 @@ pub fn parse_number(input: &str) -> Option<InfoNum> {
 }
 
 pub fn parse_url(input: &str, num: Option<InfoNum>) -> String {
-    num.map(|info| input.replace(&zfill!(info.value, info.alignment), "{}"))
-        .unwrap_or(input.into())
+    num.map(|info| {
+        input.replace(
+            &format!("{:0fill$}", info.value, fill = info.alignment),
+            "{}",
+        )
+    })
+    .unwrap_or(input.into())
 }
 
 pub fn recase_string(s: &str, separator: char, all_lowercase: bool) -> String {

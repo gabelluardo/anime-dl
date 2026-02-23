@@ -1,3 +1,5 @@
+use std::process::exit;
+
 use anyhow::{Result, ensure};
 
 use crate::anilist::WatchingAnime;
@@ -32,7 +34,7 @@ pub fn select_from_watching(series: &[WatchingAnime]) -> Result<Vec<&WatchingAni
             .filter_map(|i| series.get(i - 1))
             .collect(),
         Command::Unwatched => series.iter().filter(|s| s.behind > 0).collect(),
-        Command::Quit => quit!(),
+        Command::Quit => exit(0),
     };
     println!();
 
@@ -60,7 +62,7 @@ pub fn select_series(series: &mut Vec<Anime>) -> Result<()> {
                 .filter_map(|i| series.get(i - 1).cloned())
                 .collect()
         }
-        _ => quit!(),
+        _ => exit(0),
     };
     println!();
 
@@ -118,7 +120,7 @@ pub fn select_episodes(anime: &Anime) -> Result<Vec<String>> {
             Some(index) => anime.select_from_index(index as u32),
             _ => anyhow::bail!("Invalid input"),
         },
-        Command::Quit => quit!(),
+        Command::Quit => exit(0),
     };
     println!();
 

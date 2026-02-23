@@ -1,6 +1,3 @@
-#[macro_use]
-mod macros;
-
 #[cfg(feature = "anilist")]
 mod anilist;
 
