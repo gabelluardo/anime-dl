@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use anyhow::{Result, bail};
+use anyhow::{Error, Result};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Range<T> {
@@ -15,14 +15,14 @@ where
     type Item = T;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.start <= self.end {
-            let current = self.start;
-            self.start += T::from(1);
-
-            Some(current)
-        } else {
-            None
+        if self.start > self.end {
+            return None;
         }
+
+        let current = self.start;
+        self.start += T::from(1);
+
+        Some(current)
     }
 }
 
@@ -35,12 +35,15 @@ where
     }
 
     pub fn parse(s: &str, end: Option<T>) -> Result<Self, <Self as FromStr>::Err> {
-        match (Self::from_str(s), end) {
-            (Ok(r), Some(end)) if r.end.gt(&end) || r.end.eq(&r.start) => {
-                Ok(Self::new(r.start, end))
-            }
-            (res, _) => res,
+        let result = Self::from_str(s)?;
+
+        if let Some(end) = end
+            && (result.end > end || result.end == result.start)
+        {
+            return Ok(Self::new(result.start, end));
         }
+
+        Ok(result)
     }
 }
 
@@ -63,7 +66,7 @@ impl<T> FromStr for Range<T>
 where
     T: Copy + FromStr + Ord,
 {
-    type Err = anyhow::Error;
+    type Err = Error;
 
     fn from_str(s: &str) -> Result<Self, <Self as FromStr>::Err> {
         let range_str = s
@@ -75,7 +78,7 @@ where
         let range = match range_str.as_slice() {
             [start] => Self::new(*start, *start),
             [start, end] | [start, .., end] => Self::new(*start, *end),
-            _ => bail!("Invalid range"),
+            _ => return Err(Error::msg("Invalid range")),
         };
 
         Ok(range)
@@ -122,7 +125,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic]
+    #[should_panic = "Invalid range"]
     fn test_wrong_range() {
         Range::<i32>::from_str("-").unwrap();
     }
