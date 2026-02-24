@@ -5,21 +5,25 @@ use reqwest::{Client, Url};
 use scraper::{Html, Selector};
 use tokio_stream as stream;
 
+use super::Archive;
 use crate::anime::{self, Anime};
 use crate::scraper::Search;
 use crate::tui::Tui;
-
-pub trait Archive {
-    const REFERRER: &'static str;
-    const COOKIE_NAME: &'static str;
-
-    async fn search(search: Search, client: Client) -> Result<Vec<Anime>>;
-}
 
 pub struct AnimeWorld;
 impl Archive for AnimeWorld {
     const REFERRER: &'static str = "https://www.animeworld.ac";
     const COOKIE_NAME: &'static str = "SecurityAW";
+
+    async fn extract_cookie() -> Option<String> {
+        let response = reqwest::get(Self::REFERRER).await.ok()?.text().await.ok()?;
+
+        response
+            .split(Self::COOKIE_NAME)
+            .nth(1)
+            .and_then(|s| s.split(" ;  path=/").next())
+            .map(|s| Self::COOKIE_NAME.to_owned() + s.trim())
+    }
 
     async fn search(search: Search, client: Client) -> Result<Vec<Anime>> {
         async fn parse_url(client: &Client, url: &str) -> Result<Html> {
@@ -28,11 +32,12 @@ impl Archive for AnimeWorld {
             Ok(fragment)
         }
 
-        let mut search_results = {
+        let search_results = {
             let keyword = &search.string;
             let referrer = Self::REFERRER;
             let search_url = format!("{referrer}/search?keyword={keyword}");
             let search_page = parse_url(&client, &search_url).await?;
+
             let anime_list = Selector::parse("div.film-list").unwrap();
             let name = Selector::parse("a.name").unwrap();
 
@@ -40,15 +45,20 @@ impl Archive for AnimeWorld {
                 .select(&anime_list)
                 .next()
                 .context("Request blocked, retry")?;
-            elem.select(&name)
-                .map(|a| a.value().attr("href").expect("No link found").to_string())
-                .collect::<Vec<_>>()
+
+            {
+                let mut r: Vec<_> = elem
+                    .select(&name)
+                    .map(|a| a.value().attr("href").expect("No link found").to_string())
+                    .collect();
+                r.sort_unstable();
+                r
+            }
         };
+
         ensure!(!search_results.is_empty(), "No anime found");
 
-        search_results.sort_unstable();
-
-        let pool = search_results
+        let pool: Vec<_> = search_results
             .iter()
             .map(async |url| {
                 let url = Self::REFERRER.to_string() + url;
@@ -59,12 +69,9 @@ impl Archive for AnimeWorld {
 
                 Ok::<Anime, anyhow::Error>(info)
             })
-            .collect::<Vec<_>>();
+            .collect();
 
-        let stream = stream::iter(pool)
-            .buffer_unordered(8)
-            .collect::<Vec<_>>()
-            .await;
+        let stream: Vec<_> = stream::iter(pool).buffer_unordered(8).collect().await;
         let mut anime = stream.into_iter().filter_map(|a| a.ok());
 
         if let Some(id) = search.id
@@ -73,10 +80,14 @@ impl Archive for AnimeWorld {
             return Ok(vec![anime]);
         }
 
-        let mut series = anime.collect::<Vec<_>>();
-        if series.len() > 1 {
-            Tui::select_series(&mut series)?;
-        }
+        let series = {
+            let mut s: Vec<_> = anime.collect();
+            if s.len() > 1 {
+                Tui::select_series(&mut s)?;
+            }
+
+            s
+        };
 
         Ok(series)
     }
@@ -212,7 +223,7 @@ mod tests {
     }
 
     mod animeworld {
-        use crate::scraper::{CookieManager, Scraper, ScraperConfig};
+        use crate::scraper::{Scraper, ScraperConfig};
 
         use super::*;
 
@@ -330,7 +341,7 @@ mod tests {
         #[ignore]
         async fn test_remote() {
             let file = "SeishunButaYarouWaBunnyGirlSenpaiNoYumeWoMinai_Ep_01_SUB_ITA.mp4";
-            let cookie = CookieManager::extract_cookie_for_site::<AnimeWorld>().await;
+            let cookie = AnimeWorld::extract_cookie().await;
             let config = ScraperConfig {
                 cookie,
                 proxy: None,

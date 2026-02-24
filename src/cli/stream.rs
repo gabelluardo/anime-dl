@@ -13,8 +13,8 @@ use which::which;
 use super::{Progress, Site};
 use crate::anilist::Anilist;
 use crate::anime::{parse_number, parse_url};
-use crate::archive::{AnimeWorld, Archive};
-use crate::scraper::{CookieManager, ProxyManager, Scraper, ScraperConfig};
+use crate::archive::AnimeWorld;
+use crate::scraper::ProxyManager;
 use crate::tui::Tui;
 
 /// Stream anime in a media player
@@ -57,15 +57,7 @@ pub async fn exec(args: Args) -> Result<()> {
     let proxy = ProxyManager::proxy(args.no_proxy).await;
 
     let (vec_anime, referrer) = match site {
-        Site::AW => {
-            let cookie = CookieManager::extract_cookie_for_site::<AnimeWorld>().await;
-            let config = ScraperConfig { proxy, cookie };
-
-            (
-                Scraper::new(config).search::<AnimeWorld>(&searches).await?,
-                AnimeWorld::REFERRER,
-            )
-        }
+        Site::AW => super::search_site::<AnimeWorld>(&searches, proxy).await?,
     };
 
     let (cmd, cmd_referrer) = if let Ok(c) = which("mpv") {

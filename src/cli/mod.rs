@@ -5,7 +5,9 @@ pub use clap::Parser;
 
 use crate::{
     anilist::{Anilist, WatchingAnime},
-    scraper::Search,
+    anime::Anime,
+    archive::Archive,
+    scraper::{Scraper, ScraperConfig, Search},
     tui::Tui,
 };
 
@@ -139,4 +141,16 @@ fn get_from_input(entries: Vec<String>) -> Result<Vec<Search>> {
         .collect();
 
     Ok(search)
+}
+
+async fn search_site<T: Archive>(
+    searches: &[Search],
+    proxy: Option<String>,
+) -> Result<(Vec<Anime>, &'static str)> {
+    let cookie = T::extract_cookie().await;
+    let config = ScraperConfig { proxy, cookie };
+
+    let anime = Scraper::new(config).search::<T>(searches).await?;
+
+    Ok((anime, T::REFERRER))
 }
