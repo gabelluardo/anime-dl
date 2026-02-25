@@ -90,8 +90,7 @@ impl ProgressMutation {
 #[derive(GraphQLQuery, Debug)]
 #[graphql(
     schema_path = "schema/anilist_schema.json",
-    query_path = "schema/watching_query.graphql",
-    response_derives = "Clone, Default"
+    query_path = "schema/watching_query.graphql"
 )]
 struct WatchingQuery;
 
