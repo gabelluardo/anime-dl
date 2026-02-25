@@ -15,11 +15,11 @@ use super::table::{
 pub fn select_from_watching(series: &[WatchingAnime]) -> Result<Vec<&WatchingAnime>> {
     let mut rows = vec![];
     for (i, c) in series.iter().enumerate() {
-        let behind = match c.behind {
+        let watched = match c.watched() {
             0 => "•".to_string(),
             n => n.to_string(),
         };
-        rows.push(vec![(i + 1).to_string(), c.title.clone(), behind]);
+        rows.push(vec![(i + 1).to_string(), c.title(), watched]);
     }
 
     let table = build_watching_table(vec!["Index", "Name", "Episodes Behind"], rows);
@@ -33,7 +33,7 @@ pub fn select_from_watching(series: &[WatchingAnime]) -> Result<Vec<&WatchingAni
             .iter()
             .filter_map(|i| series.get(i - 1))
             .collect(),
-        Command::Unwatched => series.iter().filter(|s| s.behind > 0).collect(),
+        Command::Unwatched => series.iter().filter(|s| s.watched() > 0).collect(),
         Command::Quit => exit(0),
     };
     println!();
@@ -71,8 +71,8 @@ pub fn select_series(series: &mut Vec<Anime>) -> Result<()> {
 
 /// Selects episodes from an anime
 pub fn select_episodes(anime: &Anime) -> Result<Vec<String>> {
-    fn icon(last: Option<u32>, index: u32) -> String {
-        if last.is_some_and(|i| i > index) {
+    fn icon(last: Option<i64>, index: u32) -> String {
+        if last.is_some_and(|i| i > index.into()) {
             "✔".to_string()
         } else {
             "✗".to_string()
@@ -86,7 +86,7 @@ pub fn select_episodes(anime: &Anime) -> Result<Vec<String>> {
         Some(Range { start, end }) => {
             for i in 0..end {
                 let index = start + i;
-                let watched = anime.last_watched.is_some_and(|l| l > i);
+                let watched = anime.last_watched.is_some_and(|l| l > i.into());
 
                 if next_to_watch.is_none() && !watched {
                     // rows.len() equals i at this point (before pushing the current row)

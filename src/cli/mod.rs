@@ -4,7 +4,7 @@ use anyhow::{Context, Result};
 pub use clap::Parser;
 
 use crate::{
-    anilist::{Anilist, WatchingAnime},
+    anilist::Anilist,
     anime::Anime,
     archive::Archive,
     scraper::{Scraper, ScraperConfig, Search},
@@ -36,7 +36,6 @@ pub enum Command {
     #[command(alias = "d")]
     Download(download::Args),
 
-    #[cfg(feature = "anilist")]
     /// Delete app cache
     Clean,
 }
@@ -93,8 +92,9 @@ impl Progress {
         if self.to_update()
             && let Some(progress) = self.queue.front_mut()
             && let Some(number) = progress.episode
+            && let Some(id) = progress.anime_id
         {
-            let result = self.anilist.update(progress.anime_id, number).await;
+            let result = self.anilist.update(id, number).await;
             progress.updated = result.is_ok();
         }
     }
@@ -116,13 +116,16 @@ async fn get_from_watching_list(anilist_id: Option<u32>) -> Result<Vec<Search>> 
 
     let search = Tui::select_from_watching(&list)?
         .iter()
-        .map(|WatchingAnime { title, id, .. }| Search {
-            string: title
+        .map(|info| {
+            let id = Some(info.id());
+            let string = info
+                .title()
                 .split_ascii_whitespace()
                 .take(3)
                 .collect::<Vec<_>>()
-                .join("+"),
-            id: Some(*id),
+                .join("+");
+
+            Search { string, id }
         })
         .collect();
 

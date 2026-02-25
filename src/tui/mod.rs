@@ -47,8 +47,7 @@ impl Tui {
         selector::select_episodes(anime)
     }
 
-    #[cfg(feature = "anilist")]
-    pub fn get_token(url: &str) -> Result<String> {
+    pub fn get_token(url: &str) -> String {
         use std::process::exit;
 
         let oauth = "Anilist Oauth".cyan().bold().to_string();
@@ -58,11 +57,9 @@ impl Tui {
         let text = oauth + "\n\n" + &action + " " + &url + "\n\n" + &input;
         println!("{text}");
 
-        let res = match input::parse_commands()? {
-            input::Command::Default(line) => line,
+        match input::parse_commands() {
+            Ok(input::Command::Default(line)) => line,
             _ => exit(0),
-        };
-
-        Ok(res)
+        }
     }
 }

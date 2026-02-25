@@ -1,6 +1,4 @@
-#[cfg(feature = "anilist")]
 mod anilist;
-
 mod anime;
 mod archive;
 mod cli;
@@ -27,8 +25,6 @@ async fn run(args: Args) -> Result<()> {
     match args.command {
         Command::Stream(cmd) => stream::exec(cmd).await,
         Command::Download(cmd) => download::exec(cmd).await,
-
-        #[cfg(feature = "anilist")]
         Command::Clean => clean_config(),
     }
 }

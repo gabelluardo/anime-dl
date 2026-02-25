@@ -6,7 +6,8 @@ use scraper::{Html, Selector};
 use tokio_stream as stream;
 
 use super::Archive;
-use crate::anime::{self, Anime};
+use crate::anilist::Anilist;
+use crate::anime::Anime;
 use crate::scraper::Search;
 use crate::tui::Tui;
 
@@ -58,6 +59,8 @@ impl Archive for AnimeWorld {
 
         ensure!(!search_results.is_empty(), "No anime found");
 
+        let anilist = Anilist::new(search.id)?;
+
         let pool: Vec<_> = search_results
             .iter()
             .map(async |url| {
@@ -65,7 +68,10 @@ impl Archive for AnimeWorld {
                 let page = parse_url(&client.clone(), &url).await?;
 
                 let mut info = Self::parser(page)?;
-                info.last_watched = anime::last_watched(search.id, info.id).await;
+
+                if let Some(id) = info.id {
+                    info.last_watched = anilist.get_progress(id).await.map(|(_, l)| l.into());
+                }
 
                 Ok::<Anime, anyhow::Error>(info)
             })

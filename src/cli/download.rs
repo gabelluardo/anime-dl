@@ -55,7 +55,6 @@ pub struct Args {
 
     /* Common parameters */
     /// Override app id environment variable    
-    #[cfg(feature = "anilist")]
     #[arg(short, long, env = "ANIMEDL_ID", hide_env_values = true)]
     pub anilist_id: Option<u32>,
 
@@ -68,7 +67,6 @@ pub struct Args {
     pub site: Option<Site>,
 
     /// Retrieve anime from anilist watching list        
-    #[cfg(feature = "anilist")]
     #[arg(short, long)]
     pub watching: bool,
 }

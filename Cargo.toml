@@ -28,19 +28,18 @@ tag-name = "v{{version}}"
 tag-message = "v{{version}}"
 pre-release-commit-message = "v{{version}}"
 
-[features]
-default = ["anilist"]
-anilist = ["graphql_client", "serde", "toml_edit"]
-
 [dependencies]
 anyhow = "1.0.100"
 futures = "0.3.31"
 indicatif = "0.18.3"
+graphql_client = "0.15.0"
 owo-colors = "4.2"
 rand = "0.9"
 rustyline = "17.0"
 scraper = "0.24.0"
+serde = "1.0.219"
 tabled = "0.20.0"
+toml_edit = "0.24.0"
 which = "8.0.0"
 
 clap = { version = "4.5.53", features = ["derive", "env"] }
@@ -56,12 +55,12 @@ tokio = { default-features = false, version = "1.48.0", features = [
 ] }
 tokio-stream = { version = "0.1.17", features = ["io-util"] }
 
-# Optional deps...
-
-## anilist
-graphql_client = { version = "0.15.0", optional = true }
-serde = { version = "1.0.219", optional = true }
-toml_edit = { version = "0.24.0", optional = true }
+[build-dependencies]
+reqwest = { version = "0.13.2", default-features = false, features = [
+    "blocking",
+    "json",
+] }
+serde_json = "1.0"
 
 [dev-dependencies]
 paste = "1.0"
