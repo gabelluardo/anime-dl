@@ -106,8 +106,14 @@ impl WatchingQuery {
             .await
             .ok()?;
 
-        let mut list: Vec<_> = json.data?.media_list_collection?.lists?[0]
-            .take()?
+        let collection = json
+            .data?
+            .media_list_collection?
+            .lists?
+            .get_mut(0)?
+            .take()?;
+
+        let mut list: Vec<_> = collection
             .entries?
             .into_iter()
             .filter_map(|collection| {
@@ -126,7 +132,7 @@ impl WatchingQuery {
             })
             .collect();
 
-        list.sort_unstable_by(|a, b| a.title.partial_cmp(&b.title).unwrap());
+        list.sort_by(|a, b| a.title.cmp(&b.title));
 
         Some(list)
     }
