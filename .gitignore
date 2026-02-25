@@ -3,3 +3,4 @@ prova
 .anime-dl.cache
 .idea
 *-report.html
+schema/anilist_schema.json
