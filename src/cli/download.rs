@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use super::Site;
-use crate::anime::parse_number;
+use crate::anime::get_episode_number;
 use crate::archive::AnimeWorld;
 use crate::range::Range;
 use crate::scraper::ProxyManager;
@@ -141,7 +141,7 @@ pub async fn exec(args: Args) -> Result<()> {
                 let file_size = dest.metadata().await?.len();
                 ensure!(file_size < source_size, filename + " already exists");
 
-                let msg = match parse_number(&url) {
+                let msg = match get_episode_number(&url) {
                     Some(num) => format!(
                         "Ep. {:0fill$} {}",
                         num.value,

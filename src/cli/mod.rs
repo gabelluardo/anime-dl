@@ -46,7 +46,6 @@ struct EpisodeProgress {
     episode: Option<u32>,
     percentage: Option<u32>,
     updated: bool,
-    count: u32,
 }
 
 #[derive(Default, Debug)]
@@ -55,56 +54,65 @@ struct Progress {
     queue: VecDeque<EpisodeProgress>,
 }
 
+const MIN_PERCENTAGE: u32 = 80;
+
 impl Progress {
     pub fn new(anilist: Anilist) -> Self {
-        Self {
-            anilist,
-            ..Default::default()
-        }
+        let queue = VecDeque::new();
+
+        Self { anilist, queue }
     }
 
-    pub fn push(&mut self, anime_id: Option<u32>, episode: Option<u32>) {
-        self.queue.push_back(EpisodeProgress {
+    pub fn track(&mut self, anime_id: Option<u32>, episode: Option<u32>) {
+        let Self { queue, .. } = self;
+
+        let progess = EpisodeProgress {
             anime_id,
             episode,
-            ..Default::default()
-        });
+            percentage: None,
+            updated: false,
+        };
+
+        queue.push_back(progess);
     }
 
-    pub fn percentage(&mut self, percentage: Option<u32>) {
-        match (self.queue.front_mut(), percentage) {
+    pub fn update(&mut self, percentage: Option<u32>) {
+        let Self { queue, .. } = self;
+
+        match (queue.front_mut(), percentage) {
             // update current episode
             (Some(p), Some(_)) if p.percentage <= percentage => {
                 p.percentage = percentage;
-                p.count += 1;
             }
 
             // new episode is selected, pass to the next
             (Some(EpisodeProgress { updated: true, .. }), Some(0)) => {
-                self.queue.pop_front();
+                queue.pop_front();
             }
 
             _ => (),
         }
     }
 
-    pub async fn update(&mut self) {
-        if self.to_update()
-            && let Some(progress) = self.queue.front_mut()
+    pub async fn send(&mut self) {
+        fn need_update(queue: &mut VecDeque<EpisodeProgress>) -> bool {
+            if let Some(p) = queue.front() {
+                return !p.updated && p.percentage.is_some_and(|p| p > MIN_PERCENTAGE);
+            }
+
+            false
+        }
+
+        let Self { anilist, queue } = self;
+
+        if need_update(queue)
+            && let Some(progress) = queue.front_mut()
             && let Some(number) = progress.episode
             && let Some(id) = progress.anime_id
         {
-            let result = self.anilist.update(id, number).await;
+            let result = anilist.update(id, number).await;
             progress.updated = result.is_ok();
         }
-    }
-
-    fn to_update(&self) -> bool {
-        if let Some(p) = self.queue.front() {
-            return !p.updated && p.count >= 5 && p.percentage.is_some_and(|p| p > 80);
-        }
-
-        false
     }
 }
 

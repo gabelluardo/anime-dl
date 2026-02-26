@@ -14,8 +14,8 @@ pub struct Anime {
 
 impl Anime {
     pub fn new(name: &str, input: &str, id: Option<u32>, range: Option<Range<u32>>) -> Self {
-        let num = parse_number(input);
-        let url = parse_url(input, num);
+        let num = get_episode_number(input);
+        let url = remove_episode_number(input, num);
         let start = num.unwrap_or_default().value;
 
         Anime {
@@ -76,7 +76,7 @@ pub struct InfoNum {
 }
 
 /// Replace the detected episode number in a URL with a `{}` placeholder.
-pub fn parse_url(input: &str, num: Option<InfoNum>) -> String {
+pub fn remove_episode_number(input: &str, num: Option<InfoNum>) -> String {
     match num {
         Some(InfoNum { value, alignment }) => {
             let num = format!("{:0fill$}", value, fill = alignment);
@@ -87,7 +87,7 @@ pub fn parse_url(input: &str, num: Option<InfoNum>) -> String {
 }
 
 /// Extract the episode number and its zero-padding from a URL, if present.
-pub fn parse_number(input: &str) -> Option<InfoNum> {
+pub fn get_episode_number(input: &str) -> Option<InfoNum> {
     let chars: Vec<_> = input.chars().collect();
     let positions: Vec<_> = chars
         .windows(2)
