@@ -1,6 +1,12 @@
 use std::str::FromStr;
 
-use anyhow::{Error, Result};
+use anyhow::Result;
+
+#[derive(thiserror::Error, Debug)]
+pub enum RangeError {
+    #[error("invalid range string")]
+    Invalid,
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Range<T> {
@@ -10,7 +16,7 @@ pub struct Range<T> {
 
 impl<T> Iterator for Range<T>
 where
-    T: Copy + PartialOrd + std::ops::AddAssign<T> + From<u8>,
+    T: Copy + PartialOrd + std::ops::Add<Output = T> + From<u8>,
 {
     type Item = T;
 
@@ -20,7 +26,7 @@ where
         }
 
         let current = self.start;
-        self.start += T::from(1);
+        self.start = self.start + T::from(1);
 
         Some(current)
     }
@@ -66,7 +72,7 @@ impl<T> FromStr for Range<T>
 where
     T: Copy + FromStr + Ord,
 {
-    type Err = Error;
+    type Err = RangeError;
 
     fn from_str(s: &str) -> Result<Self, <Self as FromStr>::Err> {
         let range_str = s
@@ -78,7 +84,7 @@ where
         let range = match range_str.as_slice() {
             [start] => Self::new(*start, *start),
             [start, end] | [start, .., end] => Self::new(*start, *end),
-            _ => return Err(Error::msg("Invalid range")),
+            _ => return Err(RangeError::Invalid),
         };
 
         Ok(range)
