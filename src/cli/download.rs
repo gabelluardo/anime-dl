@@ -1,7 +1,6 @@
 use clap::Parser;
 
 use std::path::PathBuf;
-use std::sync::Arc;
 
 use super::Site;
 use crate::anime::get_episode_number;
@@ -10,10 +9,10 @@ use crate::range::Range;
 use crate::scraper::ProxyManager;
 use crate::tui::Tui;
 
-use anyhow::{Result, anyhow, ensure};
+use anyhow::{Context, Result, anyhow};
 use futures::stream::StreamExt;
-use reqwest::Client;
-use reqwest::header::{CONTENT_LENGTH, RANGE, REFERER};
+use reqwest::header::{CONTENT_LENGTH, REFERER};
+use reqwest::{Client, Response};
 use tokio::{fs, io::AsyncWriteExt};
 use tokio_stream as stream;
 
@@ -24,10 +23,6 @@ pub struct Args {
     /// Source urls or scraper's queries
     pub entries: Vec<String>,
 
-    /// Save files in a folder with a default name
-    #[arg(short = 'D', long = "default-dir")]
-    pub auto_dir: bool,
-
     /// Maximum number of simultaneous downloads allowed
     #[arg(
         default_value = "24",
@@ -35,15 +30,11 @@ pub struct Args {
         long = "max-concurrent",
         name = "MAX"
     )]
-    pub dim_buff: usize,
+    pub max_concurrent: usize,
 
     /// Root path where store files
     #[arg(default_value = ".", short, long)]
-    pub dir: PathBuf,
-
-    /// Override existent files
-    #[arg(short, long)]
-    pub force: bool,
+    pub destination: PathBuf,
 
     /// Interactive mode
     #[arg(short, long, conflicts_with = "range")]
@@ -72,104 +63,94 @@ pub struct Args {
 }
 
 pub async fn exec(args: Args) -> Result<()> {
-    let client_id = args.anilist_id;
-    let site = args.site.unwrap_or_default();
+    let Args {
+        entries,
+        max_concurrent,
+        destination,
+        interactive,
+        range,
+        anilist_id,
+        no_proxy,
+        site,
+        watching,
+    } = args;
 
-    let searches = if args.watching || args.entries.is_empty() {
-        super::get_from_watching_list(client_id).await?
+    let searches = if watching || entries.is_empty() {
+        super::get_from_watching_list(anilist_id).await?
     } else {
-        super::get_from_input(args.entries)?
+        super::get_from_input(entries)?
     };
 
-    let proxy = ProxyManager::proxy(args.no_proxy).await;
+    let proxy = ProxyManager::proxy(no_proxy).await;
 
-    let (vec_anime, referrer) = match site {
-        Site::AW => super::search_site::<AnimeWorld>(&searches, proxy).await?,
+    let (search_result, referrer) = match site {
+        Some(Site::AW) | None => super::search_site::<AnimeWorld>(&searches, proxy).await?,
     };
 
     let ui = Tui::new();
-    let client = Arc::new(Client::new());
-    let mut pool = vec![];
-    for anime in &vec_anime {
-        let episodes: Vec<String> = match args.range {
-            Some(range) if !args.interactive => anime.select_from_range(range),
+    let client = Client::new();
+
+    let mut pool = Vec::new();
+    for anime in &search_result {
+        let episodes: Vec<String> = match range {
+            Some(range) if !interactive => anime.select_from_range(range),
             _ => Tui::select_episodes(anime)?,
         };
 
-        let mut parent = args.dir.clone();
-        if args.auto_dir {
+        let root = {
+            let mut root = destination.clone();
             let name = get_dir_name(&anime.url)?;
             let dir = camel_to_snake(&name);
+            root.push(dir);
 
-            parent.push(dir);
-        }
+            root
+        };
+        fs::create_dir_all(&root).await?;
 
         for url in episodes {
             let pb = ui.add_bar();
-            let mut path = parent.clone();
             let client = client.clone();
+            let name = anime.name.clone();
+            let dest = {
+                let mut dest = root.clone();
+                let filename = get_filename(&url)?;
+                dest.push(filename);
+
+                dest
+            };
+            let tmp_dest = {
+                let mut tmp_dest = dest.clone();
+                tmp_dest.add_extension("tmp");
+
+                tmp_dest
+            };
 
             let future = async move {
-                let filename = get_filename(&url)?;
-                let source_size = client
-                    .head(&url)
-                    .header(REFERER, referrer)
-                    .send()
-                    .await?
-                    .error_for_status()?
-                    .headers()
-                    .get(CONTENT_LENGTH)
-                    .and_then(|ct_len| ct_len.to_str().ok())
-                    .and_then(|ct_len| ct_len.parse().ok())
-                    .unwrap_or_default();
-
-                let mut dest = {
-                    if !path.exists() {
-                        fs::create_dir_all(&path).await?;
-                    }
-                    path.push(&filename);
-
-                    fs::OpenOptions::new()
-                        .append(!args.force)
-                        .truncate(args.force)
-                        .write(args.force)
-                        .create(true)
-                        .open(path)
-                        .await?
-                };
-
-                let file_size = dest.metadata().await?.len();
-                ensure!(file_size < source_size, filename + " already exists");
-
-                let msg = match get_episode_number(&url) {
-                    Some(num) => format!(
-                        "Ep. {:0fill$} {}",
-                        num.value,
-                        anime.name,
-                        fill = num.alignment
-                    ),
-                    _ => anime.name.clone(),
-                };
-
-                pb.set_position(file_size);
+                let source_size = get_source_size(&client, &url, referrer).await?;
+                let msg = get_progress_message(&url, &name);
+                pb.set_position(0);
                 pb.set_length(source_size);
                 pb.set_message(msg);
 
-                let mut source = client
-                    .get(&url)
-                    .header(RANGE, format!("bytes={file_size}-"))
-                    .header(REFERER, referrer)
-                    .send()
-                    .await?
-                    .error_for_status()?;
+                let mut file = fs::OpenOptions::new()
+                    .write(true)
+                    .create(true)
+                    .truncate(true)
+                    .open(&tmp_dest)
+                    .await?;
+
+                let mut source = get(&client, &url, referrer).await?;
                 while let Some(chunk) = source.chunk().await? {
-                    dest.write_all(&chunk).await?;
+                    file.write_all(&chunk).await?;
                     pb.inc(chunk.len() as u64);
                 }
 
+                fs::copy(&tmp_dest, &dest).await?;
+                fs::remove_file(tmp_dest).await?;
+
                 pb.finish_with_message(pb.message() + " 👍");
 
-                Ok(())
+                anyhow::Ok(())
             };
 
             pool.push(future);
@@ -177,11 +158,45 @@ pub async fn exec(args: Args) -> Result<()> {
     }
 
     stream::iter(pool)
-        .buffer_unordered(args.dim_buff.max(1))
+        .buffer_unordered(max_concurrent.max(1))
         .collect::<Vec<_>>()
         .await;
 
     Ok(())
+}
+
+async fn get_source_size(client: &Client, url: &str, referrer: &str) -> Result<u64> {
+    let response = client
+        .head(url)
+        .header(REFERER, referrer)
+        .send()
+        .await?
+        .error_for_status()?;
+    let content_len = response
+        .headers()
+        .get(CONTENT_LENGTH)
+        .context("unable to get content length")?;
+
+    let size = content_len.to_str()?.parse()?;
+
+    Ok(size)
+}
+async fn get(client: &Client, url: &str, referrer: &str) -> Result<Response> {
+    let response = client
+        .get(url)
+        .header(REFERER, referrer)
+        .send()
+        .await?
+        .error_for_status()?;
+
+    Ok(response)
+}
+
+fn get_progress_message(url: &str, name: &str) -> String {
+    match get_episode_number(url) {
+        Some(num) => format!("Ep. {:0fill$} {}", num.value, name, fill = num.alignment),
+        _ => name.to_owned(),
+    }
 }
 
 /// Extract the filename from a media URL.
