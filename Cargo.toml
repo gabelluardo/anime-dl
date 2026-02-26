@@ -65,3 +65,4 @@ serde_json = "1.0"
 
 [dev-dependencies]
 paste = "1.0"
+serial_test = "3.4.0"

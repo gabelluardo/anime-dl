@@ -63,7 +63,8 @@ fn safe_save(content: &str, dest: &Path) -> Result<()> {
     };
 
     fs::write(&tmp_dest, content)?;
-    fs::copy(tmp_dest, dest)?;
+    fs::copy(&tmp_dest, dest)?;
+    fs::remove_file(tmp_dest)?;
 
     Ok(())
 }
@@ -118,11 +119,14 @@ fn config_path() -> PathBuf {
 
 #[cfg(test)]
 mod tests {
+    use serial_test::serial;
+
     use super::*;
 
     const TEST_DATA: &str = "data test config";
 
     #[test]
+    #[serial]
     fn test_save() {
         let res = save("test", TEST_DATA);
         assert!(res.is_ok());
@@ -132,6 +136,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_clean() {
         let res = save("test", TEST_DATA);
         assert!(res.is_ok());
