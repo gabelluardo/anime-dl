@@ -16,48 +16,51 @@ impl Anime {
     pub fn new(name: &str, input: &str, id: Option<u32>, range: Option<Range<u32>>) -> Self {
         let num = parse_number(input);
         let url = parse_url(input, num);
+        let start = num.unwrap_or_default().value;
 
         Anime {
             id,
             num,
             range,
+            start,
             url,
+            last_watched: None,
             name: name.into(),
             origin: input.into(),
-            start: num.unwrap_or_default().value,
-            ..Default::default()
         }
     }
 
     pub fn select_from_index(&self, start: u32) -> Vec<String> {
-        if let Some(Range { end, .. }) = self.range {
-            return self.select_from_range(Range::new(start, end));
-        }
+        let Self { url, range, .. } = self;
 
-        vec![self.url.clone()]
+        match range {
+            Some(r) => self.select_from_range(Range::new(start, r.end)),
+            None => vec![url.clone()],
+        }
     }
 
     pub fn select_from_range(&self, range: Range<u32>) -> Vec<String> {
-        if let Some(num) = self.num {
-            let value = num.value.checked_sub(1).unwrap_or(num.value);
+        let Self { url, num, .. } = self;
 
-            return range
-                .map(|i| gen_url(&self.url, i + value, num.alignment))
-                .collect();
+        match num {
+            Some(InfoNum { value, alignment }) => {
+                let value = value.checked_sub(1).unwrap_or(*value);
+                range.map(|i| gen_url(url, i + value, *alignment)).collect()
+            }
+            None => vec![url.clone()],
         }
-
-        vec![self.url.clone()]
     }
 
     pub fn select_from_slice(&self, slice: &[usize]) -> Vec<String> {
-        if let Some(num) = self.num {
-            return slice
-                .iter()
-                .map(|&i| gen_url(&self.url, i as u32, num.alignment))
-                .collect();
-        }
+        let Self { url, num, .. } = self;
 
-        vec![self.url.clone()]
+        match num {
+            Some(InfoNum { alignment, .. }) => slice
+                .iter()
+                .map(|&i| gen_url(&self.url, i as u32, *alignment))
+                .collect(),
+            None => vec![url.clone()],
+        }
     }
 }
 
@@ -75,8 +78,8 @@ pub struct InfoNum {
 /// Replace the detected episode number in a URL with a `{}` placeholder.
 pub fn parse_url(input: &str, num: Option<InfoNum>) -> String {
     match num {
-        Some(info) => {
-            let num = format!("{:0fill$}", info.value, fill = info.alignment);
+        Some(InfoNum { value, alignment }) => {
+            let num = format!("{:0fill$}", value, fill = alignment);
             input.replace(&num, "{}")
         }
         None => input.into(),
@@ -85,9 +88,8 @@ pub fn parse_url(input: &str, num: Option<InfoNum>) -> String {
 
 /// Extract the episode number and its zero-padding from a URL, if present.
 pub fn parse_number(input: &str) -> Option<InfoNum> {
-    let chars = input.chars().collect::<Vec<_>>();
-
-    let positions = chars
+    let chars: Vec<_> = input.chars().collect();
+    let positions: Vec<_> = chars
         .windows(2)
         .enumerate()
         .filter_map(|(i, window)| match window {
@@ -95,19 +97,16 @@ pub fn parse_number(input: &str) -> Option<InfoNum> {
             [c, '_'] if c.is_ascii_digit() => Some(i),
             _ => None,
         })
-        .collect::<Vec<_>>();
+        .collect();
 
     match positions.as_slice() {
-        [start_idx, end_idx] => {
-            let sub_str = input[*start_idx..*end_idx + 1]
-                .chars()
-                .filter(char::is_ascii_digit)
-                .collect::<String>();
+        [start, end] => {
+            let str = &input[*start + 1..*end + 1];
 
-            sub_str.parse::<u32>().ok().map(|value| InfoNum {
-                value,
-                alignment: sub_str.len(),
-            })
+            let value = str.parse::<u32>().ok()?;
+            let alignment = str.len();
+
+            Some(InfoNum { value, alignment })
         }
         _ => None,
     }
