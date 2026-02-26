@@ -1,6 +1,5 @@
-use std::fs::File;
+use std::fs;
 use std::path::{Path, PathBuf};
-use std::{fs, io::Read, io::Write};
 
 use anyhow::{Context, Result};
 use toml_edit::Document;
@@ -49,34 +48,22 @@ pub fn save(key: &str, value: &str) -> Result<()> {
 /// Loads and parses the TOML configuration file
 fn load_toml() -> Result<Document<String>> {
     let path = config_path();
-
-    let mut file = File::open(path)?;
-    let mut content = String::new();
-    file.read_to_string(&mut content)?;
-
+    let content = fs::read_to_string(path)?;
     let toml = content.parse::<Document<String>>()?;
 
     Ok(toml)
 }
 
 /// Saves content using a temporary file to avoid corruption
-fn safe_save(content: &str, path: &Path) -> Result<()> {
-    let tmp_path = {
-        let mut p = path.to_path_buf();
+fn safe_save(content: &str, dest: &Path) -> Result<()> {
+    let tmp_dest = {
+        let mut p = dest.to_path_buf();
         p.add_extension("tmp");
         p
     };
 
-    {
-        let mut file = fs::OpenOptions::new()
-            .write(true)
-            .create(true)
-            .truncate(false)
-            .open(&tmp_path)?;
-        file.write_all(content.as_bytes())?;
-    }
-
-    fs::copy(tmp_path, path)?;
+    fs::write(&tmp_dest, content)?;
+    fs::copy(tmp_dest, dest)?;
 
     Ok(())
 }
