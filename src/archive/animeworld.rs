@@ -70,7 +70,7 @@ impl Archive for AnimeWorld {
                 let mut info = Self::parser(page)?;
 
                 if let Some(id) = info.id {
-                    info.last_watched = anilist.get_progress(id).await.map(|(_, l)| l.into());
+                    info.last_watched = anilist.get_progress(id).await.map(|(_, l)| l);
                 }
 
                 Ok::<Anime, anyhow::Error>(info)

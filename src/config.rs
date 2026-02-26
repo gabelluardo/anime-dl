@@ -71,6 +71,7 @@ fn safe_save(content: &str, path: &Path) -> Result<()> {
         let mut file = fs::OpenOptions::new()
             .write(true)
             .create(true)
+            .truncate(false)
             .open(&tmp_path)?;
         file.write_all(content.as_bytes())?;
     }
