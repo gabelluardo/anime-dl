@@ -19,7 +19,7 @@ pub fn load(key: &str) -> Option<String> {
 pub fn save(key: &str, value: &str) -> Result<()> {
     let path = config_path();
 
-    let doc = match load_toml() {
+    let toml = match load_toml() {
         Ok(t) => t,
         Err(_) => {
             if let Some(p) = path.parent() {
@@ -31,14 +31,14 @@ pub fn save(key: &str, value: &str) -> Result<()> {
     };
 
     let config = {
-        let mut toml = doc.into_mut();
-        if !toml.contains_table(TABLE_NAME) {
-            toml[TABLE_NAME] = toml_edit::table();
+        let mut doc = toml.into_mut();
+        if !doc.contains_table(TABLE_NAME) {
+            doc[TABLE_NAME] = toml_edit::table();
         }
-        toml[TABLE_NAME][key] = toml_edit::value(value);
-        toml.fmt();
+        doc[TABLE_NAME][key] = toml_edit::value(value);
+        doc.fmt();
 
-        toml.to_string()
+        doc.to_string()
     };
 
     safe_save(&config, &path)?;
