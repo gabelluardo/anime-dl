@@ -3,8 +3,7 @@ use anyhow::{Result, anyhow};
 use graphql_client::{GraphQLQuery, Response};
 use reqwest::{Client, header, header::HeaderValue};
 
-use crate::config::{load_config, save_config};
-use crate::tui::Tui;
+use crate::{config, tui::Tui};
 
 const ENDPOINT: &str = "https://graphql.anilist.co";
 
@@ -165,7 +164,7 @@ pub struct Anilist {
 impl Anilist {
     pub fn new(client_id: Option<u32>) -> Result<Self> {
         let client_id = client_id.unwrap_or(4047);
-        let token = load_config("anilist", "token").map_or_else(|_| oauth_token(client_id), Ok)?;
+        let token = config::load("token").map_or_else(|| oauth_token(client_id), Ok)?;
 
         let mut headers = header::HeaderMap::new();
         headers.insert(header::ACCEPT, HeaderValue::from_static("application/json"));
@@ -221,7 +220,7 @@ fn oauth_token(client_id: u32) -> Result<String> {
     );
     let token = Tui::get_token(&url);
 
-    save_config("anilist", "token", &token)?;
+    config::save("token", &token)?;
 
     Ok(token)
 }

@@ -9,7 +9,7 @@ mod tui;
 
 use anyhow::Result;
 use cli::{Args, Command, Parser, download, stream};
-use config::clean_config;
+use config::clean;
 use owo_colors::OwoColorize;
 
 #[tokio::main]
@@ -25,6 +25,6 @@ async fn run(args: Args) -> Result<()> {
     match args.command {
         Command::Stream(cmd) => stream::exec(cmd).await,
         Command::Download(cmd) => download::exec(cmd).await,
-        Command::Clean => clean_config(),
+        Command::Clean => clean(),
     }
 }
