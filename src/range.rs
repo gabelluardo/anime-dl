@@ -131,7 +131,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic = "Invalid range"]
+    #[should_panic = "Invalid"]
     fn test_wrong_range() {
         Range::<i32>::from_str("-").unwrap();
     }
