@@ -1,48 +1,26 @@
 use owo_colors::OwoColorize;
 use tabled::{
+    Table,
     builder::Builder,
     settings::{
-        Alignment, Modify, Style,
+        Alignment, Color, Modify, Style,
         object::{Columns, Rows, Segment},
         themes::Colorization,
     },
 };
 
-use super::style::*;
+const HEADER_COLOR: Color = Color::FG_WHITE;
+const TABLE_COLORS: [Color; 3] = [Color::FG_MAGENTA, Color::FG_GREEN, Color::FG_BRIGHT_BLUE];
 
 /// Builds a table with consistent styling for watching anime
-pub fn build_watching_table(headers: Vec<&str>, rows: Vec<Vec<String>>) -> String {
-    let mut builder = Builder::default();
-    builder.push_record(headers);
-    for row in rows {
-        builder.push_record(row);
-    }
-
-    let mut table = builder.build();
+pub fn build_table(headers: Vec<&str>, rows: Vec<Vec<String>>) -> String {
+    let mut table = new_table(headers, rows);
     table
         .with(Style::rounded())
-        .with(Colorization::columns(TABLE_COLORS_WATCHING))
-        .with(Modify::new(Rows::first()).with(TABLE_HEADER_COLOR))
+        .with(Colorization::columns(TABLE_COLORS))
+        .with(Modify::new(Rows::first()).with(HEADER_COLOR))
         .with(Modify::new(Columns::first()).with(Alignment::center()))
-        .with(Modify::new(Columns::last()).with(Alignment::center()));
-
-    table.to_string()
-}
-
-/// Builds a table with consistent styling for series selection
-pub fn build_series_table(headers: Vec<&str>, rows: Vec<Vec<String>>) -> String {
-    let mut builder = Builder::default();
-    builder.push_record(headers);
-    for row in rows {
-        builder.push_record(row);
-    }
-
-    let mut table = builder.build();
-    table
-        .with(Style::rounded())
-        .with(Colorization::columns(TABLE_COLORS_SERIES))
-        .with(Modify::new(Rows::first()).with(TABLE_HEADER_COLOR))
-        .with(Modify::new(Columns::first()).with(Alignment::center()));
+        .with(Modify::new(Columns::one(2)).with(Alignment::center()));
 
     table.to_string()
 }
@@ -51,27 +29,18 @@ pub fn build_series_table(headers: Vec<&str>, rows: Vec<Vec<String>>) -> String 
 pub fn build_episodes_table(
     headers: Vec<&str>,
     rows: Vec<Vec<String>>,
-    highlight_row: Option<usize>,
+    highlighted_row: Option<usize>,
 ) -> String {
-    let mut builder = Builder::default();
-    builder.push_record(headers);
-    for row in rows {
-        builder.push_record(row);
-    }
-
-    let mut table = builder.build();
+    let mut table = new_table(headers, rows);
     table
         .with(Style::rounded())
-        .with(Colorization::columns(TABLE_COLORS_EPISODES))
-        .with(Modify::new(Rows::first()).with(TABLE_HEADER_COLOR))
+        .with(Colorization::columns(TABLE_COLORS))
+        .with(Modify::new(Rows::first()).with(HEADER_COLOR))
         .with(Modify::new(Segment::all()).with(Alignment::center()));
 
-    if let Some(index) = highlight_row {
-        use tabled::settings::Color;
-        table.with(Colorization::exact(
-            [Color::FG_BLACK | Color::BG_WHITE],
-            Rows::one(index),
-        ));
+    if let Some(index) = highlighted_row {
+        let colors = [Color::FG_BLACK | Color::BG_WHITE];
+        table.with(Colorization::exact(colors, Rows::one(index)));
     }
 
     table.to_string()
@@ -87,6 +56,16 @@ pub fn print_title(title: &str) {
     println!("{}\n", title.cyan().bold());
 }
 
+fn new_table(headers: Vec<&str>, rows: Vec<Vec<String>>) -> Table {
+    let mut builder = Builder::default();
+    builder.push_record(headers);
+    for row in rows {
+        builder.push_record(row);
+    }
+
+    builder.build()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -99,7 +78,7 @@ mod tests {
             vec!["2".to_string(), "Anime 2".to_string(), "0".to_string()],
         ];
 
-        let table = build_watching_table(headers, rows);
+        let table = build_table(headers, rows);
 
         // Verify table contains expected data
         assert!(table.contains("Index"));
@@ -118,7 +97,7 @@ mod tests {
             vec!["2".to_string(), "Series 2".to_string()],
         ];
 
-        let table = build_series_table(headers, rows);
+        let table = build_table(headers, rows);
 
         // Verify table contains expected data
         assert!(table.contains("Index"));

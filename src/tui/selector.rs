@@ -5,31 +5,33 @@ use anyhow::{Result, ensure};
 use crate::anilist::WatchingAnime;
 use crate::anime::Anime;
 use crate::range::Range;
+use crate::tui::TuiError;
 
-use super::input::{Command, parse_commands, parse_input};
-use super::table::{
-    build_episodes_table, build_series_table, build_watching_table, print_prompt, print_title,
-};
+use super::input::{Command, get_command, get_selection};
+use super::table::{build_episodes_table, build_table, print_prompt, print_title};
 
 /// Selects from a list of watching anime
 pub fn select_from_watching(series: &[WatchingAnime]) -> Result<Vec<&WatchingAnime>> {
-    let mut rows = vec![];
-    for (i, c) in series.iter().enumerate() {
-        let watched = match c.watched() {
-            0 => "•".to_string(),
-            n => n.to_string(),
-        };
-        rows.push(vec![(i + 1).to_string(), c.title(), watched]);
-    }
+    let rows = {
+        let mut rows = Vec::new();
+        for (i, c) in series.iter().enumerate() {
+            let watched = match c.watched() {
+                0 => "•".to_string(),
+                n => n.to_string(),
+            };
+            rows.push(vec![(i + 1).to_string(), c.title(), watched]);
+        }
+        rows
+    };
 
-    let table = build_watching_table(vec!["Index", "Name", "Episodes Behind"], rows);
+    let table = build_table(vec!["Index", "Name", "To See"], rows);
 
     print_title("You are watching these series");
     println!("{table}");
     print_prompt("Make your selection (eg: 1 2 3 or 1-3) [<u> for unwatched, <q> for exit]");
 
-    let series: Vec<_> = match parse_commands()? {
-        Command::Default(input) => parse_input(&input, 1, series.len())?
+    let series: Vec<_> = match get_command()? {
+        Command::Default(input) => get_selection(&input, 1, series.len())?
             .iter()
             .filter_map(|i| series.get(i - 1))
             .collect(),
@@ -38,26 +40,26 @@ pub fn select_from_watching(series: &[WatchingAnime]) -> Result<Vec<&WatchingAni
     };
     println!();
 
-    ensure!(!series.is_empty(), "Invalid input");
+    ensure!(!series.is_empty(), TuiError::InvalidInput);
 
     Ok(series)
 }
 
 /// Selects from a list of anime series
 pub fn select_series(series: &mut Vec<Anime>) -> Result<()> {
-    let mut rows = vec![];
+    let mut rows = Vec::new();
     for (i, c) in series.iter().enumerate() {
         rows.push(vec![(i + 1).to_string(), c.name.clone()]);
     }
 
-    let table = build_series_table(vec!["Index", "Name"], rows);
+    let table = build_table(vec!["Index", "Name"], rows);
 
     println!("{table}");
     print_prompt("Make your selection (eg: 1 2 3 or 1-3) [<enter> for all, <q> for exit]");
 
-    match parse_commands()? {
+    match get_command()? {
         Command::Default(input) => {
-            *series = parse_input(&input, 1, series.len())?
+            *series = get_selection(&input, 1, series.len())?
                 .iter()
                 .filter_map(|i| series.get(i - 1).cloned())
                 .collect()
@@ -80,7 +82,7 @@ pub fn select_episodes(anime: &Anime) -> Result<Vec<String>> {
     }
 
     let mut next_to_watch = None;
-    let mut rows = vec![];
+    let mut rows = Vec::new();
 
     match anime.range {
         Some(Range { start, end }) => {
@@ -106,20 +108,22 @@ pub fn select_episodes(anime: &Anime) -> Result<Vec<String>> {
     println!("{table}");
     print_prompt("Make your selection (eg: 1 2 3 or 1-3) [<u> for unwatched, <q> for exit]");
 
-    let episodes = match parse_commands()? {
+    let episodes = match get_command()? {
         Command::Default(input) => {
-            let selection = parse_input(
-                &input,
-                anime.start as usize,
-                anime.range.unwrap_or_default().end as usize,
-            )?;
+            let content_len = anime.range.unwrap_or_default().end as usize;
+            let index_start = anime.start as usize;
+
+            let selection = get_selection(&input, index_start, content_len)?;
 
             anime.select_from_slice(&selection)
         }
-        Command::Unwatched => match next_to_watch {
-            Some(index) => anime.select_from_index(index as u32),
-            _ => anyhow::bail!("Invalid input"),
-        },
+
+        Command::Unwatched => {
+            let index = next_to_watch.unwrap_or(anime.start as usize);
+
+            anime.select_from_index(index)
+        }
+
         Command::Quit => exit(0),
     };
     println!();

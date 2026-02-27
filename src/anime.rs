@@ -30,11 +30,11 @@ impl Anime {
         }
     }
 
-    pub fn select_from_index(&self, start: u32) -> Vec<String> {
+    pub fn select_from_index(&self, start: usize) -> Vec<String> {
         let Self { url, range, .. } = self;
 
         match range {
-            Some(r) => self.select_from_range(Range::new(start, r.end)),
+            Some(r) => self.select_from_range(Range::new(start as u32, r.end)),
             None => vec![url.clone()],
         }
     }

@@ -1,6 +1,6 @@
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 
-use super::style::*;
+const BAR_TEMPLATE: &str = "{spinner:.green} [{elapsed:.magenta}] [{bar:20.cyan/blue}] {binary_bytes_per_sec} {bytes:.cyan}/{total_bytes:.blue} ({eta:.magenta}) {msg:.green}";
 
 /// Manages progress bars for downloads
 pub struct ProgressManager {
@@ -18,7 +18,7 @@ impl ProgressManager {
     }
 
     pub fn add_bar(&self) -> ProgressBar {
-        let style = ProgressStyle::with_template(PROGRESS_BAR_TEMPLATE).unwrap();
+        let style = ProgressStyle::with_template(BAR_TEMPLATE).unwrap();
         let pb = ProgressBar::new(0).with_style(style.progress_chars("#>-"));
 
         self.bars.add(pb)
