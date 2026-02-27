@@ -159,48 +159,49 @@ fn get_range(page: &Html) -> Option<(u32, u32)> {
     let range = selector::from("div.range");
     let span = selector::from("span.rangetitle");
 
-    match page.select(&range).next() {
-        Some(range) if range.select(&span).next().is_some() => {
-            let spans = range.select(&span).collect::<Vec<_>>();
+    if let Some(range) = page.select(&range).next()
+        && let Some(_) = range.select(&span).next()
+    {
+        let spans: Vec<_> = range.select(&span).collect();
 
-            match spans.as_slice() {
-                [first, .., last] => {
-                    let start = first
-                        .inner_html()
-                        .split_ascii_whitespace()
-                        .next()?
-                        .parse::<u32>()
-                        .ok()?;
+        let range = match spans.as_slice() {
+            [first, .., last] => {
+                let start = first
+                    .inner_html()
+                    .split_ascii_whitespace()
+                    .next()?
+                    .parse::<u32>()
+                    .ok()?;
 
-                    let end = last
-                        .inner_html()
-                        .split_ascii_whitespace()
-                        .last()?
-                        .parse::<u32>()
-                        .ok()?;
+                let end = last
+                    .inner_html()
+                    .split_ascii_whitespace()
+                    .last()?
+                    .parse::<u32>()
+                    .ok()?;
 
-                    Some((start, end))
-                }
-                _ => None,
+                Some((start, end))
             }
-        }
-        _ => {
-            let ul = selector::from("ul.episodes");
-            let a = selector::from("a");
+            _ => None,
+        };
 
-            let episodes = page
-                .select(&ul)
-                .next()?
-                .select(&a)
-                .filter_map(|a| a.inner_html().parse::<u32>().ok())
-                .collect::<Vec<_>>();
+        return range;
+    }
 
-            match episodes.as_slice() {
-                [start, .., end] => Some((*start, *end)),
-                [single] => Some((*single, *single)),
-                [] => None,
-            }
-        }
+    let ul = selector::from("ul.episodes");
+    let a = selector::from("a");
+
+    let episodes = page
+        .select(&ul)
+        .next()?
+        .select(&a)
+        .filter_map(|a| a.inner_html().parse::<u32>().ok())
+        .collect::<Vec<_>>();
+
+    match episodes.as_slice() {
+        [start, .., end] => Some((*start, *end)),
+        [single] => Some((*single, *single)),
+        [] => None,
     }
 }
 
