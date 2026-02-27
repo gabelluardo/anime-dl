@@ -28,3 +28,7 @@ test-all:
 
 test-all-musl:
     cargo nextest run --run-ignored=all --target x86_64-unknown-linux-musl
+
+update-schema:
+    rm schema/anilist_schema.json || true
+    cargo build 

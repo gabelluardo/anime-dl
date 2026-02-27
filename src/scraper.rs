@@ -1,4 +1,3 @@
-use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::Result;
@@ -22,43 +21,44 @@ pub struct ScraperConfig {
     pub proxy: Option<String>,
 }
 
+const CONNECTION_TIMEOUT: Duration = Duration::from_secs(10);
+const REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
+
 #[derive(Debug)]
-pub struct Scraper {
-    client: Arc<Client>,
-}
+pub struct Scraper(Client);
 
 impl Scraper {
     pub fn new(config: ScraperConfig) -> Self {
-        let mut headers = header::HeaderMap::new();
+        let ScraperConfig { cookie, proxy } = config;
 
-        if let Some(cookie) = &config.cookie
-            && let Ok(value) = HeaderValue::from_str(cookie)
+        let mut headers = header::HeaderMap::new();
+        if let Some(c) = cookie
+            && let Ok(value) = HeaderValue::from_str(&c)
         {
             headers.insert(header::COOKIE, value);
         }
 
         let mut builder = Client::builder()
             .default_headers(headers)
-            .danger_accept_invalid_certs(true)
-            .timeout(Duration::from_secs(30))
-            .connect_timeout(Duration::from_secs(10));
+            .connect_timeout(CONNECTION_TIMEOUT)
+            .timeout(REQUEST_TIMEOUT)
+            // this enables support for http only sites
+            .danger_accept_invalid_certs(true);
 
-        if let Some(proxy) = &config.proxy
-            && let Ok(req_proxy) = reqwest::Proxy::http(proxy)
+        if let Some(p) = proxy
+            && let Ok(req_proxy) = reqwest::Proxy::http(p)
         {
             builder = builder.proxy(req_proxy)
         }
 
         let client = builder.build().unwrap_or_default();
 
-        Self {
-            client: Arc::new(client),
-        }
+        Self(client)
     }
 
     pub async fn search<T: Archive>(&self, searches: &[Search]) -> Result<Vec<Anime>> {
         let tasks = searches.iter().map(|search| {
-            let client = self.client.clone();
+            let client = self.0.clone();
             let search = search.clone();
 
             async move {
@@ -75,8 +75,8 @@ impl Scraper {
     }
 
     #[cfg(test)]
-    pub fn client(&self) -> Arc<Client> {
-        self.client.clone()
+    pub fn client(&self) -> Client {
+        self.0.clone()
     }
 }
 
@@ -105,35 +105,11 @@ impl ProxyManager {
     }
 }
 
-pub struct CookieManager;
-
-impl CookieManager {
-    pub async fn extract_cookie_for_site<T: Archive>() -> Option<String> {
-        Self::extract_cookie_from_url(T::REFERRER, T::COOKIE_NAME)
-            .await
-            .ok()
-            .flatten()
-    }
-
-    async fn extract_cookie_from_url(url: &str, cookie_name: &str) -> Result<Option<String>> {
-        let response = reqwest::get(url).await?.text().await?;
-
-        let cookie = response
-            .split(cookie_name)
-            .nth(1)
-            .and_then(|s| s.split(" ;  path=/").next())
-            .map(|s| cookie_name.to_owned() + s.trim());
-
-        Ok(cookie)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     use crate::archive::AnimeWorld;
-
     use reqwest::Url;
 
     pub fn get_url(raw_url: &str) -> String {
@@ -161,66 +137,53 @@ mod tests {
         assert_eq!(res, "SecurityAW-E4=ccf64e38a09ed38849d9ae72e1931e5b ;")
     }
 
-    #[tokio::test]
-    #[ignore]
-    async fn test_remote_scraper() {
-        let file = "SeishunButaYarouWaBunnyGirlSenpaiNoYumeWoMinai_Ep_01_SUB_ITA.mp4";
-
-        let cookie = CookieManager::extract_cookie_for_site::<AnimeWorld>().await;
+    async fn scraper_single<T: Archive>(search_query: &str, expected_file: &str) -> Result<()> {
+        let cookie = T::extract_cookie().await;
         let config = ScraperConfig {
             cookie,
             proxy: None,
         };
         let search = vec![Search {
-            string: "bunny girl".into(),
+            string: search_query.into(),
             id: None,
         }];
 
-        let anime = Scraper::new(config)
-            .search::<AnimeWorld>(&search)
-            .await
-            .unwrap();
-        let info = get_url(&anime.first().unwrap().origin);
+        let anime = Scraper::new(config).search::<T>(&search).await?;
+        let info = get_url(
+            &anime
+                .first()
+                .ok_or_else(|| anyhow::anyhow!("No anime found"))?
+                .origin,
+        );
 
-        assert_eq!(file, info)
+        assert_eq!(expected_file, info);
+        Ok(())
     }
 
-    #[tokio::test]
-    #[ignore]
-    async fn test_remote_scraper_multi() {
-        let mut files = vec![
-            "SeishunButaYarouWaBunnyGirlSenpaiNoYumeWoMinai_Ep_01_SUB_ITA.mp4",
-            "TsurezureChildren_Ep_01_SUB_ITA.mp4",
-            "Promare_Movie_ITA.mp4",
-        ];
+    async fn scraper_multi<T: Archive>(
+        search_queries: Vec<&str>,
+        expected_files: Vec<&str>,
+    ) -> Result<()> {
+        let mut expected = expected_files;
+        expected.sort_unstable();
 
-        let cookie = CookieManager::extract_cookie_for_site::<AnimeWorld>().await;
+        let cookie = T::extract_cookie().await;
         let config = ScraperConfig {
             cookie,
             proxy: None,
         };
 
-        let search = vec![
-            Search {
-                string: "bunny girl".into(),
+        let search: Vec<_> = search_queries
+            .into_iter()
+            .map(|s| Search {
+                string: s.into(),
                 id: None,
-            },
-            Search {
-                string: "tsuredure children".into(),
-                id: None,
-            },
-            Search {
-                string: "promare (ita)".into(),
-                id: None,
-            },
-        ];
+            })
+            .collect();
 
-        let anime = Scraper::new(config)
-            .search::<AnimeWorld>(&search)
-            .await
-            .unwrap();
+        let anime = Scraper::new(config).search::<T>(&search).await?;
 
-        let mut anime = anime
+        let mut results: Vec<_> = anime
             .iter()
             .map(|a| {
                 Url::parse(&a.origin)
@@ -230,11 +193,47 @@ mod tests {
                     .map(|s| s.to_string())
                     .unwrap_or_default()
             })
-            .collect::<Vec<_>>();
+            .collect();
 
-        anime.sort();
-        files.sort_unstable();
-
-        assert_eq!(anime, files)
+        results.sort();
+        assert_eq!(results, expected);
+        Ok(())
     }
+
+    macro_rules! test_archive_scraper {
+        ($($archive_type:ty),+ $(,)?) => {
+            $(
+                paste::paste! {
+                    #[tokio::test]
+                    #[ignore]
+                    async fn [<test_ $archive_type:lower >]() {
+                        scraper_single::<$archive_type>(
+                            "bunny girl",
+                            "SeishunButaYarouWaBunnyGirlSenpaiNoYumeWoMinai_Ep_01_SUB_ITA.mp4",
+                        )
+                        .await
+                        .unwrap()
+                    }
+
+                    #[tokio::test]
+                    #[ignore]
+                    async fn [<test_ $archive_type:lower _multi>]() {
+                        scraper_multi::<$archive_type>(
+                            vec!["bunny girl", "tsuredure children", "promare (ita)"],
+                            vec![
+                                "SeishunButaYarouWaBunnyGirlSenpaiNoYumeWoMinai_Ep_01_SUB_ITA.mp4",
+                                "TsurezureChildren_Ep_01_SUB_ITA.mp4",
+                                "Promare_Movie_ITA.mp4",
+                            ],
+                        )
+                        .await
+                        .unwrap()
+                    }
+                }
+            )+
+        };
+    }
+
+    // Add each new archive here: test_archive_scraper!(AnimeWorld, MyNewArchive);
+    test_archive_scraper!(AnimeWorld);
 }

@@ -1,66 +1,170 @@
-use std::ops::Deref;
-
 use anyhow::{Result, anyhow};
 
 use graphql_client::{GraphQLQuery, Response};
 use reqwest::{Client, header, header::HeaderValue};
 
-use crate::config::{load_config, save_config};
-use crate::tui::Tui;
+use crate::{config, tui::Tui};
 
 const ENDPOINT: &str = "https://graphql.anilist.co";
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct WatchingAnime {
-    pub behind: u32,
-    pub id: u32,
-    pub title: String,
+    watched: i64,
+    id: i64,
+    title: String,
+}
+
+impl WatchingAnime {
+    pub fn title(&self) -> String {
+        self.title.clone()
+    }
+
+    pub fn watched(&self) -> u32 {
+        self.watched as u32
+    }
+
+    pub fn id(&self) -> u32 {
+        self.id as u32
+    }
 }
 
 #[derive(GraphQLQuery, Debug)]
 #[graphql(
-    schema_path = "graphql/anilist_schema.graphql",
-    query_path = "graphql/progress_query.graphql"
+    schema_path = "schema/anilist_schema.json",
+    query_path = "schema/progress_query.graphql"
 )]
 struct ProgressQuery;
 
+impl ProgressQuery {
+    async fn get(client: &Client, id: u32) -> Option<(i64, i64)> {
+        let id = Some(id.into());
+        let query = Self::build_query(progress_query::Variables { id });
+        let response = client.post(ENDPOINT).json(&query).send().await.ok()?;
+        let json = response
+            .json::<Response<progress_query::ResponseData>>()
+            .await
+            .ok()?;
+
+        let media = json.data?.media?;
+
+        let episodes = media.episodes?;
+        let progress = media.media_list_entry?.progress?;
+
+        Some((episodes, progress))
+    }
+}
+
 #[derive(GraphQLQuery, Debug)]
 #[graphql(
-    schema_path = "graphql/anilist_schema.graphql",
-    query_path = "graphql/progress_mutation.graphql"
+    schema_path = "schema/anilist_schema.json",
+    query_path = "schema/progress_mutation.graphql"
 )]
 struct ProgressMutation;
 
+impl ProgressMutation {
+    async fn put(
+        client: &Client,
+        id: u32,
+        progress: u32,
+        status: progress_mutation::MediaListStatus,
+    ) -> Result<()> {
+        let variables = progress_mutation::Variables {
+            status: Some(status),
+            id: Some(id.into()),
+            progress: Some(progress as i64),
+        };
+
+        let query = ProgressMutation::build_query(variables);
+        client
+            .post(ENDPOINT)
+            .json(&query)
+            .send()
+            .await?
+            .error_for_status()?;
+
+        Ok(())
+    }
+}
+
 #[derive(GraphQLQuery, Debug)]
 #[graphql(
-    schema_path = "graphql/anilist_schema.graphql",
-    query_path = "graphql/watching_query.graphql",
-    response_derives = "Clone, Default"
+    schema_path = "schema/anilist_schema.json",
+    query_path = "schema/watching_query.graphql"
 )]
 struct WatchingQuery;
 
+impl WatchingQuery {
+    async fn get(client: &Client, id: i64) -> Option<Vec<WatchingAnime>> {
+        let id = Some(id);
+        let variables = watching_query::Variables { id };
+        let query = WatchingQuery::build_query(variables);
+        let response = client.post(ENDPOINT).json(&query).send().await.ok()?;
+        let json = response
+            .json::<Response<watching_query::ResponseData>>()
+            .await
+            .ok()?;
+
+        let collection = json
+            .data?
+            .media_list_collection?
+            .lists?
+            .get_mut(0)?
+            .take()?;
+
+        let mut list: Vec<_> = collection
+            .entries?
+            .into_iter()
+            .filter_map(|collection| {
+                let progress = collection.as_ref()?.progress?;
+                let media = collection?.media?;
+
+                let watched = match media.next_airing_episode {
+                    Some(airing) => airing.episode - (progress + 1),
+                    None => media.episodes? - progress,
+                };
+
+                let title = media.title?.romaji?;
+                let id = media.id;
+
+                Some(WatchingAnime { id, title, watched })
+            })
+            .collect();
+
+        list.sort_by(|a, b| a.title.cmp(&b.title));
+
+        Some(list)
+    }
+}
+
 #[derive(GraphQLQuery, Debug)]
 #[graphql(
-    schema_path = "graphql/anilist_schema.graphql",
-    query_path = "graphql/user_query.graphql"
+    schema_path = "schema/anilist_schema.json",
+    query_path = "schema/user_query.graphql"
 )]
 struct UserQuery;
 
-#[derive(Default, Debug)]
-pub struct Anilist(Client);
+impl UserQuery {
+    async fn get(client: &Client) -> Option<i64> {
+        let query = UserQuery::build_query(user_query::Variables);
+        let response = client.post(ENDPOINT).json(&query).send().await.ok()?;
+        let json = response
+            .json::<Response<user_query::ResponseData>>()
+            .await
+            .ok()?;
 
-impl Deref for Anilist {
-    type Target = Client;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
+        json.data?.viewer.map(|d| d.id)
     }
+}
+
+#[derive(Default, Debug)]
+pub struct Anilist {
+    client: Client,
 }
 
 impl Anilist {
     pub fn new(client_id: Option<u32>) -> Result<Self> {
         let client_id = client_id.unwrap_or(4047);
-        let token = load_config("anilist", "token").map_or_else(|_| oauth_token(client_id), Ok)?;
+        let token = config::load("token").map_or_else(|| oauth_token(client_id), Ok)?;
 
         let mut headers = header::HeaderMap::new();
         headers.insert(header::ACCEPT, HeaderValue::from_static("application/json"));
@@ -78,123 +182,33 @@ impl Anilist {
             .build()
             .map_err(|_| anyhow!("Unable to create client"))?;
 
-        Ok(Self(client))
+        Ok(Self { client })
     }
 
     pub async fn get_watching_list(&self) -> Option<Vec<WatchingAnime>> {
-        let query = UserQuery::build_query(user_query::Variables);
-        let res = self.post(ENDPOINT).json(&query).send().await.ok()?;
-        let response_body = res
-            .json::<Response<user_query::ResponseData>>()
-            .await
-            .ok()?;
-        let user_id = response_body.data?.viewer.map(|d| d.id);
-
-        let variables = watching_query::Variables { id: user_id };
-        let query = WatchingQuery::build_query(variables);
-
-        let res = self.post(ENDPOINT).json(&query).send().await.ok()?;
-        let response_body = res
-            .json::<Response<watching_query::ResponseData>>()
-            .await
-            .ok()?;
-
-        let mut list = response_body.data?.media_list_collection?.lists?[0]
-            .take()?
-            .entries?
-            .into_iter()
-            .filter_map(|e| {
-                let progress = e
-                    .as_ref()
-                    .and_then(|c| c.progress)
-                    .map(|p| p as u32)
-                    .unwrap_or_default();
-
-                e.and_then(|e| e.media)
-                    .and_then(|m| {
-                        m.title.zip(Some(m.id)).zip(
-                            m.episodes
-                                .zip(Some(m.next_airing_episode.unwrap_or_default())),
-                        )
-                    })
-                    .and_then(|((t, id), (e, n))| {
-                        t.romaji
-                            .zip(Some(id as u32))
-                            .zip(Some((e as u32, n.episode as u32)))
-                    })
-                    .map(|((t, id), (e, n))| WatchingAnime {
-                        id,
-                        title: t,
-                        behind: n.checked_sub(progress + 1).unwrap_or(e - progress),
-                    })
-            })
-            .collect::<Vec<_>>();
-
-        list.sort_unstable_by(|a, b| a.title.partial_cmp(&b.title).unwrap());
+        let user_id = UserQuery::get(&self.client).await?;
+        let list = WatchingQuery::get(&self.client, user_id).await?;
 
         Some(list)
     }
 
-    pub async fn get_last_watched(&self, anime_id: Option<u32>) -> Option<u32> {
-        let variables = progress_query::Variables {
-            id: anime_id.map(|u| u as i64),
-        };
-        let query = ProgressQuery::build_query(variables);
-        let res = self.post(ENDPOINT).json(&query).send().await.ok()?;
-        let response_body = res
-            .json::<Response<progress_query::ResponseData>>()
-            .await
-            .ok()?;
+    pub async fn get_progress(&self, id: u32) -> Option<(i64, i64)> {
+        let (episodes, progress) = ProgressQuery::get(&self.client, id).await?;
 
-        response_body
-            .data?
-            .media?
-            .media_list_entry?
-            .progress
-            .map(|p| p as u32)
+        Some((episodes, progress))
     }
 
-    pub async fn get_last_episode(&self, anime_id: Option<u32>) -> Option<u32> {
-        let variables = progress_query::Variables {
-            id: anime_id.map(|u| u as i64),
-        };
-        let query = ProgressQuery::build_query(variables);
-        let res = self.post(ENDPOINT).json(&query).send().await.ok()?;
-        let response_body = res
-            .json::<Response<progress_query::ResponseData>>()
-            .await
-            .ok()?;
+    pub async fn update(&mut self, id: u32, number: u32) -> Result<()> {
+        use progress_mutation::MediaListStatus;
 
-        response_body.data?.media?.episodes.map(|p| p as u32)
-    }
-
-    pub async fn update(&self, anime_id: Option<u32>, number: u32) -> Result<()> {
-        let last_watched = self.get_last_watched(anime_id).await;
-        if last_watched.is_some_and(|e| e >= number) {
-            return Ok(());
-        }
-
-        let last_episode = self.get_last_episode(anime_id).await;
-        let status = if last_episode.is_some_and(|e| e <= number) {
-            progress_mutation::MediaListStatus::COMPLETED
-        } else {
-            progress_mutation::MediaListStatus::CURRENT
+        let progress = self.get_progress(id).await;
+        let status = match progress {
+            Some((_, last)) if last >= number.into() => return Ok(()),
+            Some((ep, _)) if ep <= number.into() => MediaListStatus::COMPLETED,
+            None | Some((_, _)) => MediaListStatus::CURRENT,
         };
 
-        let variables = progress_mutation::Variables {
-            status: Some(status),
-            id: anime_id.map(|u| u as i64),
-            progress: Some(number as i64),
-        };
-
-        let query = ProgressMutation::build_query(variables);
-        self.post(ENDPOINT)
-            .json(&query)
-            .send()
-            .await?
-            .error_for_status()?;
-
-        // println!("Updating episode {} for anime {:?}", number, anime_id);
+        ProgressMutation::put(&self.client, id, number, status).await?;
 
         Ok(())
     }
@@ -204,8 +218,9 @@ fn oauth_token(client_id: u32) -> Result<String> {
     let url = format!(
         "https://anilist.co/api/v2/oauth/authorize?response_type=token&client_id={client_id}"
     );
-    let token = Tui::get_token(&url)?;
-    save_config("anilist", "token", &token)?;
+    let token = Tui::get_token(&url);
+
+    config::save("token", &token)?;
 
     Ok(token)
 }

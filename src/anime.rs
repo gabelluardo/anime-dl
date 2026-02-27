@@ -1,11 +1,9 @@
-#[cfg(feature = "anilist")]
-use crate::parser::{InfoNum, parse_number, parse_url};
 use crate::range::Range;
 
 #[derive(Clone, Default, Debug, PartialEq, Eq)]
 pub struct Anime {
     pub id: Option<u32>,
-    pub last_watched: Option<u32>,
+    pub last_watched: Option<i64>,
     pub name: String,
     pub num: Option<InfoNum>,
     pub origin: String,
@@ -16,72 +14,120 @@ pub struct Anime {
 
 impl Anime {
     pub fn new(name: &str, input: &str, id: Option<u32>, range: Option<Range<u32>>) -> Self {
-        let num = parse_number(input);
-        let url = parse_url(input, num);
+        let num = get_episode_number(input);
+        let url = remove_episode_number(input, num);
+        let start = num.unwrap_or_default().value;
 
         Anime {
             id,
             num,
             range,
+            start,
             url,
+            last_watched: None,
             name: name.into(),
             origin: input.into(),
-            start: num.unwrap_or_default().value,
-            ..Default::default()
         }
     }
 
-    pub fn select_from_index(&self, start: u32) -> Vec<String> {
-        if let Some(Range { end, .. }) = self.range {
-            return self.select_from_range(Range::new(start, end));
-        }
+    pub fn select_from_index(&self, start: usize) -> Vec<String> {
+        let Self { url, range, .. } = self;
 
-        vec![self.url.clone()]
+        match range {
+            Some(r) => self.select_from_range(Range::new(start as u32, r.end)),
+            None => vec![url.clone()],
+        }
     }
 
     pub fn select_from_range(&self, range: Range<u32>) -> Vec<String> {
-        if let Some(num) = self.num {
-            let value = num.value.checked_sub(1).unwrap_or(num.value);
+        let Self { url, num, .. } = self;
 
-            return range
-                .map(|i| gen_url!(self.url, i + value, num.alignment))
-                .collect();
+        match num {
+            Some(InfoNum { value, alignment }) => {
+                let value = value.checked_sub(1).unwrap_or(*value);
+                range.map(|i| gen_url(url, i + value, *alignment)).collect()
+            }
+            None => vec![url.clone()],
         }
-
-        vec![self.url.clone()]
     }
 
     pub fn select_from_slice(&self, slice: &[usize]) -> Vec<String> {
-        if let Some(num) = self.num {
-            return slice
+        let Self { url, num, .. } = self;
+
+        match num {
+            Some(InfoNum { alignment, .. }) => slice
                 .iter()
-                .map(|&i| gen_url!(self.url, i as u32, num.alignment))
-                .collect();
+                .map(|&i| gen_url(&self.url, i as u32, *alignment))
+                .collect(),
+            None => vec![url.clone()],
         }
-
-        vec![self.url.clone()]
     }
 }
 
-#[cfg(feature = "anilist")]
-pub async fn last_watched(client_id: Option<u32>, anime_id: Option<u32>) -> Option<u32> {
-    use crate::anilist::Anilist;
-
-    if let Ok(anilist) = Anilist::new(client_id) {
-        return anilist.get_last_watched(anime_id).await;
-    }
-
-    None
+/// Fill url placeholder with zero-padded episode number.
+pub fn gen_url(url: &str, num: u32, alignment: usize) -> String {
+    url.replace("_{}", &format!("_{:0fill$}", num, fill = alignment))
 }
 
-#[cfg(not(feature = "anilist"))]
-pub async fn last_watched(_: Option<u32>, _: Option<u32>) -> Option<u32> {
-    None
+#[derive(Clone, Copy, Default, Debug, PartialEq, Eq)]
+pub struct InfoNum {
+    pub value: u32,
+    pub alignment: usize,
+}
+
+/// Replace the detected episode number in a URL with a `{}` placeholder.
+pub fn remove_episode_number(input: &str, num: Option<InfoNum>) -> String {
+    match num {
+        Some(InfoNum { value, alignment }) => {
+            let num = format!("{:0fill$}", value, fill = alignment);
+            input.replace(&num, "{}")
+        }
+        None => input.into(),
+    }
+}
+
+/// Extract the episode number and its zero-padding from a URL, if present.
+pub fn get_episode_number(input: &str) -> Option<InfoNum> {
+    let chars: Vec<_> = input.chars().collect();
+    let positions: Vec<_> = chars
+        .windows(3)
+        .enumerate()
+        .filter_map(|(i, window)| match window {
+            ['_', c, cc] if c.is_ascii_digit() && cc.is_ascii_digit() => Some(i),
+            [c, cc, '_'] if c.is_ascii_digit() && cc.is_ascii_digit() => Some(i + 1),
+            _ => None,
+        })
+        .collect();
+
+    match positions.as_slice() {
+        [start, end] => {
+            let str = &input[*start + 1..*end + 1];
+
+            let value = str.parse::<u32>().ok()?;
+            let alignment = str.len();
+
+            Some(InfoNum { value, alignment })
+        }
+        _ => None,
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_gen_url() {
+        let url = "https://robe_{}_.tld";
+
+        assert_eq!(gen_url(url, 1, 2), "https://robe_01_.tld");
+        assert_eq!(gen_url(url, 14, 2), "https://robe_14_.tld");
+        assert_eq!(gen_url(url, 1400, 2), "https://robe_1400_.tld");
+
+        assert_eq!(gen_url(url, 1, 3), "https://robe_001_.tld");
+        assert_eq!(gen_url(url, 14, 3), "https://robe_014_.tld");
+        assert_eq!(gen_url(url, 1400, 3), "https://robe_1400_.tld");
+    }
 
     #[test]
     fn test_extract_info() {

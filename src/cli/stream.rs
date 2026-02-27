@@ -3,7 +3,7 @@ use clap::Parser;
 use std::collections::HashMap;
 use std::process::Stdio;
 
-use anyhow::{Result, bail};
+use anyhow::{Context, Result, bail};
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
 use tokio_stream::StreamExt;
@@ -12,9 +12,9 @@ use which::which;
 
 use super::{Progress, Site};
 use crate::anilist::Anilist;
-use crate::archive::{AnimeWorld, Archive};
-use crate::parser::{parse_number, parse_percentage, parse_url};
-use crate::scraper::{CookieManager, ProxyManager, Scraper, ScraperConfig};
+use crate::anime::{get_episode_number, remove_episode_number};
+use crate::archive::AnimeWorld;
+use crate::scraper::ProxyManager;
 use crate::tui::Tui;
 
 /// Stream anime in a media player
@@ -26,7 +26,6 @@ pub struct Args {
 
     /*  Common parameters */
     /// Override app id environment variable    
-    #[cfg(feature = "anilist")]
     #[arg(short, long, env = "ANIMEDL_ID", hide_env_values = true)]
     pub anilist_id: Option<u32>,
 
@@ -39,33 +38,28 @@ pub struct Args {
     pub site: Option<Site>,
 
     /// Retrieve anime from anilist watching list        
-    #[cfg(feature = "anilist")]
     #[arg(short, long)]
     pub watching: bool,
 }
 
 pub async fn exec(args: Args) -> Result<()> {
-    let client_id = args.anilist_id;
-    let site = args.site.unwrap_or_default();
+    let Args {
+        entries,
+        anilist_id,
+        no_proxy,
+        site,
+        watching,
+    } = args;
 
-    let searches = if args.watching || args.entries.is_empty() {
-        super::get_from_watching_list(client_id).await?
+    let searches = if watching || entries.is_empty() {
+        super::get_from_watching_list(anilist_id).await?
     } else {
-        super::get_from_input(args.entries)?
+        super::get_from_input(entries)?
     };
 
-    let proxy = ProxyManager::proxy(args.no_proxy).await;
-
-    let (vec_anime, referrer) = match site {
-        Site::AW => {
-            let cookie = CookieManager::extract_cookie_for_site::<AnimeWorld>().await;
-            let config = ScraperConfig { proxy, cookie };
-
-            (
-                Scraper::new(config).search::<AnimeWorld>(&searches).await?,
-                AnimeWorld::REFERRER,
-            )
-        }
+    let proxy = ProxyManager::proxy(no_proxy).await;
+    let (search_result, referrer) = match site {
+        Some(Site::AW) | None => super::search_site::<AnimeWorld>(&searches, proxy).await?,
     };
 
     let (cmd, cmd_referrer) = if let Ok(c) = which("mpv") {
@@ -76,14 +70,18 @@ pub async fn exec(args: Args) -> Result<()> {
         bail!("No supported media player found. Please install mpv or vlc.")
     };
 
-    let mut episodes = vec![];
-    let mut ids = HashMap::new();
-    for anime in &vec_anime {
-        ids.insert(&anime.url, anime.id);
-        episodes.extend(Tui::select_episodes(anime)?);
-    }
+    let (ids, episodes) = {
+        let mut ids = HashMap::new();
+        let mut episodes = Vec::new();
+        for anime in &search_result {
+            ids.insert(&anime.url, anime.id);
+            episodes.extend(Tui::select_episodes(anime)?);
+        }
 
-    let mut child = Command::new(cmd)
+        (ids, episodes)
+    };
+
+    let child = Command::new(cmd)
         .arg(&cmd_referrer)
         .arg("-v")
         .args(&episodes)
@@ -92,39 +90,77 @@ pub async fn exec(args: Args) -> Result<()> {
         .kill_on_drop(true)
         .spawn()?;
 
-    {
-        let stdout = BufReader::new(child.stdout.as_mut().unwrap());
-        let stderr = BufReader::new(child.stderr.as_mut().unwrap());
+    let mut stream = {
+        let stdout = child
+            .stdout
+            .map(BufReader::new)
+            .context("Unable to get stdout")?;
+        let stderr = child
+            .stderr
+            .map(BufReader::new)
+            .context("Unable to get stderr")?;
         let stdout_lines = LinesStream::new(stdout.lines());
         let stderr_lines = LinesStream::new(stderr.lines());
 
-        let mut merged = tokio_stream::StreamExt::merge(stdout_lines, stderr_lines);
+        StreamExt::merge(stdout_lines, stderr_lines)
+    };
 
-        let mut progress = Progress::new(Anilist::new(client_id)?);
-        while let Some(Ok(line)) = merged.next().await {
-            match line.as_str() {
-                line if line.contains("Opening done") => {
-                    if let Some(url) = line.split_whitespace().last() {
-                        let num = parse_number(url);
-                        let origin = parse_url(url, num);
+    let mut progress = Progress::new(Anilist::new(anilist_id)?);
+    while let Some(Ok(line)) = stream.next().await {
+        match line {
+            line if line.contains("Opening done") => {
+                if let Some(url) = line.split_whitespace().last() {
+                    let num = get_episode_number(url);
+                    let origin = remove_episode_number(url, num);
 
-                        let anime_id = ids.get(&origin).copied().flatten();
-                        let episode = num.map(|n| n.value);
+                    let anime_id = ids.get(&origin).copied().flatten();
+                    let episode = num.map(|n| n.value);
 
-                        progress.push(anime_id, episode);
-                    }
+                    progress.track(anime_id, episode);
                 }
-
-                line if line.contains('%') && !line.contains("(Paused)") => {
-                    progress.percentage(parse_percentage(line));
-                }
-
-                _ => {}
             }
 
-            progress.update().await;
+            line if line.contains('%') && !line.contains("(Paused)") => {
+                progress.update(get_percentage(&line));
+                progress.send().await
+            }
+
+            _ => {}
         }
     }
 
     Ok(())
+}
+
+/// Extract the percentage value from a player output line.
+fn get_percentage(input: &str) -> Option<u32> {
+    let sym = input.find('%')?;
+
+    // SAFE: `input` is a simple ASCII string
+    let bytes = input.as_bytes();
+
+    let mut start = sym;
+    while start > 0 && bytes[start - 1].is_ascii_digit() {
+        start -= 1;
+    }
+
+    if start == sym {
+        return None;
+    }
+
+    input.get(start..sym)?.parse().ok()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::get_percentage;
+
+    #[test]
+    fn test_get_percentage() {
+        assert_eq!(get_percentage("[status] 9%"), Some(9));
+        assert_eq!(get_percentage("[status] 100%"), Some(100));
+        assert_eq!(get_percentage("[status] 09%"), Some(9));
+        assert_eq!(get_percentage("[status] %"), None);
+        assert_eq!(get_percentage("[status] no percent"), None);
+    }
 }
