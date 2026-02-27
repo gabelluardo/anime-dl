@@ -4,10 +4,7 @@ use std::path::PathBuf;
 use reqwest::Error;
 
 fn main() {
-    match download_anilist_schema() {
-        Ok(_) => (),
-        Err(err) => panic!("{}", err),
-    }
+    download_anilist_schema().unwrap();
 }
 
 fn download_anilist_schema() -> Result<(), Error> {
