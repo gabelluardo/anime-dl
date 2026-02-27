@@ -90,11 +90,11 @@ pub fn remove_episode_number(input: &str, num: Option<InfoNum>) -> String {
 pub fn get_episode_number(input: &str) -> Option<InfoNum> {
     let chars: Vec<_> = input.chars().collect();
     let positions: Vec<_> = chars
-        .windows(2)
+        .windows(3)
         .enumerate()
         .filter_map(|(i, window)| match window {
-            ['_', c] if c.is_ascii_digit() => Some(i),
-            [c, '_'] if c.is_ascii_digit() => Some(i),
+            ['_', c, cc] if c.is_ascii_digit() && cc.is_ascii_digit() => Some(i),
+            [c, cc, '_'] if c.is_ascii_digit() && cc.is_ascii_digit() => Some(i + 1),
             _ => None,
         })
         .collect();
