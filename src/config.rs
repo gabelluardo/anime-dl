@@ -119,14 +119,14 @@ fn config_path() -> PathBuf {
 
 #[cfg(test)]
 mod tests {
-    use serial_test::serial;
+    use serial_test::file_serial;
 
     use super::*;
 
     const TEST_DATA: &str = "data test config";
 
     #[test]
-    #[serial]
+    #[file_serial]
     fn test_save() {
         let res = save("test", TEST_DATA);
         assert!(res.is_ok());
@@ -136,7 +136,7 @@ mod tests {
     }
 
     #[test]
-    #[serial]
+    #[file_serial]
     fn test_clean() {
         let res = save("test", TEST_DATA);
         assert!(res.is_ok());
