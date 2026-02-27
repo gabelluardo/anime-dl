@@ -34,18 +34,18 @@ futures = "0.3.31"
 indicatif = "0.18.3"
 graphql_client = "0.16.0"
 owo-colors = "4.2"
-rand = "0.9"
+rand = "0.10.0"
 rustyline = "17.0"
-scraper = "0.24.0"
-serde = "1.0.219"
+scraper = "0.25.0"
+serde = "1.0.228"
 tabled = "0.20.0"
-toml_edit = "0.24.0"
+toml_edit = "0.25.1"
 which = "8.0.0"
 
 clap = { version = "4.5.53", features = ["derive", "env"] }
-reqwest = { default-features = false, version = "0.12.28", features = [
+reqwest = { default-features = false, version = "0.13.2", features = [
     "json",
-    "rustls-tls",
+    "rustls",
 ] }
 tokio = { default-features = false, version = "1.48.0", features = [
     "fs",
