@@ -1,4 +1,4 @@
-use anyhow::{Context, Result, anyhow, ensure};
+use anyhow::{Result, anyhow, ensure};
 
 use futures::stream::StreamExt;
 use reqwest::{Client, Url};
@@ -17,33 +17,35 @@ impl Archive for AnimeWorld {
 
     async fn extract_cookie() -> Option<String> {
         let response = reqwest::get(Self::REFERRER).await.ok()?.text().await.ok()?;
+        let text = response.split(Self::COOKIE_NAME).nth(1)?;
+        let value = text.split(" ;  path=/").next()?.trim();
 
-        response
-            .split(Self::COOKIE_NAME)
-            .nth(1)
-            .and_then(|s| s.split(" ;  path=/").next())
-            .map(|s| Self::COOKIE_NAME.to_owned() + s.trim())
+        let cookie = Self::COOKIE_NAME.to_owned() + value;
+
+        Some(cookie)
     }
 
     async fn search(search: Search, client: Client) -> Result<Vec<Anime>> {
+        let Search { id, string } = search;
+
         let search_results = {
-            let keyword = &search.string;
+            let keyword = string;
             let referrer = Self::REFERRER;
 
             let search_url = format!("{referrer}/search?keyword={keyword}");
             let search_page = selector::get_page(&client, &search_url).await?;
 
             let anime_list = selector::from("div.film-list");
-            let name = selector::from("a.name");
+            let Some(elem) = search_page.select(&anime_list).next() else {
+                return Err(anyhow!("Request blocked, retry"));
+            };
 
-            let elem = search_page
-                .select(&anime_list)
-                .next()
-                .context("Request blocked, retry")?;
+            let name = selector::from("a.name");
 
             let mut r: Vec<_> = elem
                 .select(&name)
-                .map(|a| a.value().attr("href").expect("No link found").to_string())
+                .filter_map(|a| a.value().attr("href"))
+                .map(|s| s.to_string())
                 .collect();
             r.sort_unstable();
 
@@ -52,7 +54,7 @@ impl Archive for AnimeWorld {
 
         ensure!(!search_results.is_empty(), "No anime found");
 
-        let anilist = Anilist::new(search.id)?;
+        let anilist = Anilist::new(id)?;
 
         let pool: Vec<_> = search_results
             .iter()
@@ -61,98 +63,88 @@ impl Archive for AnimeWorld {
                 let page = selector::get_page(&client.clone(), &url).await?;
 
                 let mut info = get_info(page)?;
-                if let Some(id) = info.id {
-                    info.last_watched = anilist.get_progress(id).await.map(|(_, l)| l);
+                if let Some(id) = info.id
+                    && let Some((_, l)) = anilist.get_progress(id).await
+                {
+                    info.last_watched = Some(l);
                 }
 
-                anyhow::Ok::<Anime>(info)
+                anyhow::Ok(info)
             })
             .collect();
 
         let stream: Vec<_> = stream::iter(pool).buffer_unordered(8).collect().await;
-        let mut anime = stream.into_iter().filter_map(|a| a.ok());
+        let series: Vec<_> = stream.into_iter().filter_map(|a| a.ok()).collect();
 
-        if let Some(id) = search.id
-            && let Some(anime) = anime.find(|a| a.id == Some(id) && !a.name.contains("(ITA)"))
+        if let Some(id) = id
+            && let Some(a) = series
+                .iter()
+                .find(|a| a.id == Some(id) && !a.name.contains("(ITA)"))
         {
-            return Ok(vec![anime]);
+            return Ok(vec![a.clone()]);
         }
 
-        let series = {
-            let mut s: Vec<_> = anime.collect();
-            if s.len() > 1 {
-                Tui::select_series(&mut s)?;
-            }
-
-            s
-        };
+        let mut series = series;
+        if series.len() > 1 {
+            Tui::select_series(&mut series)?;
+        }
 
         Ok(series)
     }
 }
 
 fn get_info(page: Html) -> Result<Anime> {
-    let range = get_range(&page);
-    let id = get_id(&page);
-    let name = get_name(&page)?;
-    let url = get_url(&page)?;
+    let Some(name) = get_name(&page) else {
+        return Err(anyhow!("No name found"));
+    };
+    let Some(url) = get_url(&page) else {
+        return Err(anyhow!("No url found"));
+    };
 
-    Ok(Anime::new(&name, &url, id, range.map(|e| e.into())))
+    let id = get_id(&page);
+    let range = get_range(&page).map(|e| e.into());
+
+    Ok(Anime::new(&name, &url, id, range))
 }
 
-fn get_name(page: &Html) -> Result<String> {
+fn get_name(page: &Html) -> Option<String> {
     let h1 = selector::from(r#"h1[id="anime-title"]"#);
 
-    page.select(&h1)
-        .next()
-        .and_then(|e| e.first_child().and_then(|a| a.value().as_text()))
-        .map(|t| t.to_string())
-        .context("No name found")
+    let elem = page.select(&h1).next()?;
+    let name = elem.first_child()?.value().as_text()?.to_string();
+
+    Some(name)
 }
 
-fn get_url(page: &Html) -> Result<String> {
-    let a = selector::from(r#"a[id="alternativeDownloadLink"]"#);
-    let mut url = page
-        .select(&a)
-        .next_back()
-        .and_then(|a| a.value().attr("href"));
+fn get_url(page: &Html) -> Option<String> {
+    let selectors = [
+        r#"a[id="alternativeDownloadLink"]"#,
+        r#"a[id="downloadLink"]"#,
+        r#"a[id="customDownloadButton"]"#,
+    ];
 
-    if url.is_none_or(|u| u.is_empty()) {
-        let a = selector::from(r#"a[id="downloadLink"]"#);
-        url = page
-            .select(&a)
-            .next_back()
-            .and_then(|a| a.value().attr("href"))
+    for s in selectors {
+        let a = selector::from(s);
+        let elem = page.select(&a).next_back();
+
+        if let Some(url) = elem.and_then(|e| e.value().attr("href")) {
+            let url = url.replace("download-file.php?id=", "");
+            return Some(url);
+        }
     }
 
-    if url.is_none_or(|u| u.is_empty()) {
-        let a = selector::from(r#"a[id="customDownloadButton"]"#);
-        url = page
-            .select(&a)
-            .next_back()
-            .and_then(|a| a.value().attr("href"))
-    }
-
-    let url = url
-        .map(|u| u.replace("download-file.php?id=", ""))
-        .ok_or(anyhow!("No url found"))?;
-
-    Ok(url)
+    None
 }
 
 fn get_id(page: &Html) -> Option<u32> {
     let btn = selector::from(r#"a[id="anilist-button"]"#);
+    let href = page.select(&btn).next_back()?.value().attr("href")?;
 
-    page.select(&btn)
-        .next_back()
-        .and_then(|a| a.value().attr("href"))
-        .and_then(|u| {
-            Url::parse(u)
-                .unwrap()
-                .path_segments()
-                .and_then(|mut s| s.next_back())
-                .and_then(|s| s.parse::<u32>().ok())
-        })
+    let url = Url::parse(href).ok()?;
+    let value = url.path_segments()?.next_back()?;
+    let id = value.parse().ok()?;
+
+    Some(id)
 }
 
 fn get_range(page: &Html) -> Option<(u32, u32)> {
@@ -164,39 +156,28 @@ fn get_range(page: &Html) -> Option<(u32, u32)> {
     {
         let spans: Vec<_> = range.select(&span).collect();
 
-        let range = match spans.as_slice() {
+        return match spans.as_slice() {
             [first, .., last] => {
-                let start = first
-                    .inner_html()
-                    .split_ascii_whitespace()
-                    .next()?
-                    .parse::<u32>()
-                    .ok()?;
+                let html = first.inner_html();
+                let value = html.split_ascii_whitespace().next()?;
+                let start = value.parse().ok()?;
 
-                let end = last
-                    .inner_html()
-                    .split_ascii_whitespace()
-                    .last()?
-                    .parse::<u32>()
-                    .ok()?;
+                let html = last.inner_html();
+                let value = html.split_ascii_whitespace().last()?;
+                let end = value.parse().ok()?;
 
                 Some((start, end))
             }
             _ => None,
         };
-
-        return range;
     }
 
     let ul = selector::from("ul.episodes");
     let a = selector::from("a");
 
-    let episodes = page
-        .select(&ul)
-        .next()?
-        .select(&a)
-        .filter_map(|a| a.inner_html().parse::<u32>().ok())
-        .collect::<Vec<_>>();
+    let elem = page.select(&ul).next()?;
+    let values = elem.select(&a);
+    let episodes: Vec<_> = values.filter_map(|a| a.inner_html().parse().ok()).collect();
 
     match episodes.as_slice() {
         [start, .., end] => Some((*start, *end)),
