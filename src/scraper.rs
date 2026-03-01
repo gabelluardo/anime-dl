@@ -93,13 +93,13 @@ impl ProxyManager {
 
     async fn get_random_proxy() -> Result<String> {
         let url = "https://api.proxyscrape.com/?request=getproxies&proxytype=http&timeout=2000&country=all&ssl=all&anonymity=elite";
-        let list = reqwest::get(url).await?.text().await?;
 
-        let proxy = list
-            .split_ascii_whitespace()
-            .choose(&mut rand::rng())
-            .map(|s| format!("https://{s}"))
-            .ok_or_else(|| anyhow::anyhow!("No proxy found"))?;
+        let list = reqwest::get(url).await?.text().await?;
+        let Some(chosen) = list.split_ascii_whitespace().choose(&mut rand::rng()) else {
+            return Err(anyhow::anyhow!("No proxy found"));
+        };
+
+        let proxy = format!("https://{chosen}");
 
         Ok(proxy)
     }

@@ -109,15 +109,17 @@ pub async fn exec(args: Args) -> Result<()> {
     while let Some(Ok(line)) = stream.next().await {
         match line {
             line if line.contains("Opening done") => {
-                if let Some(url) = line.split_whitespace().last() {
-                    let num = get_episode_number(url);
-                    let origin = remove_episode_number(url, num);
+                let Some(url) = line.split_whitespace().last() else {
+                    continue;
+                };
 
-                    let anime_id = ids.get(&origin).copied().flatten();
-                    let episode = num.map(|n| n.value);
+                let num = get_episode_number(url);
+                let origin = remove_episode_number(url, num);
 
-                    progress.track(anime_id, episode);
-                }
+                let anime_id = ids.get(&origin).copied().flatten();
+                let episode = num.map(|n| n.value);
+
+                progress.track(anime_id, episode);
             }
 
             line if line.contains('%') && !line.contains("(Paused)") => {

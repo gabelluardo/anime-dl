@@ -195,27 +195,32 @@ async fn get(client: &Client, url: &str, referrer: &str) -> Result<Response> {
 fn get_progress_message(url: &str, name: &str) -> String {
     match get_episode_number(url) {
         Some(num) => format!("Ep. {:0fill$} {}", num.value, name, fill = num.alignment),
-        _ => name.to_owned(),
+        _ => name.into(),
     }
 }
 
 /// Extract the filename from a media URL.
 fn get_filename(input: &str) -> Result<String> {
-    reqwest::Url::parse(input)?
-        .path_segments()
-        .and_then(|mut s| s.next_back())
-        .map(|s| s.into())
-        .ok_or(anyhow!("Unable to get {input}"))
+    let response = reqwest::Url::parse(input)?;
+    let Some(filename) = response.path_segments().and_then(|mut s| s.next_back()) else {
+        return Err(anyhow!("Unable to get {input}"));
+    };
+
+    Ok(filename.into())
 }
 
 /// Extract the directory name from a media URL (before the first underscore).
 fn get_dir_name(input: &str) -> Result<String> {
-    let url = reqwest::Url::parse(input)?;
-    url.path_segments()
+    let response = reqwest::Url::parse(input)?;
+    let Some(dir_name) = response
+        .path_segments()
         .and_then(|mut s| s.next_back())
         .and_then(|s| s.split('_').next())
-        .map(|s| s.into())
-        .ok_or(anyhow!("Unable to get {input}"))
+    else {
+        return Err(anyhow!("Unable to get {input}"));
+    };
+
+    Ok(dir_name.into())
 }
 
 /// Convert a camelCase/PascalCase string into snake_case.
