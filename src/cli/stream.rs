@@ -68,7 +68,7 @@ pub async fn exec(args: Args) -> Result<()> {
     } else if let Ok(c) = which("vlc") {
         (c, format!("--http-referrer={referrer}"))
     } else {
-        bail!("No supported media player found. Please install mpv or vlc.")
+        bail!("no supported media player found. Please install mpv or vlc.")
     };
 
     let (ids, episodes) = {

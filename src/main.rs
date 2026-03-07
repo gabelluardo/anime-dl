@@ -18,6 +18,6 @@ async fn main() {
     let args = Args::parse();
 
     if let Err(err) = app::run(args).await {
-        eprintln!("{}", err.red());
+        eprintln!("Error: {}", err.red());
     }
 }

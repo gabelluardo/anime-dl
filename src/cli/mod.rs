@@ -30,21 +30,21 @@ pub enum Command {
 }
 
 mod utils {
-    use anyhow::{Context, Result};
+    use anyhow::{Result, anyhow};
 
     use crate::{
         anilist::Anilist,
         anime::Anime,
         archives::Archive,
+        error::RequestError,
         scraper::{Scraper, ScraperConfig, Search},
         ui::Tui,
     };
 
-    pub async fn get_from_watching_list(anilist_id: Option<u32>) -> Result<Vec<Search>> {
-        let list = Anilist::new(anilist_id)?
-            .get_watching_list()
-            .await
-            .context("Unable to get data from watching list")?;
+    pub async fn get_from_watching_list(client_id: Option<u32>) -> Result<Vec<Search>> {
+        let Some(list) = Anilist::new(client_id)?.get_watching_list().await else {
+            return Err(anyhow!(RequestError::WatchingList));
+        };
 
         let search = Tui::select_from_watching(&list)?
             .iter()

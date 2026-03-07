@@ -9,3 +9,9 @@ pub enum RangeError {
     #[error("invalid range string")]
     Invalid,
 }
+
+#[derive(thiserror::Error, Debug)]
+pub enum RequestError {
+    #[error("unable to get data from watching list")]
+    WatchingList,
+}
