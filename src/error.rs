@@ -14,4 +14,14 @@ pub enum RangeError {
 pub enum RequestError {
     #[error("unable to get data from watching list")]
     WatchingList,
+    #[error("blocked search request")]
+    Search,
+}
+
+#[derive(thiserror::Error, Debug)]
+pub enum ScraperError {
+    #[error("no name found")]
+    Name,
+    #[error("no url found")]
+    Url,
 }

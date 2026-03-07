@@ -2,32 +2,57 @@ use crate::range::Range;
 
 #[derive(Clone, Default, Debug, PartialEq, Eq)]
 pub struct Anime {
-    pub id: Option<u32>,
-    pub last_watched: Option<i64>,
-    pub name: String,
-    pub num: Option<InfoNum>,
-    pub origin: String,
-    pub range: Option<Range<u32>>,
-    pub start: u32,
-    pub url: String,
+    id: Option<u32>,
+    last_watched: Option<i64>,
+    name: String,
+    url: String,
+    range: Option<Range<u32>>,
 }
 
 impl Anime {
-    pub fn new(name: &str, input: &str, id: Option<u32>, range: Option<Range<u32>>) -> Self {
-        let num = get_episode_number(input);
-        let url = remove_episode_number(input, num);
-        let start = num.unwrap_or_default().value;
-
+    pub fn new(name: String, url: String, id: Option<u32>, range: Option<Range<u32>>) -> Self {
         Anime {
             id,
-            num,
             range,
-            start,
+            name,
             url,
             last_watched: None,
-            name: name.into(),
-            origin: input.into(),
         }
+    }
+
+    pub fn with_last_watched(mut self, last_watched: i64) -> Self {
+        self.last_watched = Some(last_watched);
+        self
+    }
+
+    pub fn id(&self) -> Option<u32> {
+        self.id
+    }
+
+    pub fn next_episode(&self) -> u32 {
+        let (value, _) = get_episode_number(&self.url).unwrap_or_default();
+
+        value
+    }
+
+    pub fn last_watched(&self) -> Option<i64> {
+        self.last_watched
+    }
+
+    pub fn last_episode(&self) -> u32 {
+        self.range.unwrap_or_default().end
+    }
+
+    pub fn name(&self) -> String {
+        self.name.clone()
+    }
+
+    pub fn range(&self) -> Option<Range<u32>> {
+        self.range
+    }
+
+    pub fn url(&self) -> String {
+        self.url.clone()
     }
 
     pub fn select_from_index(&self, start: usize) -> Vec<String> {
@@ -40,57 +65,46 @@ impl Anime {
     }
 
     pub fn select_from_range(&self, range: Range<u32>) -> Vec<String> {
-        let Self { url, num, .. } = self;
+        let Self { url, .. } = self;
 
-        match num {
-            Some(InfoNum { value, alignment }) => {
-                let value = value.checked_sub(1).unwrap_or(*value);
-                range.map(|i| gen_url(url, i + value, *alignment)).collect()
+        match get_episode_number(url) {
+            Some((value, padding)) => {
+                let num = value.checked_sub(1).unwrap_or(value);
+
+                range
+                    .map(|i| gen_url(url, value, i + num, padding))
+                    .collect()
             }
-            None => vec![url.clone()],
+            None => vec![self.url.clone()],
         }
     }
 
     pub fn select_from_slice(&self, slice: &[usize]) -> Vec<String> {
-        let Self { url, num, .. } = self;
+        let Self { url, .. } = self;
 
-        match num {
-            Some(InfoNum { alignment, .. }) => slice
+        match get_episode_number(url) {
+            Some((value, padding)) => slice
                 .iter()
-                .map(|&i| gen_url(&self.url, i as u32, *alignment))
+                .map(|&i| gen_url(url, value, i as u32, padding))
                 .collect(),
-            None => vec![url.clone()],
+            None => vec![self.url.clone()],
         }
     }
 }
 
-/// Fill url placeholder with zero-padded episode number.
-pub fn gen_url(url: &str, num: u32, alignment: usize) -> String {
-    url.replace("_{}", &format!("_{:0fill$}", num, fill = alignment))
-}
-
-#[derive(Clone, Copy, Default, Debug, PartialEq, Eq)]
-pub struct InfoNum {
-    pub value: u32,
-    pub alignment: usize,
-}
-
-/// Replace the detected episode number in a URL with a `{}` placeholder.
-pub fn remove_episode_number(input: &str, num: Option<InfoNum>) -> String {
-    match num {
-        Some(InfoNum { value, alignment }) => {
-            let num = format!("{:0fill$}", value, fill = alignment);
-            input.replace(&num, "{}")
-        }
-        None => input.into(),
-    }
+/// Replace url episode namber with zero-padded episode number.
+pub fn gen_url(url: &str, old: u32, new: u32, padding: usize) -> String {
+    url.replace(
+        &format!("_{old:0fill$}", fill = padding),
+        &format!("_{new:0fill$}", fill = padding),
+    )
 }
 
 /// Extract the episode number and its zero-padding from a URL, if present.
-pub fn get_episode_number(input: &str) -> Option<InfoNum> {
-    let chars: Vec<_> = input.chars().collect();
+pub fn get_episode_number(url: &str) -> Option<(u32, usize)> {
+    let chars: Vec<_> = url.chars().collect();
     let positions: Vec<_> = chars
-        .windows(3)
+        .array_windows()
         .enumerate()
         .filter_map(|(i, window)| match window {
             ['_', c, cc] if c.is_ascii_digit() && cc.is_ascii_digit() => Some(i),
@@ -101,12 +115,12 @@ pub fn get_episode_number(input: &str) -> Option<InfoNum> {
 
     match positions.as_slice() {
         [start, end] => {
-            let str = &input[*start + 1..*end + 1];
+            let str = &url[*start + 1..*end + 1];
 
-            let value = str.parse::<u32>().ok()?;
-            let alignment = str.len();
+            let value: u32 = str.parse().ok()?;
+            let padding = str.len();
 
-            Some(InfoNum { value, alignment })
+            Some((value, padding))
         }
         _ => None,
     }
@@ -118,56 +132,41 @@ mod tests {
 
     #[test]
     fn test_gen_url() {
-        let url = "https://robe_{}_.tld";
+        let url = "https://robe_01_.tld";
+        assert_eq!(gen_url(url, 1, 42, 2), "https://robe_42_.tld");
+        assert_eq!(gen_url(url, 1, 14, 2), "https://robe_14_.tld");
 
-        assert_eq!(gen_url(url, 1, 2), "https://robe_01_.tld");
-        assert_eq!(gen_url(url, 14, 2), "https://robe_14_.tld");
-        assert_eq!(gen_url(url, 1400, 2), "https://robe_1400_.tld");
+        let url = "https://robe_42_.tld";
+        assert_eq!(gen_url(url, 42, 1, 2), "https://robe_01_.tld");
+        assert_eq!(gen_url(url, 42, 14, 2), "https://robe_14_.tld");
 
-        assert_eq!(gen_url(url, 1, 3), "https://robe_001_.tld");
-        assert_eq!(gen_url(url, 14, 3), "https://robe_014_.tld");
-        assert_eq!(gen_url(url, 1400, 3), "https://robe_1400_.tld");
+        let url = "https://robe_042_.tld";
+        assert_eq!(gen_url(url, 42, 1, 3), "https://robe_001_.tld");
+        assert_eq!(gen_url(url, 42, 14, 3), "https://robe_014_.tld");
+        assert_eq!(gen_url(url, 42, 1400, 3), "https://robe_1400_.tld");
     }
 
     #[test]
-    fn test_extract_info() {
-        let origin = "https://www.domain.tld/sub/anotherSub/AnimeName/AnimeName_Ep_15_SUB_ITA.mp4";
-        let url = "https://www.domain.tld/sub/anotherSub/AnimeName/AnimeName_Ep_{}_SUB_ITA.mp4";
-        let res = Anime::new("Anime Name", origin, None, None);
-        assert_eq!(
-            res,
-            Anime {
-                name: "Anime Name".into(),
-                url: url.into(),
-                origin: origin.into(),
-                num: Some(InfoNum {
-                    value: 15,
-                    alignment: 2
-                }),
-                start: 15,
-                ..Default::default()
-            }
-        );
+    fn test_get_episode_number() {
+        let url = "https://www.domain.tld/sub/anotherSub/AnimeName/AnimeName_Ep_15_SUB_ITA.mp4";
+        assert_eq!(get_episode_number(url), Some((15, 2)));
 
-        let origin = "https://www.domain.tld/sub/anotherSub/AnimeName/AnimeName_Ep_016_SUB_ITA.mp4";
-        let url = "https://www.domain.tld/sub/anotherSub/AnimeName/AnimeName_Ep_{}_SUB_ITA.mp4";
-        let mut res = Anime::new("Anime Name", origin, Some(14), None);
-        res.last_watched = Some(3);
-        assert_eq!(
-            res,
-            Anime {
-                name: "Anime Name".into(),
-                url: url.into(),
-                origin: origin.into(),
-                id: Some(14),
-                last_watched: Some(3),
-                num: Some(InfoNum {
-                    value: 16,
-                    alignment: 3
-                }),
-                start: 16,
-                ..Default::default()
-            }
-        );
+        let url = "https://www.domain.tld/sub/anotherSub/AnimeName/AnimeName_Ep_016_SUB_ITA.mp4";
+        assert_eq!(get_episode_number(url), Some((16, 3)));
+
+        let url = "https://www.domain.tld/sub/anotherSub/AnimeName/AnimeName_Ep_0017_SUB_ITA.mp4";
+        assert_eq!(get_episode_number(url), Some((17, 4)));
+    }
+
+    #[test]
+    fn test_remove_episode_number() {
+        let url = "https://www.domain.tld/sub/anotherSub/AnimeName/AnimeName_Ep_15_SUB_ITA.mp4";
+        assert_eq!(get_episode_number(url), Some((15, 2)));
+
+        let url = "https://www.domain.tld/sub/anotherSub/AnimeName/AnimeName_Ep_016_SUB_ITA.mp4";
+        assert_eq!(get_episode_number(url), Some((16, 3)));
+
+        let url = "https://www.domain.tld/sub/anotherSub/AnimeName/AnimeName_Ep_0017_SUB_ITA.mp4";
+        assert_eq!(get_episode_number(url), Some((17, 4)));
     }
 }

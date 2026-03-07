@@ -1,4 +1,4 @@
-use anyhow::{Result, anyhow, ensure};
+use anyhow::{Ok, Result, anyhow, ensure};
 use futures::stream::{self, StreamExt};
 use reqwest::{Client, Url};
 use scraper::Html;
@@ -7,6 +7,8 @@ use crate::{
     anilist::Anilist,
     anime::Anime,
     archives::Archive,
+    error::{RequestError, ScraperError},
+    range::Range,
     scraper::{Search, selector},
     ui::Tui,
 };
@@ -38,7 +40,7 @@ impl Archive for AnimeWorld {
 
             let anime_list = selector::from("div.film-list");
             let Some(elem) = search_page.select(&anime_list).next() else {
-                return Err(anyhow!("Request blocked, retry"));
+                return Err(anyhow!(RequestError::Search));
             };
 
             let name = selector::from("a.name");
@@ -63,14 +65,16 @@ impl Archive for AnimeWorld {
                 let url = Self::REFERRER.to_string() + url;
                 let page = selector::get_page(&client.clone(), &url).await?;
 
-                let mut info = get_info(page)?;
-                if let Some(id) = info.id
-                    && let Some((_, l)) = anilist.get_progress(id).await
+                let (name, url, id, range) = get_info(page)?;
+                let anime = Anime::new(name, url, id, range);
+
+                if let Some(i) = id
+                    && let Some((_, l)) = anilist.get_progress(i).await
                 {
-                    info.last_watched = Some(l);
+                    return Ok(anime.with_last_watched(l));
                 }
 
-                anyhow::Ok(info)
+                Ok(anime)
             })
             .collect();
 
@@ -80,7 +84,7 @@ impl Archive for AnimeWorld {
         if let Some(id) = id
             && let Some(a) = series
                 .iter()
-                .find(|a| a.id == Some(id) && !a.name.contains("(ITA)"))
+                .find(|a| a.id() == Some(id) && !a.name().contains("(ITA)"))
         {
             return Ok(vec![a.clone()]);
         }
@@ -94,18 +98,20 @@ impl Archive for AnimeWorld {
     }
 }
 
-fn get_info(page: Html) -> Result<Anime> {
+type AnimeInfo = (String, String, Option<u32>, Option<Range<u32>>);
+
+fn get_info(page: Html) -> Result<AnimeInfo> {
     let Some(name) = get_name(&page) else {
-        return Err(anyhow!("No name found"));
+        return Err(anyhow!(ScraperError::Name));
     };
     let Some(url) = get_url(&page) else {
-        return Err(anyhow!("No url found"));
+        return Err(anyhow!(ScraperError::Url));
     };
 
     let id = get_id(&page);
     let range = get_range(&page).map(|e| e.into());
 
-    Ok(Anime::new(&name, &url, id, range))
+    Ok((name, url, id, range))
 }
 
 fn get_name(page: &Html) -> Option<String> {
@@ -197,7 +203,7 @@ mod tests {
         Url::parse(raw_url)
             .unwrap()
             .path_segments()
-            .and_then(|mut s| s.next_back())
+            .and_then(|s| s.last())
             .unwrap()
             .to_owned()
     }
@@ -327,16 +333,13 @@ mod tests {
             };
 
             let scraper = Scraper::new(config);
-
             let search = Search {
                 string: "bunny girl".into(),
                 id: None,
             };
 
             let anime = AnimeWorld::search(search, scraper.client()).await.unwrap();
-
-            let info = get_url(&anime.first().unwrap().origin);
-
+            let info = get_url(&anime.first().unwrap().url());
             assert_eq!(file, info)
         }
     }

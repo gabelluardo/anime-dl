@@ -9,6 +9,7 @@ use tokio::{fs, io::AsyncWriteExt};
 use tokio_stream as stream;
 
 use super::{Site, utils};
+use crate::anilist::Anilist;
 use crate::{
     anime::get_episode_number, archives::AnimeWorld, proxy::ProxyManager, range::Range, ui::Tui,
 };
@@ -73,7 +74,8 @@ pub async fn exec(args: Args) -> Result<()> {
     } = args;
 
     let searches = if watching || entries.is_empty() {
-        utils::get_from_watching_list(anilist_id).await?
+        let anilist = Anilist::new(anilist_id)?;
+        utils::get_from_watching_list(&anilist).await?
     } else {
         utils::get_from_input(entries)?
     };
@@ -96,7 +98,7 @@ pub async fn exec(args: Args) -> Result<()> {
 
         let root = {
             let mut root = destination.clone();
-            let name = get_dir_name(&anime.url)?;
+            let name = get_dir_name(&anime.url())?;
             let dir = camel_to_snake(&name);
             root.push(dir);
 
@@ -107,7 +109,7 @@ pub async fn exec(args: Args) -> Result<()> {
         for url in episodes {
             let pb = ui.add_bar();
             let client = client.clone();
-            let name = anime.name.clone();
+            let name = anime.name();
             let dest = {
                 let mut dest = root.clone();
                 let filename = get_filename(&url)?;
@@ -191,30 +193,30 @@ async fn get(client: &Client, url: &str, referrer: &str) -> Result<Response> {
 
 fn get_progress_message(url: &str, name: &str) -> String {
     match get_episode_number(url) {
-        Some(num) => format!("Ep. {:0fill$} {}", num.value, name, fill = num.alignment),
+        Some((value, padding)) => format!("Ep. {:0fill$} {}", value, name, fill = padding),
         _ => name.into(),
     }
 }
 
 /// Extract the filename from a media URL.
-fn get_filename(input: &str) -> Result<String> {
-    let response = reqwest::Url::parse(input)?;
+fn get_filename(url: &str) -> Result<String> {
+    let response = reqwest::Url::parse(url)?;
     let Some(filename) = response.path_segments().and_then(|mut s| s.next_back()) else {
-        return Err(anyhow!("Unable to get {input}"));
+        return Err(anyhow!("Unable to get {url}"));
     };
 
     Ok(filename.into())
 }
 
 /// Extract the directory name from a media URL (before the first underscore).
-fn get_dir_name(input: &str) -> Result<String> {
-    let response = reqwest::Url::parse(input)?;
+fn get_dir_name(url: &str) -> Result<String> {
+    let response = reqwest::Url::parse(url)?;
     let Some(dir_name) = response
         .path_segments()
         .and_then(|mut s| s.next_back())
         .and_then(|s| s.split('_').next())
     else {
-        return Err(anyhow!("Unable to get {input}"));
+        return Err(anyhow!("Unable to get {url}"));
     };
 
     Ok(dir_name.into())

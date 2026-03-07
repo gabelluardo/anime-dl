@@ -109,7 +109,7 @@ mod tests {
         Url::parse(raw_url)
             .unwrap()
             .path_segments()
-            .and_then(|mut s| s.next_back())
+            .and_then(|s| s.last())
             .unwrap()
             .into()
     }
@@ -142,12 +142,7 @@ mod tests {
         }];
 
         let anime = Scraper::new(config).search::<T>(&search).await?;
-        let info = get_url(
-            &anime
-                .first()
-                .ok_or_else(|| anyhow::anyhow!("No anime found"))?
-                .origin,
-        );
+        let info = get_url(&anime.first().unwrap().url());
 
         assert_eq!(expected_file, info);
         Ok(())
@@ -179,10 +174,10 @@ mod tests {
         let mut results: Vec<_> = anime
             .iter()
             .map(|a| {
-                Url::parse(&a.origin)
+                Url::parse(&a.url())
                     .unwrap()
                     .path_segments()
-                    .and_then(|mut s| s.next_back())
+                    .and_then(|s| s.last())
                     .map(|s| s.to_string())
                     .unwrap_or_default()
             })

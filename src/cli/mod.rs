@@ -41,8 +41,8 @@ mod utils {
         ui::Tui,
     };
 
-    pub async fn get_from_watching_list(client_id: Option<u32>) -> Result<Vec<Search>> {
-        let Some(list) = Anilist::new(client_id)?.get_watching_list().await else {
+    pub async fn get_from_watching_list(client: &Anilist) -> Result<Vec<Search>> {
+        let Some(list) = client.get_watching_list().await else {
             return Err(anyhow!(RequestError::WatchingList));
         };
 

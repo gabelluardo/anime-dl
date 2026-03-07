@@ -3,6 +3,7 @@ use std::process::Stdio;
 
 use anyhow::{Context, Result, bail};
 use clap::Parser;
+use reqwest::Url;
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
 use tokio_stream::StreamExt;
@@ -11,11 +12,7 @@ use which::which;
 
 use super::{Site, utils};
 use crate::{
-    anilist::Anilist,
-    anime::{get_episode_number, remove_episode_number},
-    archives::AnimeWorld,
-    proxy::ProxyManager,
-    ui::Tui,
+    anilist::Anilist, anime::get_episode_number, archives::AnimeWorld, proxy::ProxyManager, ui::Tui,
 };
 
 /// Stream anime in a media player
@@ -52,8 +49,9 @@ pub async fn exec(args: Args) -> Result<()> {
         watching,
     } = args;
 
+    let anilist = Anilist::new(anilist_id)?;
     let searches = if watching || entries.is_empty() {
-        utils::get_from_watching_list(anilist_id).await?
+        utils::get_from_watching_list(&anilist).await?
     } else {
         utils::get_from_input(entries)?
     };
@@ -75,7 +73,11 @@ pub async fn exec(args: Args) -> Result<()> {
         let mut ids = HashMap::new();
         let mut episodes = Vec::new();
         for anime in &search_result {
-            ids.insert(&anime.url, anime.id);
+            let Some(name) = get_name_from_url(&anime.url()) else {
+                continue;
+            };
+
+            ids.insert(name, anime.id());
             episodes.extend(Tui::select_episodes(anime)?);
         }
 
@@ -106,25 +108,32 @@ pub async fn exec(args: Args) -> Result<()> {
         StreamExt::merge(stdout_lines, stderr_lines)
     };
 
-    let mut progress = Progress::new(Anilist::new(anilist_id)?);
+    let mut progress = Progress::new(anilist);
     while let Some(Ok(line)) = stream.next().await {
         match line {
             line if line.contains("Opening done") => {
                 let Some(url) = line.split_whitespace().last() else {
                     continue;
                 };
+                let Some((num, _)) = get_episode_number(url) else {
+                    continue;
+                };
+                let Some(name) = get_name_from_url(url) else {
+                    continue;
+                };
+                let Some(id) = ids.get(&name).copied().flatten() else {
+                    continue;
+                };
 
-                let num = get_episode_number(url);
-                let origin = remove_episode_number(url, num);
-
-                let anime_id = ids.get(&origin).copied().flatten();
-                let episode = num.map(|n| n.value);
-
-                progress.track(anime_id, episode);
+                progress.track(id, num);
             }
 
             line if line.contains('%') && !line.contains("(Paused)") => {
-                progress.update(get_percentage(&line));
+                let Some(percentage) = get_percentage(&line) else {
+                    continue;
+                };
+
+                progress.update(percentage);
                 progress.send().await
             }
 
@@ -135,12 +144,19 @@ pub async fn exec(args: Args) -> Result<()> {
     Ok(())
 }
 
-/// Extract the percentage value from a player output line.
-fn get_percentage(input: &str) -> Option<u32> {
-    let sym = input.find('%')?;
+// Get anime name parsing anime url.
+fn get_name_from_url(url: &str) -> Option<String> {
+    let url = Url::parse(url).ok()?;
+    let last = url.path_segments()?.next_back()?;
+    let name = last.split_terminator("_").next()?.to_string();
 
-    // SAFE: `input` is a simple ASCII string
-    let bytes = input.as_bytes();
+    Some(name)
+}
+
+/// Extract the percentage value from a player output line.
+fn get_percentage(line: &str) -> Option<u32> {
+    let sym = line.find('%')?;
+    let bytes = line.as_bytes();
 
     let mut start = sym;
     while start > 0 && bytes[start - 1].is_ascii_digit() {
@@ -151,14 +167,14 @@ fn get_percentage(input: &str) -> Option<u32> {
         return None;
     }
 
-    input.get(start..sym)?.parse().ok()
+    line.get(start..sym)?.parse().ok()
 }
 
 #[derive(Default, Debug)]
 struct EpisodeProgress {
-    anime_id: Option<u32>,
-    episode: Option<u32>,
-    percentage: Option<u32>,
+    anime_id: u32,
+    episode: u32,
+    percentage: u32,
     updated: bool,
 }
 
@@ -177,30 +193,28 @@ impl Progress {
         Self { anilist, queue }
     }
 
-    pub fn track(&mut self, anime_id: Option<u32>, episode: Option<u32>) {
-        let Self { queue, .. } = self;
-
+    pub fn track(&mut self, anime_id: u32, episode: u32) {
         let progess = EpisodeProgress {
             anime_id,
             episode,
-            percentage: None,
+            percentage: 0,
             updated: false,
         };
 
-        queue.push_back(progess);
+        self.queue.push_back(progess);
     }
 
-    pub fn update(&mut self, percentage: Option<u32>) {
+    pub fn update(&mut self, percentage: u32) {
         let Self { queue, .. } = self;
 
-        match (queue.front_mut(), percentage) {
+        match queue.front_mut() {
             // update current episode
-            (Some(p), Some(_)) if p.percentage <= percentage => {
+            Some(p) if p.percentage <= percentage => {
                 p.percentage = percentage;
             }
 
             // new episode is selected, pass to the next
-            (Some(EpisodeProgress { updated: true, .. }), Some(0)) => {
+            Some(EpisodeProgress { updated: true, .. }) if percentage == 0 => {
                 queue.pop_front();
             }
 
@@ -209,30 +223,21 @@ impl Progress {
     }
 
     pub async fn send(&mut self) {
-        fn need_update(queue: &mut VecDeque<EpisodeProgress>) -> bool {
-            if let Some(p) = queue.front() {
-                return !p.updated && p.percentage.is_some_and(|p| p > Progress::MIN_PERCENTAGE);
-            }
-
-            false
-        }
-
         let Self { anilist, queue } = self;
 
-        if need_update(queue)
-            && let Some(progress) = queue.front_mut()
-            && let Some(number) = progress.episode
-            && let Some(id) = progress.anime_id
+        if let Some(p) = queue.front_mut()
+            && !p.updated
+            && p.percentage > Progress::MIN_PERCENTAGE
         {
-            let result = anilist.update(id, number).await;
-            progress.updated = result.is_ok();
+            let result = anilist.update(p.anime_id, p.episode).await;
+            p.updated = result.is_ok();
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::get_percentage;
+    use super::*;
 
     #[test]
     fn test_get_percentage() {
@@ -241,5 +246,11 @@ mod tests {
         assert_eq!(get_percentage("[status] 09%"), Some(9));
         assert_eq!(get_percentage("[status] %"), None);
         assert_eq!(get_percentage("[status] no percent"), None);
+    }
+
+    #[test]
+    fn test_get_name_from_url() {
+        let url = "https://www.domain.tld/sub/anotherSub/AnimeName/AnimeName_Ep_0017_SUB_ITA.mp4";
+        assert_eq!(get_name_from_url(url).unwrap(), "AnimeName")
     }
 }
