@@ -13,8 +13,8 @@ use which::which;
 use super::{Progress, Site};
 use crate::anilist::Anilist;
 use crate::anime::{get_episode_number, remove_episode_number};
-use crate::archive::AnimeWorld;
-use crate::scraper::ProxyManager;
+use crate::archives::AnimeWorld;
+use crate::proxy::ProxyManager;
 use crate::tui::Tui;
 
 /// Stream anime in a media player

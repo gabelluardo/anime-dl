@@ -2,12 +2,13 @@ use anyhow::{Result, anyhow, ensure};
 
 use futures::stream::StreamExt;
 use reqwest::{Client, Url};
+use scraper::Html;
 use tokio_stream as stream;
 
-use super::{Archive, Html, selector};
 use crate::anilist::Anilist;
 use crate::anime::Anime;
-use crate::scraper::Search;
+use crate::archives::Archive;
+use crate::scraper::{Search, selector};
 use crate::tui::Tui;
 
 pub struct AnimeWorld;

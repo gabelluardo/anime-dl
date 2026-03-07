@@ -6,7 +6,7 @@ pub use clap::Parser;
 use crate::{
     anilist::Anilist,
     anime::Anime,
-    archive::Archive,
+    archives::Archive,
     scraper::{Scraper, ScraperConfig, Search},
     tui::Tui,
 };

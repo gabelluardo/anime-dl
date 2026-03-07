@@ -3,11 +3,10 @@ use std::time::Duration;
 use anyhow::Result;
 use futures::future::join_all;
 use owo_colors::OwoColorize;
-use rand::seq::IteratorRandom;
 use reqwest::{Client, header, header::HeaderValue};
 
 use crate::anime::Anime;
-use crate::archive::Archive;
+use crate::archives::Archive;
 
 #[derive(Debug, Clone)]
 pub struct Search {
@@ -21,13 +20,13 @@ pub struct ScraperConfig {
     pub proxy: Option<String>,
 }
 
-const CONNECTION_TIMEOUT: Duration = Duration::from_secs(10);
-const REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
-
 #[derive(Debug)]
 pub struct Scraper(Client);
 
 impl Scraper {
+    const CONNECTION_TIMEOUT: Duration = Duration::from_secs(10);
+    const REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
+
     pub fn new(config: ScraperConfig) -> Self {
         let ScraperConfig { cookie, proxy } = config;
 
@@ -40,8 +39,8 @@ impl Scraper {
 
         let mut builder = Client::builder()
             .default_headers(headers)
-            .connect_timeout(CONNECTION_TIMEOUT)
-            .timeout(REQUEST_TIMEOUT)
+            .connect_timeout(Self::CONNECTION_TIMEOUT)
+            .timeout(Self::REQUEST_TIMEOUT)
             // this enables support for http only sites
             .danger_accept_invalid_certs(true);
 
@@ -80,36 +79,32 @@ impl Scraper {
     }
 }
 
-pub struct ProxyManager;
+pub mod selector {
+    use super::*;
 
-impl ProxyManager {
-    pub async fn proxy(disable: bool) -> Option<String> {
-        if disable {
-            return None;
-        }
+    use scraper::Html;
+    use scraper::Selector;
 
-        Self::get_random_proxy().await.ok()
-    }
-
-    async fn get_random_proxy() -> Result<String> {
-        let url = "https://api.proxyscrape.com/?request=getproxies&proxytype=http&timeout=2000&country=all&ssl=all&anonymity=elite";
-
-        let list = reqwest::get(url).await?.text().await?;
-        let Some(chosen) = list.split_ascii_whitespace().choose(&mut rand::rng()) else {
-            return Err(anyhow::anyhow!("No proxy found"));
+    pub fn from(selectors: &str) -> Selector {
+        let Ok(s) = Selector::parse(selectors) else {
+            panic!("unable to parse selector {selectors}")
         };
 
-        let proxy = format!("https://{chosen}");
+        s
+    }
 
-        Ok(proxy)
+    pub async fn get_page(client: &Client, url: &str) -> Result<Html> {
+        let response = client.get(url).send().await?.error_for_status()?;
+        let fragment = Html::parse_fragment(&response.text().await?);
+
+        Ok(fragment)
     }
 }
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    use crate::archive::AnimeWorld;
+    use crate::archives::AnimeWorld;
     use reqwest::Url;
 
     pub fn get_url(raw_url: &str) -> String {

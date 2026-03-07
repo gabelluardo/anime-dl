@@ -1,8 +1,9 @@
 mod anilist;
 mod anime;
-mod archive;
+mod archives;
 mod cli;
 mod config;
+mod proxy;
 mod range;
 mod scraper;
 mod tui;

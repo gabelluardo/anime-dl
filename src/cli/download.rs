@@ -4,9 +4,9 @@ use std::path::PathBuf;
 
 use super::Site;
 use crate::anime::get_episode_number;
-use crate::archive::AnimeWorld;
+use crate::archives::AnimeWorld;
+use crate::proxy::ProxyManager;
 use crate::range::Range;
-use crate::scraper::ProxyManager;
 use crate::tui::Tui;
 
 use anyhow::{Context, Result, anyhow};
