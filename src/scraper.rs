@@ -5,8 +5,7 @@ use futures::future::join_all;
 use owo_colors::OwoColorize;
 use reqwest::{Client, header, header::HeaderValue};
 
-use crate::anime::Anime;
-use crate::archives::Archive;
+use crate::{anime::Anime, archives::Archive};
 
 #[derive(Debug, Clone)]
 pub struct Search {
@@ -80,10 +79,9 @@ impl Scraper {
 }
 
 pub mod selector {
-    use super::*;
-
-    use scraper::Html;
-    use scraper::Selector;
+    use anyhow::Result;
+    use reqwest::Client;
+    use scraper::{Html, Selector};
 
     pub fn from(selectors: &str) -> Selector {
         let Ok(s) = Selector::parse(selectors) else {

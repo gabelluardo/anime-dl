@@ -11,11 +11,13 @@ use tokio_stream::wrappers::LinesStream;
 use which::which;
 
 use super::{Progress, Site};
-use crate::anilist::Anilist;
-use crate::anime::{get_episode_number, remove_episode_number};
-use crate::archives::AnimeWorld;
-use crate::proxy::ProxyManager;
-use crate::tui::Tui;
+use crate::{
+    anilist::Anilist,
+    anime::{get_episode_number, remove_episode_number},
+    archives::AnimeWorld,
+    proxy::ProxyManager,
+    ui::Tui,
+};
 
 /// Stream anime in a media player
 #[derive(Parser, Debug)]

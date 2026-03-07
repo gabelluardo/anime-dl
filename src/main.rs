@@ -6,7 +6,7 @@ mod config;
 mod proxy;
 mod range;
 mod scraper;
-mod tui;
+mod ui;
 
 use anyhow::Result;
 use cli::{Args, Command, Parser, download, stream};

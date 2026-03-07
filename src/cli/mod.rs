@@ -8,7 +8,7 @@ use crate::{
     anime::Anime,
     archives::Archive,
     scraper::{Scraper, ScraperConfig, Search},
-    tui::Tui,
+    ui::Tui,
 };
 
 pub mod download;

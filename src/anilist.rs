@@ -3,7 +3,7 @@ use anyhow::{Result, anyhow};
 use graphql_client::{GraphQLQuery, Response};
 use reqwest::{Client, header, header::HeaderValue};
 
-use crate::{config, tui::Tui};
+use crate::{config, ui::Tui};
 
 const ENDPOINT: &str = "https://graphql.anilist.co";
 

@@ -2,13 +2,9 @@ use std::process::exit;
 
 use anyhow::{Result, ensure};
 
-use crate::anilist::WatchingAnime;
-use crate::anime::Anime;
-use crate::range::Range;
-use crate::tui::TuiError;
-
 use super::input::{Command, get_command, get_selection};
 use super::table::{build_episodes_table, build_table, print_prompt, print_title};
+use crate::{anilist::WatchingAnime, anime::Anime, range::Range, ui::TuiError};
 
 /// Selects from a list of watching anime
 pub fn select_from_watching(series: &[WatchingAnime]) -> Result<Vec<&WatchingAnime>> {

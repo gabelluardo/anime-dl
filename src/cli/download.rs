@@ -3,11 +3,9 @@ use clap::Parser;
 use std::path::PathBuf;
 
 use super::Site;
-use crate::anime::get_episode_number;
-use crate::archives::AnimeWorld;
-use crate::proxy::ProxyManager;
-use crate::range::Range;
-use crate::tui::Tui;
+use crate::{
+    anime::get_episode_number, archives::AnimeWorld, proxy::ProxyManager, range::Range, ui::Tui,
+};
 
 use anyhow::{Context, Result, anyhow};
 use futures::stream::StreamExt;

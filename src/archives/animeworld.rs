@@ -1,15 +1,15 @@
 use anyhow::{Result, anyhow, ensure};
-
-use futures::stream::StreamExt;
+use futures::stream::{self, StreamExt};
 use reqwest::{Client, Url};
 use scraper::Html;
-use tokio_stream as stream;
 
-use crate::anilist::Anilist;
-use crate::anime::Anime;
-use crate::archives::Archive;
-use crate::scraper::{Search, selector};
-use crate::tui::Tui;
+use crate::{
+    anilist::Anilist,
+    anime::Anime,
+    archives::Archive,
+    scraper::{Search, selector},
+    ui::Tui,
+};
 
 pub struct AnimeWorld;
 impl Archive for AnimeWorld {
@@ -189,8 +189,9 @@ fn get_range(page: &Html) -> Option<(u32, u32)> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use reqwest::Url;
+
+    use super::*;
 
     pub fn get_url(raw_url: &str) -> String {
         Url::parse(raw_url)
@@ -202,9 +203,8 @@ mod tests {
     }
 
     mod animeworld {
-        use crate::scraper::{Scraper, ScraperConfig};
-
         use super::*;
+        use crate::scraper::{Scraper, ScraperConfig};
 
         #[test]
         fn test_parse_episodes() {

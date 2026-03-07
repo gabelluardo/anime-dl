@@ -1,8 +1,7 @@
 use anyhow::Result;
 use reqwest::Client;
 
-use crate::anime::Anime;
-use crate::scraper::Search;
+use crate::{anime::Anime, scraper::Search};
 
 pub trait Archive {
     const REFERRER: &'static str;

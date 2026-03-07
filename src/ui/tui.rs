@@ -1,15 +1,9 @@
-pub mod input;
-pub mod progress;
-pub mod selector;
-pub mod table;
-
 use anyhow::Result;
 use indicatif::ProgressBar;
 use owo_colors::OwoColorize;
-use progress::ProgressManager;
 
-use crate::anilist::WatchingAnime;
-use crate::anime::Anime;
+use super::{input, progress::ProgressManager, selector};
+use crate::{anilist::WatchingAnime, anime::Anime};
 
 /// Main TUI struct for managing terminal user interface
 pub struct Tui {
@@ -54,10 +48,4 @@ impl Tui {
             _ => exit(0),
         }
     }
-}
-
-#[derive(thiserror::Error, Debug)]
-pub enum TuiError {
-    #[error("invalid input")]
-    InvalidInput,
 }
