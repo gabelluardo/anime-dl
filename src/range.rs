@@ -2,11 +2,7 @@ use std::str::FromStr;
 
 use anyhow::Result;
 
-#[derive(thiserror::Error, Debug)]
-pub enum RangeError {
-    #[error("invalid range string")]
-    Invalid,
-}
+use crate::error::RangeError;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Range<T> {

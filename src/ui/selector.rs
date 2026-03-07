@@ -4,7 +4,7 @@ use anyhow::{Result, ensure};
 
 use super::input::{Command, get_command, get_selection};
 use super::table::{build_episodes_table, build_table, print_prompt, print_title};
-use crate::{anilist::WatchingAnime, anime::Anime, range::Range, ui::TuiError};
+use crate::{anilist::WatchingAnime, anime::Anime, error::TuiError, range::Range};
 
 /// Selects from a list of watching anime
 pub fn select_from_watching(series: &[WatchingAnime]) -> Result<Vec<&WatchingAnime>> {

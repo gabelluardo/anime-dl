@@ -3,6 +3,7 @@ mod anime;
 mod archives;
 mod cli;
 mod config;
+mod error;
 mod proxy;
 mod range;
 mod scraper;

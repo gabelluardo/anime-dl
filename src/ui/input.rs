@@ -2,7 +2,7 @@ use anyhow::{Result, bail};
 use owo_colors::OwoColorize;
 use rustyline::{ColorMode, DefaultEditor, config::Configurer};
 
-use crate::ui::TuiError;
+use crate::error::TuiError;
 
 /// Commands that can be parsed from user input
 pub enum Command {
