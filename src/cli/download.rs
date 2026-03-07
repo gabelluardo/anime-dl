@@ -1,18 +1,17 @@
-use clap::Parser;
-
 use std::path::PathBuf;
 
-use super::Site;
-use crate::{
-    anime::get_episode_number, archives::AnimeWorld, proxy::ProxyManager, range::Range, ui::Tui,
-};
-
 use anyhow::{Context, Result, anyhow};
+use clap::Parser;
 use futures::stream::StreamExt;
 use reqwest::header::{CONTENT_LENGTH, REFERER};
 use reqwest::{Client, Response};
 use tokio::{fs, io::AsyncWriteExt};
 use tokio_stream as stream;
+
+use super::{Site, utils};
+use crate::{
+    anime::get_episode_number, archives::AnimeWorld, proxy::ProxyManager, range::Range, ui::Tui,
+};
 
 /// Download anime
 #[derive(Parser, Debug, Default)]
@@ -74,15 +73,15 @@ pub async fn exec(args: Args) -> Result<()> {
     } = args;
 
     let searches = if watching || entries.is_empty() {
-        super::get_from_watching_list(anilist_id).await?
+        utils::get_from_watching_list(anilist_id).await?
     } else {
-        super::get_from_input(entries)?
+        utils::get_from_input(entries)?
     };
 
     let proxy = ProxyManager::proxy(no_proxy).await;
 
     let (search_result, referrer) = match site {
-        Some(Site::AW) | None => super::search_site::<AnimeWorld>(&searches, proxy).await?,
+        Some(Site::AW) | None => utils::search_site::<AnimeWorld>(&searches, proxy).await?,
     };
 
     let ui = Tui::new();

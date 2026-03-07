@@ -1,16 +1,15 @@
-use clap::Parser;
-
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::process::Stdio;
 
 use anyhow::{Context, Result, bail};
+use clap::Parser;
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
 use tokio_stream::StreamExt;
 use tokio_stream::wrappers::LinesStream;
 use which::which;
 
-use super::{Progress, Site};
+use super::{Site, utils};
 use crate::{
     anilist::Anilist,
     anime::{get_episode_number, remove_episode_number},
@@ -54,14 +53,14 @@ pub async fn exec(args: Args) -> Result<()> {
     } = args;
 
     let searches = if watching || entries.is_empty() {
-        super::get_from_watching_list(anilist_id).await?
+        utils::get_from_watching_list(anilist_id).await?
     } else {
-        super::get_from_input(entries)?
+        utils::get_from_input(entries)?
     };
 
     let proxy = ProxyManager::proxy(no_proxy).await;
     let (search_result, referrer) = match site {
-        Some(Site::AW) | None => super::search_site::<AnimeWorld>(&searches, proxy).await?,
+        Some(Site::AW) | None => utils::search_site::<AnimeWorld>(&searches, proxy).await?,
     };
 
     let (cmd, cmd_referrer) = if let Ok(c) = which("mpv") {
@@ -153,6 +152,82 @@ fn get_percentage(input: &str) -> Option<u32> {
     }
 
     input.get(start..sym)?.parse().ok()
+}
+
+#[derive(Default, Debug)]
+struct EpisodeProgress {
+    anime_id: Option<u32>,
+    episode: Option<u32>,
+    percentage: Option<u32>,
+    updated: bool,
+}
+
+#[derive(Default, Debug)]
+struct Progress {
+    anilist: Anilist,
+    queue: VecDeque<EpisodeProgress>,
+}
+
+impl Progress {
+    const MIN_PERCENTAGE: u32 = 80;
+
+    pub fn new(anilist: Anilist) -> Self {
+        let queue = VecDeque::new();
+
+        Self { anilist, queue }
+    }
+
+    pub fn track(&mut self, anime_id: Option<u32>, episode: Option<u32>) {
+        let Self { queue, .. } = self;
+
+        let progess = EpisodeProgress {
+            anime_id,
+            episode,
+            percentage: None,
+            updated: false,
+        };
+
+        queue.push_back(progess);
+    }
+
+    pub fn update(&mut self, percentage: Option<u32>) {
+        let Self { queue, .. } = self;
+
+        match (queue.front_mut(), percentage) {
+            // update current episode
+            (Some(p), Some(_)) if p.percentage <= percentage => {
+                p.percentage = percentage;
+            }
+
+            // new episode is selected, pass to the next
+            (Some(EpisodeProgress { updated: true, .. }), Some(0)) => {
+                queue.pop_front();
+            }
+
+            _ => (),
+        }
+    }
+
+    pub async fn send(&mut self) {
+        fn need_update(queue: &mut VecDeque<EpisodeProgress>) -> bool {
+            if let Some(p) = queue.front() {
+                return !p.updated && p.percentage.is_some_and(|p| p > Progress::MIN_PERCENTAGE);
+            }
+
+            false
+        }
+
+        let Self { anilist, queue } = self;
+
+        if need_update(queue)
+            && let Some(progress) = queue.front_mut()
+            && let Some(number) = progress.episode
+            && let Some(id) = progress.anime_id
+        {
+            let result = anilist.update(id, number).await;
+            progress.updated = result.is_ok();
+        }
+    }
 }
 
 #[cfg(test)]
