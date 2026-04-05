@@ -42,7 +42,7 @@ tabled = "0.20.0"
 toml_edit = "0.25.1"
 which = "8.0.0"
 
-clap = { version = "4.5.53", features = ["derive", "env"] }
+clap = { version = "4.6.0", features = ["derive", "env"] }
 reqwest = { default-features = false, version = "0.13.2", features = [
     "json",
     "rustls",
