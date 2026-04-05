@@ -39,7 +39,7 @@ rustyline = "17.0"
 scraper = "0.26.0"
 serde = "1.0.228"
 tabled = "0.20.0"
-toml_edit = "0.25.1"
+toml_edit = "0.25.10"
 which = "8.0.0"
 
 clap = { version = "4.6.0", features = ["derive", "env"] }
