@@ -78,12 +78,11 @@ Currently, there is only an **italian** language scraper, contributions for supp
 
 #### Development Setup
 
-This project uses [pre-commit](https://pre-commit.com/) hooks to ensure code quality. To set up:
+This project uses [prek](https://prek.j178.dev/) hooks to ensure code quality. To set up:
 
 ```sh
-pip install pre-commit
-pre-commit install
-pre-commit install --hook-type commit-msg
+cargo install --locked prek
+prek install
 ```
 
 The hooks will automatically run formatting, clippy, and validate conventional commit messages.
