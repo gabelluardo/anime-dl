@@ -1,4 +1,4 @@
-name: Pre-commit
+name: Prek
 
 on:
   pull_request:
@@ -6,7 +6,7 @@ on:
     branches: [main]
 
 jobs:
-  pre-commit:
+  prek:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -16,4 +16,4 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
-      - uses: pre-commit/action@v3.0.1
+      - uses: j178/prek-action@v2
