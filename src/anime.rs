@@ -129,44 +129,57 @@ pub fn get_episode_number(url: &str) -> Option<(u32, usize)> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use simple_test_case::test_case;
 
+    #[test_case("https://robe_01_.tld", 1, 42, 2, "https://robe_42_.tld"; "two digits to larger value")]
+    #[test_case("https://robe_01_.tld", 1, 14, 2, "https://robe_14_.tld"; "two digits to other value")]
+    #[test_case("https://robe_42_.tld", 42, 1, 2, "https://robe_01_.tld"; "two digits with leading zero")]
+    #[test_case("https://robe_42_.tld", 42, 14, 2, "https://robe_14_.tld"; "two digits replacement")]
+    #[test_case("https://robe_042_.tld", 42, 1, 3, "https://robe_001_.tld"; "three digits with leading zeros")]
+    #[test_case("https://robe_042_.tld", 42, 14, 3, "https://robe_014_.tld"; "three digits replacement")]
+    #[test_case("https://robe_042_.tld", 42, 1400, 3, "https://robe_1400_.tld"; "replacement longer than padding")]
     #[test]
-    fn test_gen_url() {
-        let url = "https://robe_01_.tld";
-        assert_eq!(gen_url(url, 1, 42, 2), "https://robe_42_.tld");
-        assert_eq!(gen_url(url, 1, 14, 2), "https://robe_14_.tld");
-
-        let url = "https://robe_42_.tld";
-        assert_eq!(gen_url(url, 42, 1, 2), "https://robe_01_.tld");
-        assert_eq!(gen_url(url, 42, 14, 2), "https://robe_14_.tld");
-
-        let url = "https://robe_042_.tld";
-        assert_eq!(gen_url(url, 42, 1, 3), "https://robe_001_.tld");
-        assert_eq!(gen_url(url, 42, 14, 3), "https://robe_014_.tld");
-        assert_eq!(gen_url(url, 42, 1400, 3), "https://robe_1400_.tld");
+    fn test_gen_url(url: &str, old: u32, new: u32, padding: usize, expected: &str) {
+        assert_eq!(gen_url(url, old, new, padding), expected);
     }
 
+    #[test_case(
+        "https://www.domain.tld/sub/anotherSub/AnimeName/AnimeName_Ep_15_SUB_ITA.mp4",
+        Some((15, 2));
+        "two digit episode"
+    )]
+    #[test_case(
+        "https://www.domain.tld/sub/anotherSub/AnimeName/AnimeName_Ep_016_SUB_ITA.mp4",
+        Some((16, 3));
+        "three digit episode"
+    )]
+    #[test_case(
+        "https://www.domain.tld/sub/anotherSub/AnimeName/AnimeName_Ep_0017_SUB_ITA.mp4",
+        Some((17, 4));
+        "four digit episode"
+    )]
     #[test]
-    fn test_get_episode_number() {
-        let url = "https://www.domain.tld/sub/anotherSub/AnimeName/AnimeName_Ep_15_SUB_ITA.mp4";
-        assert_eq!(get_episode_number(url), Some((15, 2)));
-
-        let url = "https://www.domain.tld/sub/anotherSub/AnimeName/AnimeName_Ep_016_SUB_ITA.mp4";
-        assert_eq!(get_episode_number(url), Some((16, 3)));
-
-        let url = "https://www.domain.tld/sub/anotherSub/AnimeName/AnimeName_Ep_0017_SUB_ITA.mp4";
-        assert_eq!(get_episode_number(url), Some((17, 4)));
+    fn test_get_episode_number(url: &str, expected: Option<(u32, usize)>) {
+        assert_eq!(get_episode_number(url), expected);
     }
 
+    #[test_case(
+        "https://www.domain.tld/sub/anotherSub/AnimeName/AnimeName_Ep_15_SUB_ITA.mp4",
+        Some((15, 2));
+        "two digit episode"
+    )]
+    #[test_case(
+        "https://www.domain.tld/sub/anotherSub/AnimeName/AnimeName_Ep_016_SUB_ITA.mp4",
+        Some((16, 3));
+        "three digit episode"
+    )]
+    #[test_case(
+        "https://www.domain.tld/sub/anotherSub/AnimeName/AnimeName_Ep_0017_SUB_ITA.mp4",
+        Some((17, 4));
+        "four digit episode"
+    )]
     #[test]
-    fn test_remove_episode_number() {
-        let url = "https://www.domain.tld/sub/anotherSub/AnimeName/AnimeName_Ep_15_SUB_ITA.mp4";
-        assert_eq!(get_episode_number(url), Some((15, 2)));
-
-        let url = "https://www.domain.tld/sub/anotherSub/AnimeName/AnimeName_Ep_016_SUB_ITA.mp4";
-        assert_eq!(get_episode_number(url), Some((16, 3)));
-
-        let url = "https://www.domain.tld/sub/anotherSub/AnimeName/AnimeName_Ep_0017_SUB_ITA.mp4";
-        assert_eq!(get_episode_number(url), Some((17, 4)));
+    fn test_remove_episode_number(url: &str, expected: Option<(u32, usize)>) {
+        assert_eq!(get_episode_number(url), expected);
     }
 }

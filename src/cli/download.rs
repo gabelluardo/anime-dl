@@ -244,6 +244,7 @@ pub fn camel_to_snake(s: &str) -> String {
 #[cfg(test)]
 mod test {
     use super::*;
+    use simple_test_case::test_case;
 
     #[test]
     fn test_get_filename() {
@@ -259,18 +260,13 @@ mod test {
         assert_eq!(res, "AnimeName")
     }
 
+    #[test_case("AnimeName", "anime_name"; "with simple name")]
+    #[test_case("IDInvaded", "idinvaded"; "with consecutive capitals")]
+    #[test_case("SwordArtOnline2", "sword_art_online2"; "with a number")]
+    #[test_case("SlimeTaoshite300-nen", "slime_taoshite300-nen"; "with hyphen")]
     #[test]
-    fn test_camel_to_snake() {
-        let res = camel_to_snake("AnimeName");
-        assert_eq!(res, "anime_name");
-
-        let res = camel_to_snake("IDInvaded");
-        assert_eq!(res, "idinvaded");
-
-        let res = camel_to_snake("SwordArtOnline2");
-        assert_eq!(res, "sword_art_online2");
-
-        let res = camel_to_snake("SlimeTaoshite300-nen");
-        assert_eq!(res, "slime_taoshite300-nen")
+    fn test_camel_to_snake(input: &str, expected: &str) {
+        let res = camel_to_snake(input);
+        assert_eq!(res, expected);
     }
 }

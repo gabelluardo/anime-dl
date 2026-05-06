@@ -69,74 +69,49 @@ fn new_table(headers: Vec<&str>, rows: Vec<Vec<String>>) -> Table {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use simple_test_case::test_case;
 
-    #[test]
-    fn test_build_watching_table() {
-        let headers = vec!["Index", "Name", "Behind"];
-        let rows = vec![
+    #[test_case(
+        vec!["Index", "Name", "Behind"],
+        vec![
             vec!["1".to_string(), "Anime 1".to_string(), "3".to_string()],
             vec!["2".to_string(), "Anime 2".to_string(), "0".to_string()],
-        ];
-
-        let table = build_table(headers, rows);
-
-        // Verify table contains expected data
-        assert!(table.contains("Index"));
-        assert!(table.contains("Name"));
-        assert!(table.contains("Behind"));
-        assert!(table.contains("Anime 1"));
-        assert!(table.contains("Anime 2"));
-        assert!(table.contains("3"));
-    }
-
-    #[test]
-    fn test_build_series_table() {
-        let headers = vec!["Index", "Name"];
-        let rows = vec![
+        ],
+        vec!["Index", "Name", "Behind", "Anime 1", "Anime 2", "3"];
+        "watching table"
+    )]
+    #[test_case(
+        vec!["Index", "Name"],
+        vec![
             vec!["1".to_string(), "Series 1".to_string()],
             vec!["2".to_string(), "Series 2".to_string()],
-        ];
-
+        ],
+        vec!["Index", "Name", "Series 1", "Series 2"];
+        "series table"
+    )]
+    #[test]
+    fn test_build_table(headers: Vec<&str>, rows: Vec<Vec<String>>, expected: Vec<&str>) {
         let table = build_table(headers, rows);
 
-        // Verify table contains expected data
-        assert!(table.contains("Index"));
-        assert!(table.contains("Name"));
-        assert!(table.contains("Series 1"));
-        assert!(table.contains("Series 2"));
+        for value in expected {
+            assert!(table.contains(value));
+        }
     }
 
+    #[test_case(None; "without highlight")]
+    #[test_case(Some(2); "with highlight")]
     #[test]
-    fn test_build_episodes_table_no_highlight() {
+    fn test_build_episodes_table(highlighted_row: Option<usize>) {
         let headers = vec!["Episode", "Seen"];
         let rows = vec![
             vec!["1".to_string(), "✔".to_string()],
             vec!["2".to_string(), "✗".to_string()],
         ];
 
-        let table = build_episodes_table(headers, rows, None);
+        let table = build_episodes_table(headers, rows, highlighted_row);
 
-        // Verify table contains expected data
-        assert!(table.contains("Episode"));
-        assert!(table.contains("Seen"));
-        assert!(table.contains("1"));
-        assert!(table.contains("2"));
-    }
-
-    #[test]
-    fn test_build_episodes_table_with_highlight() {
-        let headers = vec!["Episode", "Seen"];
-        let rows = vec![
-            vec!["1".to_string(), "✔".to_string()],
-            vec!["2".to_string(), "✗".to_string()],
-        ];
-
-        let table = build_episodes_table(headers, rows, Some(2));
-
-        // Verify table contains expected data
-        assert!(table.contains("Episode"));
-        assert!(table.contains("Seen"));
-        assert!(table.contains("1"));
-        assert!(table.contains("2"));
+        for value in ["Episode", "Seen", "1", "2"] {
+            assert!(table.contains(value));
+        }
     }
 }

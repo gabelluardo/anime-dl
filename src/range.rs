@@ -90,40 +90,37 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use simple_test_case::test_case;
 
+    #[test_case("(0..5)", (0, 5); "rust style range")]
+    #[test_case("1-5", (1, 5); "hyphen range")]
+    #[test_case("1-", (1, 1); "open range without parse expansion")]
     #[test]
-    fn test_from_str() {
-        let range = Range::<u32>::from_str("(0..5)").unwrap();
-        assert_eq!((range.start, range.end), (0, 5));
-
-        let range = Range::from_str("1-5").unwrap();
-        assert_eq!((range.start, range.end), (1, 5));
-
-        let range = Range::from_str("1-").unwrap();
-        assert_eq!((range.start, range.end), (1, 1));
+    fn test_from_str(input: &str, expected: (u32, u32)) {
+        let range = Range::<u32>::from_str(input).unwrap();
+        assert_eq!((range.start, range.end), expected);
     }
 
+    #[test_case((0, 1), "(0..1)"; "rust style range")]
+    #[test_case((1, 5), "1-5"; "hyphen range")]
+    #[test_case((4, 8), "(4..8)"; "larger rust style range")]
+    #[test_case((6, 6), "6"; "single value range")]
     #[test]
-    fn test_expand() {
-        let range1 = Range::new(0, 1);
-        let range2 = Range::<u32>::from_str("(0..1)").unwrap();
+    fn test_expand(expected: (u32, u32), input: &str) {
+        let range1 = Range::from(expected);
+        let range2 = Range::<u32>::from_str(input).unwrap();
 
         assert!(range1.eq(range2));
     }
 
+    #[test_case("1-", Some(6), (1, 6); "expand open range from one")]
+    #[test_case("4-", Some(6), (4, 6); "expand open range from four")]
+    #[test_case("4-8", Some(12), (4, 8); "keep bounded range within limit")]
+    #[test_case("4-8", Some(6), (4, 6); "clamp bounded range to limit")]
     #[test]
-    fn test_parse() {
-        let range = Range::parse("1-", Some(6)).unwrap();
-        assert_eq!((range.start, range.end), (1, 6));
-
-        let range = Range::parse("4-", Some(6)).unwrap();
-        assert_eq!((range.start, range.end), (4, 6));
-
-        let range = Range::parse("4-8", Some(12)).unwrap();
-        assert_eq!((range.start, range.end), (4, 8));
-
-        let range = Range::parse("4-8", Some(6)).unwrap();
-        assert_eq!((range.start, range.end), (4, 6));
+    fn test_parse(input: &str, end: Option<u32>, expected: (u32, u32)) {
+        let range = Range::parse(input, end).unwrap();
+        assert_eq!((range.start, range.end), expected);
     }
 
     #[test]

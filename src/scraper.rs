@@ -98,12 +98,14 @@ pub mod selector {
         Ok(fragment)
     }
 }
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     use crate::archives::AnimeWorld;
     use reqwest::Url;
+    use simple_test_case::test_case;
 
     pub fn get_url(raw_url: &str) -> String {
         Url::parse(raw_url)
@@ -114,10 +116,18 @@ mod tests {
             .into()
     }
 
-    #[tokio::test]
-    async fn test_find_cookie() {
-        let text = r#"<html><body><script>document.cookie="SecurityAW-E4=ccf64e38a09ed38849d9ae72e1931e5b ;  path=/";location.href="http://www.animeworld.so/?d=1";</script></body></html>"#;
-
+    #[test_case(
+        r#"<html><body><script>document.cookie="SecurityAW-E4=ccf64e38a09ed38849d9ae72e1931e5b ;  path=/";location.href="http://www.animeworld.so/?d=1";</script></body></html>"#,
+        "SecurityAW-E4=ccf64e38a09ed38849d9ae72e1931e5b ;";
+        "animeworld cookie"
+    )]
+    #[test_case(
+        r#"<script>document.cookie="SecurityAW-XY=session-token ; path=/";</script>"#,
+        "SecurityAW-XY=session-token ;";
+        "trim extra spaces before path"
+    )]
+    #[test]
+    fn test_find_cookie(text: &str, expected: &str) {
         let res = text
             .split("SecurityAW")
             .nth(1)
@@ -127,7 +137,7 @@ mod tests {
             .map(|s| "SecurityAW".to_owned() + s.trim())
             .unwrap();
 
-        assert_eq!(res, "SecurityAW-E4=ccf64e38a09ed38849d9ae72e1931e5b ;")
+        assert_eq!(res, expected)
     }
 
     async fn scraper_single<T: Archive>(search_query: &str, expected_file: &str) -> Result<()> {

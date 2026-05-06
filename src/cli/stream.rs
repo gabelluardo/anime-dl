@@ -238,14 +238,16 @@ impl Progress {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use simple_test_case::test_case;
 
+    #[test_case("[status] 9%", Some(9); "single digit")]
+    #[test_case("[status] 100%", Some(100); "triple digit")]
+    #[test_case("[status] 09%", Some(9); "leading zero")]
+    #[test_case("[status] %", None; "missing digits")]
+    #[test_case("[status] no percent", None; "missing percent")]
     #[test]
-    fn test_get_percentage() {
-        assert_eq!(get_percentage("[status] 9%"), Some(9));
-        assert_eq!(get_percentage("[status] 100%"), Some(100));
-        assert_eq!(get_percentage("[status] 09%"), Some(9));
-        assert_eq!(get_percentage("[status] %"), None);
-        assert_eq!(get_percentage("[status] no percent"), None);
+    fn test_get_percentage(input: &str, expected: Option<u32>) {
+        assert_eq!(get_percentage(input), expected);
     }
 
     #[test]

@@ -61,40 +61,18 @@ pub fn get_selection(line: &str, index_start: usize, content_len: usize) -> Resu
 #[cfg(test)]
 mod tests {
     use super::*;
+    use simple_test_case::test_case;
 
+    #[test_case("1,2,3", vec![1, 2, 3]; "comma separated")]
+    #[test_case("1-5", vec![1, 2, 3, 4, 5]; "closed range")]
+    #[test_case("1-3, 6", vec![1, 2, 3, 6]; "range and single")]
+    #[test_case("1-", vec![1, 2, 3, 4, 5, 6]; "open ended range")]
+    #[test_case("", Vec::new(); "empty input")]
+    #[test_case("1-2, 4-6", vec![1, 2, 4, 5, 6]; "multiple ranges")]
     #[test]
-    fn test_parse_input() {
-        let urls: Vec<String> = vec![
-            "link1".into(),
-            "link2".into(),
-            "link3".into(),
-            "link4".into(),
-            "link5".into(),
-            "link6".into(),
-        ];
-
-        let input = "1,2,3";
-        let res = get_selection(input, 1, urls.len()).unwrap();
-        assert_eq!(res, vec![1, 2, 3,]);
-
-        let input = "1-5";
-        let res = get_selection(input, 1, urls.len()).unwrap();
-        assert_eq!(res, vec![1, 2, 3, 4, 5]);
-
-        let input = "1-3, 6";
-        let res = get_selection(input, 1, urls.len()).unwrap();
-        assert_eq!(res, vec![1, 2, 3, 6]);
-
-        let input = "1-";
-        let res = get_selection(input, 1, urls.len()).unwrap();
-        assert_eq!(res, vec![1, 2, 3, 4, 5, 6]);
-
-        let input = "";
-        let res = get_selection(input, 1, urls.len()).unwrap();
-        assert!(res.is_empty());
-
-        let input = "1-2, 4-6";
-        let res = get_selection(input, 1, urls.len()).unwrap();
-        assert_eq!(res, vec![1, 2, 4, 5, 6]);
+    fn test_parse_input(input: &str, expected: Vec<usize>) {
+        let content_len = 6;
+        let res = get_selection(input, 1, content_len).unwrap();
+        assert_eq!(res, expected);
     }
 }
