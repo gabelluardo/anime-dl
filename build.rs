@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use reqwest::Error;
 
 fn main() {
-    download_anilist_schema().unwrap();
+    download_anilist_schema().expect("failed to download AniList schema");
 }
 
 fn download_anilist_schema() -> Result<(), Error> {
