@@ -9,10 +9,7 @@ use tokio::{fs, io::AsyncWriteExt};
 use tokio_stream as stream;
 
 use super::{Site, utils};
-use crate::anilist::Anilist;
-use crate::{
-    anime::get_episode_number, archives::AnimeWorld, proxy::ProxyManager, range::Range, ui::Tui,
-};
+use crate::{anime::get_episode_number, range::Range, ui::Tui};
 
 /// Download anime
 #[derive(Parser, Debug, Default)]
@@ -73,18 +70,8 @@ pub async fn exec(args: Args) -> Result<()> {
         watching,
     } = args;
 
-    let searches = if watching || entries.is_empty() {
-        let anilist = Anilist::new(anilist_id)?;
-        utils::get_from_watching_list(&anilist).await?
-    } else {
-        utils::get_from_input(entries)?
-    };
-
-    let proxy = ProxyManager::proxy(no_proxy).await;
-
-    let (search_result, referrer) = match site {
-        Some(Site::AW) | None => utils::search_site::<AnimeWorld>(&searches, proxy).await?,
-    };
+    let (search_result, referrer) =
+        utils::get_search_results(entries, watching, anilist_id, no_proxy, site).await?;
 
     let ui = Tui::new();
     let client = Client::new();
@@ -164,6 +151,7 @@ pub async fn exec(args: Args) -> Result<()> {
     Ok(())
 }
 
+/// Retrieve the source size by reading the `Content-Length` header from a HEAD request.
 async fn get_source_size(client: &Client, url: &str, referrer: &str) -> Result<u64> {
     let response = client
         .head(url)
@@ -180,6 +168,8 @@ async fn get_source_size(client: &Client, url: &str, referrer: &str) -> Result<u
 
     Ok(size)
 }
+
+/// Request the media stream using the required referer header.
 async fn get(client: &Client, url: &str, referrer: &str) -> Result<Response> {
     let response = client
         .get(url)
@@ -191,6 +181,7 @@ async fn get(client: &Client, url: &str, referrer: &str) -> Result<Response> {
     Ok(response)
 }
 
+/// Build the progress message, prefixing the episode number when available.
 fn get_progress_message(url: &str, name: &str) -> String {
     match get_episode_number(url) {
         Some((value, padding)) => format!("Ep. {:0fill$} {}", value, name, fill = padding),

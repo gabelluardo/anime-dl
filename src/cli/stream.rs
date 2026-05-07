@@ -11,9 +11,7 @@ use tokio_stream::wrappers::LinesStream;
 use which::which;
 
 use super::{Site, utils};
-use crate::{
-    anilist::Anilist, anime::get_episode_number, archives::AnimeWorld, proxy::ProxyManager, ui::Tui,
-};
+use crate::{anilist::Anilist, anime::get_episode_number, ui::Tui};
 
 /// Stream anime in a media player
 #[derive(Parser, Debug)]
@@ -49,17 +47,8 @@ pub async fn exec(args: Args) -> Result<()> {
         watching,
     } = args;
 
-    let anilist = Anilist::new(anilist_id)?;
-    let searches = if watching || entries.is_empty() {
-        utils::get_from_watching_list(&anilist).await?
-    } else {
-        utils::get_from_input(entries)?
-    };
-
-    let proxy = ProxyManager::proxy(no_proxy).await;
-    let (search_result, referrer) = match site {
-        Some(Site::AW) | None => utils::search_site::<AnimeWorld>(&searches, proxy).await?,
-    };
+    let (search_result, referrer) =
+        utils::get_search_results(entries, watching, anilist_id, no_proxy, site).await?;
 
     let (cmd, cmd_referrer) = if let Ok(c) = which("mpv") {
         (c, format!("--referrer={referrer}"))
@@ -108,6 +97,7 @@ pub async fn exec(args: Args) -> Result<()> {
         StreamExt::merge(stdout_lines, stderr_lines)
     };
 
+    let anilist = Anilist::new(anilist_id)?;
     let mut progress = Progress::new(anilist);
     while let Some(Ok(line)) = stream.next().await {
         match line {

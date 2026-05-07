@@ -32,16 +32,18 @@ pub enum Command {
 mod utils {
     use anyhow::{Result, anyhow};
 
+    use super::Site;
     use crate::{
         anilist::Anilist,
         anime::Anime,
-        archives::Archive,
+        archives::{AnimeWorld, Archive},
         error::RequestError,
+        proxy::ProxyManager,
         scraper::{Scraper, ScraperConfig, Search},
         ui::Tui,
     };
 
-    pub async fn get_from_watching_list(client: &Anilist) -> Result<Vec<Search>> {
+    async fn get_from_watching_list(client: &Anilist) -> Result<Vec<Search>> {
         let Some(list) = client.get_watching_list().await else {
             return Err(anyhow!(RequestError::WatchingList));
         };
@@ -64,7 +66,7 @@ mod utils {
         Ok(search)
     }
 
-    pub fn get_from_input(entries: Vec<String>) -> Result<Vec<Search>> {
+    fn get_from_input(entries: Vec<String>) -> Result<Vec<Search>> {
         let search = entries
             .join(" ")
             .split(',')
@@ -78,7 +80,7 @@ mod utils {
         Ok(search)
     }
 
-    pub async fn search_site<T: Archive>(
+    async fn search_site<T: Archive>(
         searches: &[Search],
         proxy: Option<String>,
     ) -> Result<(Vec<Anime>, &'static str)> {
@@ -88,5 +90,28 @@ mod utils {
         let anime = Scraper::new(config).search::<T>(searches).await?;
 
         Ok((anime, T::REFERRER))
+    }
+
+    pub async fn get_search_results(
+        entries: Vec<String>,
+        watching: bool,
+        anilist_id: Option<u32>,
+        no_proxy: bool,
+        site: Option<Site>,
+    ) -> Result<(Vec<Anime>, &'static str)> {
+        let anilist = Anilist::new(anilist_id)?;
+
+        let searches = if watching || entries.is_empty() {
+            get_from_watching_list(&anilist).await?
+        } else {
+            get_from_input(entries)?
+        };
+
+        let proxy = ProxyManager::proxy(no_proxy).await;
+        let search_result = match site {
+            Some(Site::AW) | None => search_site::<AnimeWorld>(&searches, proxy).await?,
+        };
+
+        Ok(search_result)
     }
 }
