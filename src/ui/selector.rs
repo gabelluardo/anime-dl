@@ -15,7 +15,7 @@ pub fn select_from_watching(series: &[WatchingAnime]) -> Result<Vec<&WatchingAni
                 0 => "•".to_string(),
                 n => n.to_string(),
             };
-            rows.push(vec![(i + 1).to_string(), c.title(), watched]);
+            rows.push(vec![(i + 1).to_string(), c.title().to_string(), watched]);
         }
         rows
     };

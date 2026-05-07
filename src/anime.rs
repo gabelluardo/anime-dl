@@ -102,28 +102,28 @@ pub fn gen_url(url: &str, old: u32, new: u32, padding: usize) -> String {
 
 /// Extract the episode number and its zero-padding from a URL, if present.
 pub fn get_episode_number(url: &str) -> Option<(u32, usize)> {
-    let chars: Vec<_> = url.chars().collect();
-    let positions: Vec<_> = chars
-        .array_windows()
-        .enumerate()
-        .filter_map(|(i, window)| match window {
-            ['_', c, cc] if c.is_ascii_digit() && cc.is_ascii_digit() => Some(i),
-            [c, cc, '_'] if c.is_ascii_digit() && cc.is_ascii_digit() => Some(i + 1),
-            _ => None,
-        })
-        .collect();
+    let mut positions =
+        url.as_bytes()
+            .windows(3)
+            .enumerate()
+            .filter_map(|(i, window)| match window {
+                [b'_', c, cc] if c.is_ascii_digit() && cc.is_ascii_digit() => Some(i),
+                [c, cc, b'_'] if c.is_ascii_digit() && cc.is_ascii_digit() => Some(i + 1),
+                _ => None,
+            });
 
-    match positions.as_slice() {
-        [start, end] => {
-            let str = &url[*start + 1..*end + 1];
+    let start = positions.next()?;
+    let end = positions.next()?;
 
-            let value: u32 = str.parse().ok()?;
-            let padding = str.len();
-
-            Some((value, padding))
-        }
-        _ => None,
+    if positions.next().is_some() {
+        return None;
     }
+
+    let value = url.get(start + 1..end + 1)?;
+    let episode: u32 = value.parse().ok()?;
+    let padding = value.len();
+
+    Some((episode, padding))
 }
 
 #[cfg(test)]

@@ -71,19 +71,18 @@ where
     type Err = RangeError;
 
     fn from_str(s: &str) -> Result<Self, <Self as FromStr>::Err> {
-        let range_str = s
+        let mut values = s
             .trim_matches(|p| p == '(' || p == ')')
             .split(&[',', '-', '.'])
-            .filter_map(|c| c.parse::<T>().ok())
-            .collect::<Vec<_>>();
+            .filter_map(|c| c.parse::<T>().ok());
 
-        let range = match range_str.as_slice() {
-            [start] => Self::new(*start, *start),
-            [start, end] | [start, .., end] => Self::new(*start, *end),
-            _ => return Err(RangeError::Invalid),
-        };
+        let start = values.next().ok_or(RangeError::Invalid)?;
+        let mut end = start;
+        for value in values {
+            end = value;
+        }
 
-        Ok(range)
+        Ok(Self::new(start, end))
     }
 }
 

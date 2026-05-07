@@ -56,8 +56,14 @@ mod utils {
                     .title()
                     .split_ascii_whitespace()
                     .take(3)
-                    .collect::<Vec<_>>()
-                    .join("+");
+                    .enumerate()
+                    .fold(String::new(), |mut acc, (index, part)| {
+                        if index > 0 {
+                            acc.push('+');
+                        }
+                        acc.push_str(part);
+                        acc
+                    });
 
                 Search { string, id }
             })

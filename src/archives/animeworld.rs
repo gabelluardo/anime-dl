@@ -161,36 +161,44 @@ fn get_range(page: &Html) -> Option<(u32, u32)> {
     if let Some(range) = page.select(&range).next()
         && let Some(_) = range.select(&span).next()
     {
-        let spans: Vec<_> = range.select(&span).collect();
+        let mut spans = range.select(&span);
+        let first = spans.next()?;
 
-        return match spans.as_slice() {
-            [first, .., last] => {
-                let html = first.inner_html();
-                let value = html.split_ascii_whitespace().next()?;
-                let start = value.parse().ok()?;
+        let first_html = first.inner_html();
+        let first_value = first_html.split_ascii_whitespace().next()?;
+        let start = first_value.parse().ok()?;
 
-                let html = last.inner_html();
-                let value = html.split_ascii_whitespace().last()?;
-                let end = value.parse().ok()?;
+        let mut end = first_html
+            .split_ascii_whitespace()
+            .last()
+            .and_then(|v| v.parse().ok())?;
 
-                Some((start, end))
-            }
-            _ => None,
-        };
+        for span in spans {
+            let html = span.inner_html();
+            end = html
+                .split_ascii_whitespace()
+                .last()
+                .and_then(|v| v.parse().ok())?;
+        }
+
+        return Some((start, end));
     }
 
     let ul = selector::from("ul.episodes");
     let a = selector::from("a");
 
     let elem = page.select(&ul).next()?;
-    let values = elem.select(&a);
-    let episodes: Vec<_> = values.filter_map(|a| a.inner_html().parse().ok()).collect();
+    let mut values = elem
+        .select(&a)
+        .filter_map(|a| a.inner_html().parse::<u32>().ok());
 
-    match episodes.as_slice() {
-        [start, .., end] => Some((*start, *end)),
-        [single] => Some((*single, *single)),
-        [] => None,
+    let start = values.next()?;
+    let mut end = start;
+    for value in values {
+        end = value;
     }
+
+    Some((start, end))
 }
 
 #[cfg(test)]
