@@ -246,18 +246,36 @@ mod test {
     use super::*;
     use simple_test_case::test_case;
 
+    #[test_case(
+        "https://www.domain.tld/sub/anotherSub/AnimeName/AnimeName_Ep_15_SUB_ITA.mp4",
+        "AnimeName_Ep_15_SUB_ITA.mp4";
+        "full path"
+    )]
+    #[test_case(
+        "https://www.domain.tld/AnimeName_Ep_01_SUB_ITA.mp4",
+        "AnimeName_Ep_01_SUB_ITA.mp4";
+        "single segment"
+    )]
     #[test]
-    fn test_get_filename() {
-        let url = "https://www.domain.tld/sub/anotherSub/AnimeName/AnimeName_Ep_15_SUB_ITA.mp4";
+    fn test_get_filename(url: &str, expected: &str) {
         let res = get_filename(url).unwrap();
-        assert_eq!(res, "AnimeName_Ep_15_SUB_ITA.mp4")
+        assert_eq!(res, expected)
     }
 
+    #[test_case(
+        "https://www.domain.tld/sub/anotherSub/AnimeName/AnimeName_Ep_15_SUB_ITA.mp4",
+        "AnimeName";
+        "extract before underscore"
+    )]
+    #[test_case(
+        "https://www.domain.tld/sub/anotherSub/AnimeName/AnimeName.mp4",
+        "AnimeName.mp4";
+        "no underscore"
+    )]
     #[test]
-    fn test_get_dir_name() {
-        let url = "https://www.domain.tld/sub/anotherSub/AnimeName/AnimeName_Ep_15_SUB_ITA.mp4";
+    fn test_get_dir_name(url: &str, expected: &str) {
         let res = get_dir_name(url).unwrap();
-        assert_eq!(res, "AnimeName")
+        assert_eq!(res, expected)
     }
 
     #[test_case("AnimeName", "anime_name"; "with simple name")]
