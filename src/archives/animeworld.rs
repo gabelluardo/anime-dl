@@ -209,12 +209,12 @@ mod tests {
     }
 
     mod animeworld {
+        use simple_test_case::test_case;
+
         use super::*;
         use crate::scraper::{Scraper, ScraperConfig};
 
-        #[test]
-        fn test_parse_episodes() {
-            let html = r#"
+        #[test_case(r#"
             <ul class="episodes range acrive: data-range-id="0" style="display: block;">
                 <li class="episode">
                     <a data-episode-id="id" data-id="id" data-episode-num="1" data-num="1" data-base="1" data-comment="1" href="/play/anime_name/id">1</a>
@@ -252,13 +252,8 @@ mod tests {
                 <li class="episode">
                     <a data-episode-id="id" data-id="id" data-episode-num="12" data-num="12" data-base="12" data-comment="12" href="/play/anime_name/id">12</a>
                 </li>
-            </ul>"#;
-            let fragment = Html::parse_fragment(html);
-            let episodes = get_range(&fragment).unwrap();
-
-            assert_eq!(episodes, (1, 12));
-
-            let html = r#"
+            </ul>"#, (1, 12); "html list")]
+        #[test_case( r#"
             <div class="range">
                 <span data-range-id="0" class="rangetitle active">1 - 55</span>           
                 <span data-range-id="1" class="rangetitle">56 - 111</span>           
@@ -270,13 +265,8 @@ mod tests {
                 <span data-range-id="7" class="rangetitle">363 - 412</span>           
                 <span data-range-id="8" class="rangetitle">413 - 462</span>           
                 <span data-range-id="9" class="rangetitle">463 - 500</span>           
-            </div>"#;
-            let fragment = Html::parse_fragment(html);
-            let episodes = get_range(&fragment).unwrap();
-
-            assert_eq!(episodes, (1, 500));
-
-            let html = r#"
+            </div>"#, (1, 500); "html span")]
+        #[test_case(r#"
             <div class="range"></div>
             <ul class="episodes range acrive: data-range-id="0" style="display: block;">
                 <li class="episode">
@@ -315,11 +305,13 @@ mod tests {
                 <li class="episode">
                     <a data-episode-id="id" data-id="id" data-episode-num="12" data-num="12" data-base="12" data-comment="12" href="/play/anime_name/id">12</a>
                 </li>
-            </ul>"#;
+            </ul>"#, (1, 12); "html list with div")]
+        #[test]
+        fn test_parse_episodes(html: &str, expected: (u32, u32)) {
             let fragment = Html::parse_fragment(html);
             let episodes = get_range(&fragment).unwrap();
 
-            assert_eq!(episodes, (1, 12));
+            assert_eq!(episodes, expected);
         }
 
         #[tokio::test]
