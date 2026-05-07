@@ -62,7 +62,7 @@ pub async fn exec(args: Args) -> Result<()> {
         let mut ids = HashMap::new();
         let mut episodes = Vec::new();
         for anime in &search_result {
-            let Some(name) = get_name_from_url(&anime.url()) else {
+            let Some(name) = get_name_from_url(anime.url()) else {
                 continue;
             };
 

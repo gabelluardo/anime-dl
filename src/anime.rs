@@ -43,16 +43,16 @@ impl Anime {
         self.range.unwrap_or_default().end
     }
 
-    pub fn name(&self) -> String {
-        self.name.clone()
+    pub fn name(&self) -> &str {
+        &self.name
     }
 
     pub fn range(&self) -> Option<Range<u32>> {
         self.range
     }
 
-    pub fn url(&self) -> String {
-        self.url.clone()
+    pub fn url(&self) -> &str {
+        &self.url
     }
 
     pub fn select_from_index(&self, start: usize) -> Vec<String> {

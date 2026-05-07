@@ -203,7 +203,7 @@ mod tests {
         Url::parse(raw_url)
             .unwrap()
             .path_segments()
-            .and_then(|s| s.last())
+            .and_then(|mut s| s.next_back())
             .unwrap()
             .to_owned()
     }
@@ -331,7 +331,7 @@ mod tests {
             };
 
             let anime = AnimeWorld::search(search, scraper.client()).await.unwrap();
-            let info = get_url(&anime.first().unwrap().url());
+            let info = get_url(anime.first().unwrap().url());
             assert_eq!(file, info)
         }
     }

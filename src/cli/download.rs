@@ -85,7 +85,7 @@ pub async fn exec(args: Args) -> Result<()> {
 
         let root = {
             let mut root = destination.clone();
-            let name = get_dir_name(&anime.url())?;
+            let name = get_dir_name(anime.url())?;
             let dir = camel_to_snake(&name);
             root.push(dir);
 
@@ -113,7 +113,7 @@ pub async fn exec(args: Args) -> Result<()> {
 
             let future = async move {
                 let source_size = get_source_size(&client, &url, referrer).await?;
-                let msg = get_progress_message(&url, &name);
+                let msg = get_progress_message(&url, name);
                 pb.set_position(0);
                 pb.set_length(source_size);
                 pb.set_message(msg);

@@ -3,10 +3,10 @@ pre-commit: test-all
     cargo clippy -- -D warnings
 
 commit message: pre-commit
-    git commit -am "{{message}}" 
+    git commit -am "{{ message }}" 
 
-fix: 
-    cargo clippy --fix --allow-dirty --allow-staged
+fix:
+    cargo clippy --fix --allow-dirty --allow-staged --all-targets --all-features -- -W warnings
 
 amend: pre-commit
     git commit --amend --no-verify

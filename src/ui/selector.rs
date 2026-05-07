@@ -45,7 +45,7 @@ pub fn select_from_watching(series: &[WatchingAnime]) -> Result<Vec<&WatchingAni
 pub fn select_series(series: &mut Vec<Anime>) -> Result<()> {
     let mut rows = Vec::new();
     for (i, c) in series.iter().enumerate() {
-        rows.push(vec![(i + 1).to_string(), c.name()]);
+        rows.push(vec![(i + 1).to_string(), c.name().to_string()]);
     }
 
     let table = build_table(vec!["Index", "Name"], rows);
@@ -101,7 +101,7 @@ pub fn select_episodes(anime: &Anime) -> Result<Vec<String>> {
 
     let table = build_episodes_table(vec!["Episode", "Seen"], rows, next_to_watch);
 
-    print_title(&anime.name());
+    print_title(anime.name());
     println!("{table}");
     print_prompt("Make your selection (eg: 1 2 3 or 1-3) [<u> for unwatched, <q> for exit]");
 
