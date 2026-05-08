@@ -1,0 +1,25 @@
+{
+    "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+    "enabledManagers": [
+        "cargo"
+    ],
+    "extends": [
+        "config:recommended"
+    ],
+    "automerge": true,
+    "automergeType": "pr",
+    "schedule": [
+        "on the first day of the month"
+    ],
+    "packageRules": [
+        {
+            "matchManagers": [
+                "cargo"
+            ],
+            "matchUpdateTypes": [
+                "patch"
+            ],
+            "enabled": false
+        }
+    ]
+}
