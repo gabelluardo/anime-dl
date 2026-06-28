@@ -1,3 +1,5 @@
+use std::future::Future;
+
 use anyhow::Result;
 use reqwest::Client;
 
@@ -7,6 +9,6 @@ pub trait Archive {
     const REFERRER: &'static str;
     const COOKIE_NAME: &'static str;
 
-    async fn extract_cookie() -> Option<String>;
-    async fn search(search: Search, client: Client) -> Result<Vec<Anime>>;
+    fn extract_cookie() -> impl Future<Output = Option<String>> + Send;
+    fn search(search: Search, client: Client) -> impl Future<Output = Result<Vec<Anime>>> + Send;
 }
