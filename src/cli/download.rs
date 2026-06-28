@@ -200,17 +200,19 @@ fn get_filename(url: &str) -> Result<String> {
 }
 
 /// Extract the directory name from a media URL (before the first underscore).
+/// If no underscore is present, the filename stem (without extension) is returned.
 fn get_dir_name(url: &str) -> Result<String> {
     let response = reqwest::Url::parse(url)?;
-    let Some(dir_name) = response
-        .path_segments()
-        .and_then(|mut s| s.next_back())
-        .and_then(|s| s.split('_').next())
-    else {
+    let Some(filename) = response.path_segments().and_then(|mut s| s.next_back()) else {
         return Err(anyhow!("Unable to get {url}"));
     };
 
-    Ok(dir_name.into())
+    let name = filename
+        .split_once('_')
+        .map(|(prefix, _)| prefix)
+        .unwrap_or_else(|| filename.rsplit_once('.').map(|(stem, _)| stem).unwrap_or(filename));
+
+    Ok(name.into())
 }
 
 /// Convert a camelCase/PascalCase string into snake_case.
@@ -260,7 +262,7 @@ mod test {
     )]
     #[test_case(
         "https://www.domain.tld/sub/anotherSub/AnimeName/AnimeName.mp4",
-        "AnimeName.mp4";
+        "AnimeName";
         "no underscore"
     )]
     #[test]
