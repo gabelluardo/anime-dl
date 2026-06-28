@@ -7,6 +7,12 @@ pub struct ProgressManager {
     bars: MultiProgress,
 }
 
+impl Default for ProgressManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ProgressManager {
     pub fn new() -> Self {
         let bars = MultiProgress::new();
@@ -22,12 +28,6 @@ impl ProgressManager {
         let pb = ProgressBar::new(0).with_style(style.progress_chars("#>-"));
 
         self.bars.add(pb)
-    }
-}
-
-impl Default for ProgressManager {
-    fn default() -> Self {
-        Self::new()
     }
 }
 

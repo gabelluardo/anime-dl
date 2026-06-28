@@ -6,6 +6,7 @@ use super::{input, progress::ProgressManager, selector};
 use crate::{anilist::WatchingAnime, anime::Anime};
 
 /// Main TUI struct for managing terminal user interface
+#[derive(Default)]
 pub struct Tui {
     progress: ProgressManager,
 }
@@ -40,8 +41,7 @@ impl Tui {
         let action = "Authenticate to:".green().to_string();
         let url = url.magenta().bold().to_string();
         let input = ":: ".red().to_string() + &"Paste token here:".bold().to_string();
-        let text = oauth + "\n\n" + &action + " " + &url + "\n\n" + &input;
-        println!("{text}");
+        println!("{oauth}\n\n{action} {url}\n\n{input}");
 
         match input::get_command() {
             Ok(input::Command::Default(line)) => line,
