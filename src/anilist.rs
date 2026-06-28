@@ -20,7 +20,7 @@ impl WatchingAnime {
     }
 
     pub fn watched(&self) -> u32 {
-        self.watched as u32
+        self.watched.max(0) as u32
     }
 
     pub fn id(&self) -> u32 {
@@ -170,7 +170,8 @@ impl Anilist {
         headers.insert(header::ACCEPT, HeaderValue::from_static("application/json"));
         headers.insert(
             header::AUTHORIZATION,
-            HeaderValue::from_str(&format!("Bearer {token}")).unwrap(),
+            HeaderValue::from_str(&format!("Bearer {token}"))
+                .map_err(|_| anyhow!("Invalid token"))?,
         );
         headers.insert(
             header::CONTENT_TYPE,
