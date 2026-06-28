@@ -184,14 +184,14 @@ impl Progress {
     }
 
     pub fn track(&mut self, anime_id: u32, episode: u32) {
-        let progess = EpisodeProgress {
+        let progress = EpisodeProgress {
             anime_id,
             episode,
             percentage: 0,
             updated: false,
         };
 
-        self.queue.push_back(progess);
+        self.queue.push_back(progress);
     }
 
     pub fn update(&mut self, percentage: u32) {
