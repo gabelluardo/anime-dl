@@ -5,16 +5,25 @@ repos:
         name: fmt
         entry: cargo fmt --all -- --check
         language: system
+        files: '\.rs$'
+        pass_filenames: false
+      - id: fmt-fix
+        name: fmt-fix
+        entry: cargo fmt --all
+        language: system
+        files: '\.rs$'
         pass_filenames: false
       - id: clippy
         name: clippy
         entry: cargo clippy -- -D warnings
         language: system
+        files: '\.rs$'
         pass_filenames: false
       - id: clippy-fix
         name: clippy-fix
         entry: cargo clippy --fix --allow-dirty --allow-staged
         language: system
+        files: '\.rs$'
         pass_filenames: false
 
   - repo: https://github.com/compilerla/conventional-pre-commit
