@@ -21,8 +21,7 @@ impl Archive for AnimeWorld {
     async fn extract_cookie() -> Option<String> {
         let response = reqwest::get(Self::REFERRER).await.ok()?.text().await.ok()?;
         let text = response.split(Self::COOKIE_NAME).nth(1)?;
-        let value = text.split(" ;  path=/").next()?.trim();
-
+        let value = text.split("path=/").next()?.trim();
         let cookie = Self::COOKIE_NAME.to_owned() + value;
 
         Some(cookie)
