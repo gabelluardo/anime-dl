@@ -210,7 +210,12 @@ fn get_dir_name(url: &str) -> Result<String> {
     let name = filename
         .split_once('_')
         .map(|(prefix, _)| prefix)
-        .unwrap_or_else(|| filename.rsplit_once('.').map(|(stem, _)| stem).unwrap_or(filename));
+        .unwrap_or_else(|| {
+            filename
+                .rsplit_once('.')
+                .map(|(stem, _)| stem)
+                .unwrap_or(filename)
+        });
 
     Ok(name.into())
 }
