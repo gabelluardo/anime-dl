@@ -3,3 +3,6 @@ prova
 .anime-dl.cache
 .idea
 *-report.html
+
+target/llvm-cov/
+coverage.lcov

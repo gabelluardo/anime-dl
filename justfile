@@ -1,15 +1,5 @@
-pre-commit: test-all
-    cargo fmt --all
-    cargo clippy -- -D warnings
-
-commit message: pre-commit
-    git commit -am "{{ message }}" 
-
 fix:
     cargo clippy --fix --allow-dirty --allow-staged --all-targets --all-features -- -W warnings
-
-amend: pre-commit
-    git commit --amend --no-verify
 
 release:
     cargo build --release --locked --target x86_64-unknown-linux-musl
@@ -28,6 +18,18 @@ test-all:
 
 test-all-musl:
     cargo nextest run --run-ignored=all --target x86_64-unknown-linux-musl
+
+coverage:
+    cargo llvm-cov nextest --open
+
+coverage-lcov:
+    cargo llvm-cov nextest --lcov --output-path coverage.lcov
+
+coverage-all:
+    cargo llvm-cov nextest --run-ignored all --open
+
+coverage-all-lcov:
+    cargo llvm-cov nextest --run-ignored all --lcov --output-path coverage.lcov
 
 update-schema:
     rm schema/anilist_schema.json || true

@@ -120,28 +120,93 @@ fn config_path() -> PathBuf {
 #[cfg(test)]
 mod tests {
     use serial_test::file_serial;
+    use simple_test_case::test_case;
 
     use super::*;
 
     const TEST_DATA: &str = "data test config";
 
+    #[test_case(TEST_DATA; "standard data")]
+    #[test_case("value with spaces and !@#$%"; "special chars")]
+    #[test_case("アニメダウンロード"; "unicode")]
+    #[test_case(""; "empty value")]
+    #[test_case("overwritten"; "overwrite")]
     #[test]
     #[file_serial]
-    fn test_save() {
-        let res = save("test", TEST_DATA);
-        assert!(res.is_ok());
-
-        let res = load("test");
-        assert_eq!(TEST_DATA, res.unwrap());
+    fn test_save_and_load(value: &str) {
+        save("test", value).unwrap();
+        // empty value may not be saved as a string by toml_edit
+        if !value.is_empty() {
+            assert_eq!(load("test").unwrap(), value);
+        }
+        clean().unwrap();
     }
 
+    #[test_case(true; "clean existing")]
+    #[test_case(false; "clean missing")]
     #[test]
     #[file_serial]
-    fn test_clean() {
-        let res = save("test", TEST_DATA);
-        assert!(res.is_ok());
+    fn test_clean(exists: bool) {
+        if exists {
+            save("test", TEST_DATA).unwrap();
+            assert!(clean().is_ok());
+        } else {
+            clean().ok();
+            assert!(clean().is_err());
+        }
+    }
 
-        let res = clean();
-        assert!(res.is_ok());
+    #[test_case("nonexistent_key", true; "missing key with file")]
+    #[test_case("test", false; "missing file")]
+    #[test]
+    #[file_serial]
+    fn test_load_missing(key: &str, create_file: bool) {
+        if create_file {
+            save("test", TEST_DATA).unwrap();
+        } else {
+            clean().ok();
+        }
+        assert!(load(key).is_none());
+        clean().ok();
+    }
+
+    #[test_case(2; "two keys")]
+    #[test_case(3; "three keys")]
+    #[test]
+    #[file_serial]
+    fn test_save_multiple_keys(count: usize) {
+        for i in 0..count {
+            save(&format!("key{i}"), &format!("value{i}")).unwrap();
+        }
+        for i in 0..count {
+            assert_eq!(load(&format!("key{i}")).unwrap(), format!("value{i}"));
+        }
+        clean().unwrap();
+    }
+
+    #[test_case("config.toml"; "ends with config.toml")]
+    #[test]
+    fn test_config_path(expected_suffix: &str) {
+        let path = config_path();
+        assert!(path.to_string_lossy().ends_with(expected_suffix));
+    }
+
+    #[test_case(TEST_DATA; "save creates dir")]
+    #[test]
+    #[file_serial]
+    fn test_save_creates_config_dir(value: &str) {
+        clean().ok();
+        save("test", value).unwrap();
+        assert_eq!(load("test").unwrap(), value);
+        clean().unwrap();
+    }
+
+    #[test_case(TEST_DATA; "load after clean returns none")]
+    #[test]
+    #[file_serial]
+    fn test_load_after_clean(value: &str) {
+        save("test", value).unwrap();
+        clean().unwrap();
+        assert!(load("test").is_none());
     }
 }

@@ -265,3 +265,182 @@ fn oauth_token(client_id: AnilistId) -> Result<String> {
 
     Ok(token)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use simple_test_case::test_case;
+
+    #[test_case("42", 42; "valid id")]
+    #[test_case("0", 0; "zero")]
+    #[test_case("999999", 999999; "large id")]
+    #[test]
+    fn test_anilist_id_from_str(s: &str, expected: u32) {
+        assert_eq!(AnilistId::from_str(s).unwrap(), AnilistId(expected));
+    }
+
+    #[test_case("abc"; "non numeric")]
+    #[test_case("-1"; "negative")]
+    #[test_case("" ; "empty")]
+    #[test]
+    fn test_anilist_id_from_str_err(s: &str) {
+        assert!(AnilistId::from_str(s).is_err());
+    }
+
+    #[test_case(42, "42"; "display id")]
+    #[test_case(0, "0"; "display zero")]
+    #[test]
+    fn test_anilist_id_display(input: u32, expected: &str) {
+        assert_eq!(AnilistId(input).to_string(), expected);
+    }
+
+    #[test_case(5, 5; "positive watched")]
+    #[test_case(0, 0; "zero watched")]
+    #[test_case(-3, 0; "negative watched clamps to zero")]
+    #[test]
+    fn test_watching_anime_watched(watched: i64, expected: u32) {
+        let anime = WatchingAnime {
+            watched,
+            id: 1,
+            title: "Test".into(),
+        };
+        assert_eq!(anime.watched(), expected);
+    }
+
+    #[test_case("My Anime", "My Anime"; "standard title")]
+    #[test_case("", ""; "empty title")]
+    #[test_case("Special!@#$%", "Special!@#$%"; "special chars")]
+    #[test]
+    fn test_watching_anime_title(title: &str, expected: &str) {
+        let anime = WatchingAnime {
+            watched: 0,
+            id: 1,
+            title: title.into(),
+        };
+        assert_eq!(anime.title(), expected);
+    }
+
+    #[test_case(42, 42; "positive id")]
+    #[test_case(0, 0; "zero id")]
+    #[test]
+    fn test_watching_anime_id(id: i64, expected: u32) {
+        let anime = WatchingAnime {
+            watched: 0,
+            id,
+            title: "Test".into(),
+        };
+        assert_eq!(anime.id(), AnimeId(expected));
+    }
+
+    #[test_case(5, 5; "progress five")]
+    #[test_case(0, 0; "progress zero")]
+    #[test_case(100, 100; "progress hundred")]
+    #[test]
+    fn test_progress_latest(progress: i64, expected: u32) {
+        let p = Progress {
+            episodes: 12,
+            progress,
+        };
+        assert_eq!(p.latest(), EpisodeId(expected));
+    }
+
+    #[test_case(5, 3, true; "seen episode three")]
+    #[test_case(5, 5, true; "seen episode five")]
+    #[test_case(5, 6, false; "not seen episode six")]
+    #[test_case(0, 0, true; "zero seen zero")]
+    #[test]
+    fn test_progress_has_seen(progress: i64, ep: u32, expected: bool) {
+        let p = Progress {
+            episodes: 12,
+            progress,
+        };
+        assert_eq!(p.has_seen(EpisodeId(ep)), expected);
+    }
+
+    #[test_case(12, 12, true; "is last episode")]
+    #[test_case(12, 13, true; "beyond last episode")]
+    #[test_case(12, 11, false; "before last episode")]
+    #[test_case(12, 5, false; "well before last")]
+    #[test]
+    fn test_progress_is_last(episodes: i64, ep: u32, expected: bool) {
+        let p = Progress {
+            episodes,
+            progress: 0,
+        };
+        assert_eq!(p.is_last(EpisodeId(ep)), expected);
+    }
+
+    #[test_case(42, 42; "from u32")]
+    #[test_case(0, 0; "from zero")]
+    #[test]
+    fn test_anilist_id_from(input: u32, expected: u32) {
+        let id: AnilistId = input.into();
+        assert_eq!(id, AnilistId(expected));
+    }
+
+    #[test_case(42i64, 42; "from i64 positive")]
+    #[test_case(0, 0; "from i64 zero")]
+    #[test_case(-1, -1; "from i64 negative")]
+    #[test]
+    fn test_user_id_from(input: i64, expected: i64) {
+        let id: UserId = input.into();
+        let result: i64 = id.into();
+        assert_eq!(result, expected);
+    }
+
+    #[test_case(5, 5, true; "seen equal progress")]
+    #[test_case(5, 10, false; "not seen beyond progress")]
+    #[test_case(0, 0, true; "zero seen zero")]
+    #[test]
+    fn test_progress_has_seen_edge(progress: i64, ep: u32, expected: bool) {
+        let p = Progress {
+            episodes: 12,
+            progress,
+        };
+        assert_eq!(p.has_seen(EpisodeId(ep)), expected);
+    }
+
+    #[test_case(1, 1, true; "single episode is last")]
+    #[test_case(0, 0, true; "zero episodes zero is last")]
+    #[test_case(100, 50, false; "well before last")]
+    #[test]
+    fn test_progress_is_last_edge(episodes: i64, ep: u32, expected: bool) {
+        let p = Progress {
+            episodes,
+            progress: 0,
+        };
+        assert_eq!(p.is_last(EpisodeId(ep)), expected);
+    }
+
+    #[test_case(-5, 0; "negative watched clamps")]
+    #[test_case(100, 100; "large watched")]
+    #[test]
+    fn test_watching_anime_watched_edge(watched: i64, expected: u32) {
+        let anime = WatchingAnime {
+            watched,
+            id: 1,
+            title: "Test".into(),
+        };
+        assert_eq!(anime.watched(), expected);
+    }
+
+    #[test_case(3, 42, "Test Anime", 3, AnimeId(42); "all methods")]
+    #[test_case(0, 1, "A", 0, AnimeId(1); "zero watched")]
+    #[test]
+    fn test_watching_anime_all_methods(
+        watched: i64,
+        id: i64,
+        title: &str,
+        exp_watched: u32,
+        exp_id: AnimeId,
+    ) {
+        let anime = WatchingAnime {
+            watched,
+            id,
+            title: title.into(),
+        };
+        assert_eq!(anime.title(), title);
+        assert_eq!(anime.watched(), exp_watched);
+        assert_eq!(anime.id(), exp_id);
+    }
+}

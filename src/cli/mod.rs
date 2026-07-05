@@ -124,4 +124,88 @@ mod utils {
 
         Ok(search_result)
     }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+        use crate::anime::AnimeId;
+        use simple_test_case::test_case;
+
+        #[test_case(vec!["bunny girl"], vec![("bunny+girl", None)]; "single entry")]
+        #[test_case(
+            vec!["bunny girl", "promare"],
+            vec![("bunny+girl+promare", None)];
+            "multiple entries joined"
+        )]
+        #[test_case(
+            vec!["one piece,tokyo ghoul"],
+            vec![("one+piece", None), ("tokyo+ghoul", None)];
+            "comma separated entries")]
+        #[test_case(vec!["  spaces  "], vec![("spaces", None)]; "trim spaces")]
+        #[test]
+        fn test_get_from_input(entries: Vec<&str>, expected: Vec<(&str, Option<AnimeId>)>) {
+            let entries: Vec<String> = entries.into_iter().map(String::from).collect();
+            let result = get_from_input(entries).unwrap();
+
+            assert_eq!(result.len(), expected.len());
+            for (got, (exp_str, exp_id)) in result.iter().zip(expected.iter()) {
+                assert_eq!(got.string, *exp_str);
+                assert_eq!(got.id, *exp_id);
+            }
+        }
+
+        #[test_case(Site::AW; "aw is default")]
+        #[test]
+        fn test_site_default(site: Site) {
+            assert!(matches!(site, Site::AW));
+        }
+
+        #[test_case(
+            vec!["one piece,tokyo ghoul,fullmetal"],
+            vec![("one+piece", None), ("tokyo+ghoul", None), ("fullmetal", None)];
+            "three comma separated"
+        )]
+        #[test_case(
+            vec!["  spaced  ,  another  "],
+            vec![("spaced", None), ("another", None)];
+            "comma separated with spaces"
+        )]
+        #[test_case(
+            vec!["single"],
+            vec![("single", None)];
+            "single word"
+        )]
+        #[test_case(
+            vec!["two words"],
+            vec![("two+words", None)];
+            "two words joined"
+        )]
+        #[test]
+        fn test_get_from_input_extra(entries: Vec<&str>, expected: Vec<(&str, Option<AnimeId>)>) {
+            let entries: Vec<String> = entries.into_iter().map(String::from).collect();
+            let result = get_from_input(entries).unwrap();
+
+            assert_eq!(result.len(), expected.len());
+            for (got, (exp_str, exp_id)) in result.iter().zip(expected.iter()) {
+                assert_eq!(got.string, *exp_str);
+                assert_eq!(got.id, *exp_id);
+            }
+        }
+
+        #[test_case(vec![("test", None)], 1; "single entry no id")]
+        #[test_case(vec![("test+other", None)], 1; "joined entries")]
+        #[test]
+        fn test_get_from_input_preserves_search_structure(
+            expected: Vec<(&str, Option<AnimeId>)>,
+            exp_len: usize,
+        ) {
+            let entries: Vec<String> = expected.iter().map(|(s, _)| String::from(*s)).collect();
+            let result = get_from_input(entries).unwrap();
+            assert_eq!(result.len(), exp_len);
+            for (got, (exp_str, exp_id)) in result.iter().zip(expected.iter()) {
+                assert_eq!(got.string, *exp_str);
+                assert_eq!(got.id, *exp_id);
+            }
+        }
+    }
 }

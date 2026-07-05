@@ -49,3 +49,36 @@ impl Tui {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use simple_test_case::test_case;
+
+    #[test_case(0; "new bar position zero")]
+    #[test]
+    fn test_tui_new(_dummy: u32) {
+        let tui = Tui::new();
+        let pb = tui.add_bar();
+        assert_eq!(pb.position(), 0);
+    }
+
+    #[test_case(0; "default bar position zero")]
+    #[test]
+    fn test_tui_default(_dummy: u32) {
+        let tui = Tui::default();
+        let pb = tui.add_bar();
+        assert_eq!(pb.position(), 0);
+    }
+
+    #[test_case(2; "two bars")]
+    #[test_case(3; "three bars")]
+    #[test]
+    fn test_tui_add_bar_multiple(count: usize) {
+        let tui = Tui::new();
+        for _ in 0..count {
+            let pb = tui.add_bar();
+            assert_eq!(pb.position(), 0);
+        }
+    }
+}

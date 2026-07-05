@@ -222,6 +222,7 @@ mod tests {
     mod animeworld {
         use simple_test_case::test_case;
 
+        use super::super::get_url as get_download_url;
         use super::*;
         use crate::scraper::{Scraper, ScraperConfig};
 
@@ -323,6 +324,201 @@ mod tests {
             let episodes = get_range(&fragment).unwrap();
 
             assert_eq!(episodes, expected);
+        }
+
+        #[test]
+        fn test_get_range_none() {
+            let html = r#"<div class="nothing"><p>no episodes here</p></div>"#;
+            let fragment = Html::parse_fragment(html);
+            assert!(get_range(&fragment).is_none());
+        }
+
+        #[test_case(
+            r#"<h1 id="anime-title">MyAnimeName</h1>"#,
+            Some("MyAnimeName");
+            "valid name"
+        )]
+        #[test_case(
+            r#"<div>no title here</div>"#,
+            None;
+            "missing title element"
+        )]
+        #[test_case(
+            r#"<h1 id="anime-title">  Spaces  </h1>"#,
+            Some("  Spaces  ");
+            "name with spaces preserved"
+        )]
+        #[test_case(
+            r#"<h1 id="anime-title">Special!@#$%</h1>"#,
+            Some("Special!@#$%");
+            "name with special chars"
+        )]
+        #[test]
+        fn test_get_name(html: &str, expected: Option<&str>) {
+            let fragment = Html::parse_fragment(html);
+            assert_eq!(get_name(&fragment).as_deref(), expected);
+        }
+
+        #[test_case(
+            r#"<a id="downloadLink" href="download-file.php?id=https://cdn.tld/file.mp4">dl</a>"#,
+            Some("https://cdn.tld/file.mp4");
+            "download link"
+        )]
+        #[test_case(
+            r#"<a id="alternativeDownloadLink" href="https://cdn.tld/file.mp4">dl</a>"#,
+            Some("https://cdn.tld/file.mp4");
+            "alternative download link"
+        )]
+        #[test_case(
+            r#"<a id="customDownloadButton" href="https://cdn.tld/file.mp4">dl</a>"#,
+            Some("https://cdn.tld/file.mp4");
+            "custom download button"
+        )]
+        #[test_case(
+            r#"<a id="downloadLink" href="download-file.php?id=https://cdn.tld/file.mp4">dl</a>"#,
+            Some("https://cdn.tld/file.mp4");
+            "download link with php prefix"
+        )]
+        #[test_case(
+            r#"<a id="alternativeDownloadLink" href="download-file.php?id=https://cdn.tld/file.mp4">dl</a>"#,
+            Some("https://cdn.tld/file.mp4");
+            "alternative download with php prefix"
+        )]
+        #[test_case(
+            r#"<a id="customDownloadButton" href="download-file.php?id=https://cdn.tld/file.mp4">dl</a>"#,
+            Some("https://cdn.tld/file.mp4");
+            "custom download with php prefix"
+        )]
+        #[test_case(
+            r#"<div>no download link</div>"#,
+            None;
+            "missing download link"
+        )]
+        #[test]
+        fn test_get_url(html: &str, expected: Option<&str>) {
+            let fragment = Html::parse_fragment(html);
+            assert_eq!(get_download_url(&fragment).as_deref(), expected);
+        }
+
+        #[test_case(
+            r#"<a id="anilist-button" href="https://anilist.co/anime/12345">AL</a>"#,
+            Some(12345);
+            "valid anilist id"
+        )]
+        #[test_case(
+            r#"<div>no button</div>"#,
+            None;
+            "missing anilist button"
+        )]
+        #[test_case(
+            r#"<a id="anilist-button" href="not-a-url">AL</a>"#,
+            None;
+            "invalid href url"
+        )]
+        #[test_case(
+            r#"<a id="anilist-button" href="https://anilist.co/anime/abc">AL</a>"#,
+            None;
+            "non numeric id"
+        )]
+        #[test_case(
+            r#"<a id="anilist-button" href="https://anilist.co/anime/0">AL</a>"#,
+            Some(0);
+            "zero id"
+        )]
+        #[test_case(
+            r#"<a id="anilist-button" href="https://anilist.co/anime/999999">AL</a>"#,
+            Some(999999);
+            "large id"
+        )]
+        #[test_case(
+            r#"<a id="anilist-button" href="https://anilist.co/anime/">AL</a>"#,
+            None;
+            "empty id segment"
+        )]
+        #[test_case(
+            r#"<a id="anilist-button" href="">AL</a>"#,
+            None;
+            "empty href"
+        )]
+        #[test]
+        fn test_get_id(html: &str, expected: Option<u32>) {
+            let fragment = Html::parse_fragment(html);
+            assert_eq!(get_id(&fragment).map(|i| i.0), expected);
+        }
+
+        #[test_case(
+            r#"<div>no name</div>"#,
+            false;
+            "missing name errors"
+        )]
+        #[test_case(
+            r#"<h1 id="anime-title">Name</h1><div>no url</div>"#,
+            false;
+            "missing url errors"
+        )]
+        #[test_case(
+            r#"
+                <h1 id="anime-title">MyAnime</h1>
+                <a id="downloadLink" href="https://cdn.tld/MyAnime_Ep_01.mp4">dl</a>
+                <a id="anilist-button" href="https://anilist.co/anime/42">AL</a>
+            "#,
+            true;
+            "valid info"
+        )]
+        #[test_case(
+            r#"
+                <h1 id="anime-title">MyAnime</h1>
+                <a id="downloadLink" href="https://cdn.tld/MyAnime_Ep_01.mp4">dl</a>
+                <a id="anilist-button" href="https://anilist.co/anime/42">AL</a>
+                <div class="range">
+                    <span class="rangetitle">1 - 12</span>
+                </div>
+            "#,
+            true;
+            "valid info with range"
+        )]
+        #[test_case(
+            r#"
+                <h1 id="anime-title">MyAnime</h1>
+                <a id="downloadLink" href="https://cdn.tld/MyAnime_Ep_01.mp4">dl</a>
+            "#,
+            true;
+            "valid info no id"
+        )]
+        #[test]
+        fn test_get_info(html: &str, should_succeed: bool) {
+            let fragment = Html::parse_fragment(html);
+            let result = get_info(fragment);
+            assert_eq!(result.is_ok(), should_succeed);
+        }
+
+        #[test_case(
+            r#"<ul class="episodes"></ul>"#,
+            None;
+            "empty ul"
+        )]
+        #[test_case(
+            r#"
+                <ul class="episodes">
+                    <li><a href="/play/anime/id">1</a></li>
+                </ul>
+            "#,
+            Some((EpisodeId(1), EpisodeId(1)));
+            "single episode"
+        )]
+        #[test_case(
+            r#"
+                <div class="range">
+                    <span class="rangetitle">1 - 1</span>
+                </div>
+            "#,
+            Some((EpisodeId(1), EpisodeId(1)));
+            "span single"
+        )]
+        #[test]
+        fn test_get_range_edge(html: &str, expected: Option<(EpisodeId, EpisodeId)>) {
+            let fragment = Html::parse_fragment(html);
+            assert_eq!(get_range(&fragment), expected);
         }
 
         #[tokio::test]

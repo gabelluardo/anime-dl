@@ -240,14 +240,159 @@ mod tests {
     #[test_case("[status] 09%", Some(9); "leading zero")]
     #[test_case("[status] %", None; "missing digits")]
     #[test_case("[status] no percent", None; "missing percent")]
+    #[test_case("50%", Some(50); "at start of line")]
+    #[test_case("AV: 00.00% (Paused)", Some(0); "paused parses digits before percent")]
+    #[test_case("  75%", Some(75); "with leading spaces")]
+    #[test_case("1000%", Some(1000); "four digits")]
     #[test]
     fn test_get_percentage(input: &str, expected: Option<u32>) {
         assert_eq!(get_percentage(input), expected);
     }
 
+    #[test_case(
+        "https://www.domain.tld/sub/anotherSub/AnimeName/AnimeName_Ep_0017_SUB_ITA.mp4",
+        Some("AnimeName");
+        "standard url"
+    )]
+    #[test_case(
+        "https://www.domain.tld/AnimeName_Ep_01.mp4",
+        Some("AnimeName");
+        "short url"
+    )]
+    #[test_case("not a url", None; "invalid url")]
+    #[test_case("ftp://", None; "url without path segments")]
+    #[test_case("https://www.domain.tld/", None; "root path no segments")]
+    #[test_case("https://www.domain.tld/_no_name", Some(""); "underscore prefix")]
     #[test]
-    fn test_get_name_from_url() {
-        let url = "https://www.domain.tld/sub/anotherSub/AnimeName/AnimeName_Ep_0017_SUB_ITA.mp4";
-        assert_eq!(get_name_from_url(url).unwrap(), "AnimeName")
+    fn test_get_name_from_url(url: &str, expected: Option<&str>) {
+        assert_eq!(get_name_from_url(url).as_deref(), expected);
+    }
+
+    #[test_case(AnimeId(1), EpisodeId(5); "track single")]
+    #[test_case(AnimeId(42), EpisodeId(1); "track another")]
+    #[test]
+    fn test_progress_track(anime_id: AnimeId, episode: EpisodeId) {
+        let anilist = Anilist::new(None);
+        let Ok(anilist) = anilist else { return };
+        let mut progress = Progress::new(anilist);
+
+        assert!(progress.queue.is_empty());
+
+        progress.track(anime_id, episode);
+
+        assert_eq!(progress.queue.len(), 1);
+        let p = progress.queue.front().unwrap();
+        assert_eq!(p.anime_id, anime_id);
+        assert_eq!(p.episode, episode);
+        assert_eq!(p.percentage, 0);
+        assert!(!p.updated);
+    }
+
+    #[test_case(2; "track two")]
+    #[test_case(3; "track three")]
+    #[test]
+    fn test_progress_track_multiple(count: usize) {
+        let anilist = Anilist::new(None);
+        let Ok(anilist) = anilist else { return };
+        let mut progress = Progress::new(anilist);
+
+        for i in 0..count {
+            progress.track(AnimeId(i as u32), EpisodeId(i as u32));
+        }
+
+        assert_eq!(progress.queue.len(), count);
+    }
+
+    #[test_case(50, 75, 75; "update to higher percentage")]
+    #[test_case(50, 30, 50; "ignore lower percentage")]
+    #[test_case(0, 50, 50; "update from zero")]
+    #[test_case(50, 50, 50; "equal percentage")]
+    #[test]
+    fn test_progress_update(initial: u32, new: u32, expected: u32) {
+        let anilist = Anilist::new(None);
+        let Ok(anilist) = anilist else { return };
+        let mut progress = Progress::new(anilist);
+
+        progress.track(AnimeId(1), EpisodeId(1));
+        progress.queue.front_mut().unwrap().percentage = initial;
+
+        progress.update(new);
+
+        assert_eq!(progress.queue.front().unwrap().percentage, expected);
+    }
+
+    #[test_case(true, 0, true; "updated zero pops")]
+    #[test_case(false, 0, false; "not updated zero stays")]
+    #[test_case(true, 50, false; "updated non-zero stays")]
+    #[test]
+    fn test_progress_update_pop(updated: bool, percentage: u32, expected_empty: bool) {
+        let anilist = Anilist::new(None);
+        let Ok(anilist) = anilist else { return };
+        let mut progress = Progress::new(anilist);
+
+        progress.track(AnimeId(1), EpisodeId(1));
+        progress.queue.front_mut().unwrap().updated = updated;
+        progress.queue.front_mut().unwrap().percentage = percentage;
+
+        progress.update(0);
+
+        assert_eq!(progress.queue.is_empty(), expected_empty);
+    }
+
+    #[test_case(50; "update with empty queue")]
+    #[test_case(0; "zero with empty queue")]
+    #[test]
+    fn test_progress_update_no_queue(percentage: u32) {
+        let anilist = Anilist::new(None);
+        let Ok(anilist) = anilist else { return };
+        let mut progress = Progress::new(anilist);
+
+        progress.update(percentage);
+    }
+
+    #[test_case(30, 50, 40, 50; "higher then lower")]
+    #[test_case(0, 50, 30, 50; "zero then higher then lower")]
+    #[test]
+    fn test_progress_update_sequence(init: u32, first: u32, second: u32, expected: u32) {
+        let anilist = Anilist::new(None);
+        let Ok(anilist) = anilist else { return };
+        let mut progress = Progress::new(anilist);
+
+        progress.track(AnimeId(1), EpisodeId(1));
+        progress.queue.front_mut().unwrap().percentage = init;
+
+        progress.update(first);
+        progress.update(second);
+
+        assert_eq!(progress.queue.front().unwrap().percentage, expected);
+    }
+
+    #[test_case(AnimeId(0), EpisodeId(0), 0, false; "all defaults")]
+    #[test_case(AnimeId(42), EpisodeId(5), 50, false; "with values")]
+    #[test_case(AnimeId(99), EpisodeId(99), 100, true; "updated")]
+    #[test]
+    fn test_episode_progress_construction(
+        anime_id: AnimeId,
+        episode: EpisodeId,
+        percentage: u32,
+        updated: bool,
+    ) {
+        let p = EpisodeProgress {
+            anime_id,
+            episode,
+            percentage,
+            updated,
+        };
+        assert_eq!(p.anime_id, anime_id);
+        assert_eq!(p.episode, episode);
+        assert_eq!(p.percentage, percentage);
+        assert_eq!(p.updated, updated);
+    }
+
+    #[test_case(0, true; "default is empty")]
+    #[test]
+    fn test_progress_default(_dummy: u32, expected_empty: bool) {
+        let progress = Progress::default();
+        assert_eq!(progress.queue.is_empty(), expected_empty);
     }
 }

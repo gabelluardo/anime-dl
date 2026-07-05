@@ -129,4 +129,29 @@ mod tests {
     fn test_invalid_selection(input: &str, index_start: usize, content_len: usize) {
         assert!(get_selection(input, index_start, content_len).is_err());
     }
+
+    #[test_case("1,1,1", vec![1]; "duplicates removed")]
+    #[test_case("1,2,1,2", vec![1, 2]; "mixed duplicates")]
+    #[test_case("3,1,2", vec![1, 2, 3]; "unsorted input")]
+    #[test_case("1-3,2-4", vec![1, 2, 3, 4]; "overlapping ranges")]
+    #[test_case("  1  ,  2  ", vec![1, 2]; "spaces around values")]
+    #[test]
+    fn test_parse_input_dedup(input: &str, expected: Vec<usize>) {
+        let expected: Vec<_> = expected.into_iter().map(|n| n.into()).collect();
+        let res = get_selection(input, 1, 6).unwrap();
+        assert_eq!(res, expected);
+    }
+
+    #[test_case("1-3,5-7", 1, 6, vec![1, 2, 3, 5, 6]; "range clamped")]
+    #[test]
+    fn test_valid_selection_clamped(
+        input: &str,
+        index_start: usize,
+        content_len: usize,
+        expected: Vec<usize>,
+    ) {
+        let expected: Vec<_> = expected.into_iter().map(|n| n.into()).collect();
+        let res = get_selection(input, index_start, content_len).unwrap();
+        assert_eq!(res, expected);
+    }
 }

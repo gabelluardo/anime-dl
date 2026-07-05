@@ -121,6 +121,29 @@ pub mod selector {
 
         Ok(fragment)
     }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+        use simple_test_case::test_case;
+
+        #[test_case("div"; "simple tag")]
+        #[test_case("div.class"; "class selector")]
+        #[test_case("a[href]"; "attribute selector")]
+        #[test_case("#id"; "id selector")]
+        #[test]
+        fn test_from_valid(selectors: &str) {
+            let s = from(selectors);
+            // just verify it doesn't panic
+            let _ = format!("{s:?}");
+        }
+
+        #[test]
+        #[should_panic(expected = "unable to parse selector")]
+        fn test_from_invalid() {
+            let _ = from(">>>");
+        }
+    }
 }
 
 #[cfg(test)]
@@ -162,6 +185,77 @@ mod tests {
             .unwrap();
 
         assert_eq!(res, expected)
+    }
+
+    #[test_case("bunny girl", None; "search without id")]
+    #[test_case("bunny girl", Some(AnimeId(42)); "search with id")]
+    #[test_case("", None; "empty search string")]
+    #[test]
+    fn test_search_new(string: &str, id: Option<AnimeId>) {
+        let search = Search::new(string, id);
+        assert_eq!(search.string, string);
+        assert_eq!(search.id, id);
+    }
+
+    #[test_case("test", None; "owned string")]
+    #[test_case("bunny girl", None; "string with space")]
+    #[test_case("promare+ita", None; "string with plus")]
+    #[test_case("", None; "empty string")]
+    #[test_case("test", Some(AnimeId(42)); "with id")]
+    #[test]
+    fn test_search_new_various(string: &str, id: Option<AnimeId>) {
+        let search = Search::new(string, id);
+        assert_eq!(search.string, string);
+        assert_eq!(search.id, id);
+    }
+
+    fn build_config(
+        cookie: Option<&str>,
+        proxy: Option<&str>,
+        anilist_id: Option<u32>,
+    ) -> ScraperConfig {
+        ScraperConfig {
+            cookie: cookie.map(String::from),
+            proxy: proxy.map(String::from),
+            anilist_id: anilist_id.map(AnilistId::from),
+        }
+    }
+
+    #[test_case(None, None, None; "all none")]
+    #[test_case(Some("test=cookie"), None, None; "with cookie")]
+    #[test_case(Some("\ninvalid"), None, None; "invalid cookie")]
+    #[test_case(None, None, Some(42); "with anilist id")]
+    #[test_case(None, Some("not a url"), None; "invalid proxy")]
+    #[test_case(None, Some("http://proxy.example.com:8080"), None; "valid proxy")]
+    #[test_case(Some("test=cookie"), Some("http://proxy.example.com:8080"), Some(42); "all set")]
+    #[test]
+    fn test_scraper_new(cookie: Option<&str>, proxy: Option<&str>, anilist_id: Option<u32>) {
+        let config = build_config(cookie, proxy, anilist_id);
+        let scraper = Scraper::new(config);
+        let _ = scraper.client();
+    }
+
+    #[tokio::test]
+    async fn test_scraper_search_empty() {
+        let config = ScraperConfig {
+            cookie: None,
+            proxy: None,
+            anilist_id: None,
+        };
+        let scraper = Scraper::new(config);
+        let result = scraper.search::<AnimeWorld>(&[]).await.unwrap();
+        assert!(result.is_empty());
+    }
+
+    #[test_case("test", Some(AnimeId(42)); "with id")]
+    #[test_case("test", None; "without id")]
+    #[test_case("", None; "empty string")]
+    #[test]
+    fn test_search_clone(string: &str, id: Option<AnimeId>) {
+        let search = Search::new(string, id);
+        let cloned = search.clone();
+        assert_eq!(search.string, cloned.string);
+        assert_eq!(search.id, cloned.id);
     }
 
     async fn scraper_single<T: Archive>(search_query: &str, expected_file: &str) -> Result<()> {

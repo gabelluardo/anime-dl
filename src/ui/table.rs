@@ -114,4 +114,54 @@ mod tests {
             assert!(table.contains(value));
         }
     }
+
+    #[test_case("test instructions"; "prompt")]
+    #[test_case("another prompt"; "another prompt")]
+    #[test]
+    fn test_print_prompt(instructions: &str) {
+        print_prompt(instructions);
+    }
+
+    #[test_case("test title"; "title")]
+    #[test_case("another title"; "another title")]
+    #[test]
+    fn test_print_title(title: &str) {
+        print_title(title);
+    }
+
+    #[test_case(vec!["A", "B"], vec!["A", "B"]; "empty rows")]
+    #[test_case(vec!["Index", "Name"], vec!["Index", "Name"]; "two headers")]
+    #[test]
+    fn test_build_table_empty(headers: Vec<&str>, expected: Vec<&str>) {
+        let table = build_table(headers, vec![]);
+        for value in expected {
+            assert!(table.contains(value));
+        }
+    }
+
+    #[test_case(None; "empty no highlight")]
+    #[test_case(Some(0); "empty highlight first")]
+    #[test]
+    fn test_build_episodes_table_empty(highlighted_row: Option<usize>) {
+        let table = build_episodes_table(vec!["Episode", "Seen"], vec![], highlighted_row);
+        assert!(table.contains("Episode"));
+        assert!(table.contains("Seen"));
+    }
+
+    #[test_case(Some(0); "highlight first row")]
+    #[test_case(Some(1); "highlight second row")]
+    #[test_case(None; "no highlight")]
+    #[test_case(Some(2); "highlight third row")]
+    #[test]
+    fn test_build_episodes_table_highlight_rows(highlighted_row: Option<usize>) {
+        let headers = vec!["Episode", "Seen"];
+        let rows = vec![
+            vec!["1".to_string(), "✔".to_string()],
+            vec!["2".to_string(), "✗".to_string()],
+        ];
+
+        let table = build_episodes_table(headers, rows, highlighted_row);
+        assert!(table.contains("1"));
+        assert!(table.contains("2"));
+    }
 }

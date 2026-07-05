@@ -259,10 +259,19 @@ mod test {
         "AnimeName_Ep_01_SUB_ITA.mp4";
         "single segment"
     )]
+    #[test_case(
+        "https://www.domain.tld/",
+        "";
+        "root path"
+    )]
+    #[test_case("not a url", ""; "invalid url")]
+    #[test_case("ftp://", ""; "url without path")]
     #[test]
-    fn test_get_filename(url: &str, expected: &str) {
-        let res = get_filename(url).unwrap();
-        assert_eq!(res, expected)
+    fn test_get_filename(url: &str, expected_ok: &str) {
+        match get_filename(url) {
+            Ok(res) => assert_eq!(res, expected_ok),
+            Err(_) => assert!(expected_ok.is_empty()),
+        }
     }
 
     #[test_case(
@@ -275,19 +284,97 @@ mod test {
         "AnimeName";
         "no underscore"
     )]
+    #[test_case(
+        "https://www.domain.tld/sub/AnimeName.mp4",
+        "AnimeName";
+        "no underscore with extension"
+    )]
+    #[test_case(
+        "https://www.domain.tld/sub/AnimeName",
+        "AnimeName";
+        "no underscore no extension"
+    )]
+    #[test_case(
+        "https://www.domain.tld/sub/Anime_Name_Ep_01.mp4",
+        "Anime";
+        "extract before first underscore"
+    )]
+    #[test_case(
+        "https://www.domain.tld/sub/file.name.with.dots.mp4",
+        "file.name.with.dots";
+        "multiple dots"
+    )]
+    #[test_case("not a url", ""; "invalid url")]
+    #[test_case("ftp://", ""; "url without path")]
     #[test]
-    fn test_get_dir_name(url: &str, expected: &str) {
-        let res = get_dir_name(url).unwrap();
-        assert_eq!(res, expected)
+    fn test_get_dir_name(url: &str, expected_ok: &str) {
+        match get_dir_name(url) {
+            Ok(res) => assert_eq!(res, expected_ok),
+            Err(_) => assert!(expected_ok.is_empty()),
+        }
     }
 
     #[test_case("AnimeName", "anime_name"; "with simple name")]
     #[test_case("IDInvaded", "idinvaded"; "with consecutive capitals")]
     #[test_case("SwordArtOnline2", "sword_art_online2"; "with a number")]
     #[test_case("SlimeTaoshite300-nen", "slime_taoshite300-nen"; "with hyphen")]
+    #[test_case("", ""; "empty string")]
+    #[test_case("A", "a"; "single uppercase")]
+    #[test_case("a", "a"; "single lowercase")]
+    #[test_case("ABC", "abc"; "all uppercase")]
+    #[test_case("abc", "abc"; "all lowercase")]
+    #[test_case("aBc", "a_bc"; "mixed case")]
+    #[test_case("Test123", "test123"; "with digits")]
+    #[test_case("Test_123", "test_123"; "with underscore")]
+    #[test_case("HTTPRequest", "httprequest"; "consecutive capitals")]
+    #[test_case("camelCase", "camel_case"; "standard camel case")]
+    #[test_case("PascalCase", "pascal_case"; "pascal case")]
+    #[test_case("XMLParser", "xmlparser"; "acronym prefix")]
+    #[test_case("parseXML", "parse_xml"; "acronym suffix")]
     #[test]
     fn test_camel_to_snake(input: &str, expected: &str) {
-        let res = camel_to_snake(input);
+        assert_eq!(camel_to_snake(input), expected);
+    }
+
+    #[test_case(
+        "https://www.domain.tld/AnimeName_Ep_15_SUB_ITA.mp4",
+        "AnimeName",
+        "Ep. 15 AnimeName";
+        "with episode number"
+    )]
+    #[test_case(
+        "https://www.domain.tld/AnimeName_Ep_016_SUB_ITA.mp4",
+        "AnimeName",
+        "Ep. 016 AnimeName";
+        "with padded episode number"
+    )]
+    #[test_case(
+        "https://www.domain.tld/file.mp4",
+        "AnimeName",
+        "AnimeName";
+        "no episode number"
+    )]
+    #[test_case(
+        "https://www.domain.tld/path/AnimeName_Ep_0017_SUB_ITA.mp4",
+        "MyAnime",
+        "Ep. 0017 MyAnime";
+        "four digit padding"
+    )]
+    #[test_case(
+        "https://www.domain.tld/path/AnimeName_Ep_7_SUB_ITA.mp4",
+        "MyAnime",
+        "MyAnime";
+        "single digit no match"
+    )]
+    #[test_case(
+        "https://www.domain.tld/path/AnimeName_Ep_007_SUB_ITA.mp4",
+        "MyAnime",
+        "Ep. 007 MyAnime";
+        "three digit padding"
+    )]
+    #[test]
+    fn test_get_progress_message(url: &str, name: &str, expected: &str) {
+        let res = get_progress_message(url, name);
         assert_eq!(res, expected);
     }
 }

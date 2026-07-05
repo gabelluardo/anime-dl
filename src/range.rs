@@ -130,4 +130,58 @@ mod tests {
     fn test_wrong_range() {
         Range::<i32>::from_str("-").unwrap();
     }
+
+    #[test_case((1, 5), vec![1, 2, 3, 4, 5]; "iterate 1 to 5")]
+    #[test_case((0, 3), vec![0, 1, 2, 3]; "iterate 0 to 3")]
+    #[test_case((5, 5), vec![5]; "single value range")]
+    #[test_case((3, 1), Vec::<u32>::new(); "start greater than end")]
+    #[test]
+    fn test_iterator(range: (u32, u32), expected: Vec<u32>) {
+        let r = Range::new(range.0, range.1);
+        let result: Vec<u32> = r.collect();
+        assert_eq!(result, expected);
+    }
+
+    #[test_case(1, 0; "default values")]
+    #[test]
+    fn test_default(start: u32, end: u32) {
+        let r = Range::<u32>::default();
+        assert_eq!(r.start, start);
+        assert_eq!(r.end, end);
+    }
+
+    #[test_case((1, 5), (1, 5); "from tuple")]
+    #[test_case((0, 0), (0, 0); "from zero tuple")]
+    #[test]
+    fn test_from_tuple(input: (u32, u32), expected: (u32, u32)) {
+        let r: Range<u32> = input.into();
+        assert_eq!((r.start, r.end), expected);
+    }
+
+    #[test_case("1,5", (1, 5); "comma separated")]
+    #[test_case("1.5", (1, 5); "dot separated")]
+    #[test_case("(1..5)", (1, 5); "rust style")]
+    #[test_case("5", (5, 5); "single value")]
+    #[test_case("(0..5)", (0, 5); "rust style no spaces")]
+    #[test]
+    fn test_from_str_separators(input: &str, expected: (u32, u32)) {
+        let r = Range::<u32>::from_str(input).unwrap();
+        assert_eq!((r.start, r.end), expected);
+    }
+
+    #[test_case("1-5", None, (1, 5); "no end limit")]
+    #[test_case("1-", None, (1, 1); "open range no end")]
+    #[test]
+    fn test_parse_no_end(input: &str, end: Option<u32>, expected: (u32, u32)) {
+        let r = Range::<u32>::parse(input, end).unwrap();
+        assert_eq!((r.start, r.end), expected);
+    }
+
+    #[test_case("" ; "empty string")]
+    #[test_case("-" ; "only separator")]
+    #[test]
+    #[should_panic = "Invalid"]
+    fn test_from_str_invalid(s: &str) {
+        Range::<u32>::from_str(s).unwrap();
+    }
 }

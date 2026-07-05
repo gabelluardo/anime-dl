@@ -74,14 +74,6 @@ pub fn select_series(series: &mut Vec<Anime>) -> Result<()> {
 
 /// Selects episodes from an anime
 pub fn select_episodes(anime: &Anime) -> Result<Vec<String>> {
-    fn icon(last: Option<EpisodeId>, index: u32) -> String {
-        if last.is_some_and(|i| i > index.into()) {
-            "✔".to_string()
-        } else {
-            "✗".to_string()
-        }
-    }
-
     let last_watched = anime.last_watched();
     let mut next_to_watch = None;
     let mut rows = Vec::new();
@@ -131,4 +123,30 @@ pub fn select_episodes(anime: &Anime) -> Result<Vec<String>> {
     println!();
 
     Ok(episodes)
+}
+
+/// Returns the icon for an episode based on whether it has been watched.
+fn icon(last: Option<EpisodeId>, index: u32) -> String {
+    if last.is_some_and(|i| i > index.into()) {
+        "✔".to_string()
+    } else {
+        "✗".to_string()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use simple_test_case::test_case;
+
+    #[test_case(Some(EpisodeId(5)), 3, "✔"; "watched episode")]
+    #[test_case(Some(EpisodeId(5)), 5, "✗"; "current episode not watched")]
+    #[test_case(Some(EpisodeId(5)), 10, "✗"; "future episode")]
+    #[test_case(None, 0, "✗"; "no last watched")]
+    #[test_case(Some(EpisodeId(1)), 0, "✔"; "first episode watched")]
+    #[test_case(Some(EpisodeId(0)), 0, "✗"; "zero last watched")]
+    #[test]
+    fn test_icon(last: Option<EpisodeId>, index: u32, expected: &str) {
+        assert_eq!(icon(last, index), expected);
+    }
 }

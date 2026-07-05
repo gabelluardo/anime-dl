@@ -25,3 +25,14 @@ impl ProxyManager {
         Ok(proxy)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_proxy_disabled() {
+        let result = ProxyManager::proxy(true).await;
+        assert!(result.is_none());
+    }
+}
