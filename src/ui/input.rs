@@ -5,6 +5,7 @@ use rustyline::{ColorMode, DefaultEditor, config::Configurer, error::ReadlineErr
 use crate::{anime::EpisodeId, error::TuiError};
 
 /// Commands that can be parsed from user input
+#[derive(Debug)]
 pub enum Command {
     Quit,
     Unwatched,
@@ -17,8 +18,8 @@ pub fn get_command() -> Result<Command> {
     rl.set_color_mode(ColorMode::Enabled);
     let prompt = "~❯ ".red().to_string();
     let cmd = match rl.readline(&prompt).map(|line| line.trim().to_owned()) {
-        Ok(line) if line.len() == 1 && line.contains(['q', 'Q']) => Command::Quit,
-        Ok(line) if line.len() == 1 && line.contains(['u', 'U']) => Command::Unwatched,
+        Ok(line) if line.eq_ignore_ascii_case("q") => Command::Quit,
+        Ok(line) if line.eq_ignore_ascii_case("u") => Command::Unwatched,
         Ok(line) => Command::Default(line),
         Err(ReadlineError::Interrupted) | Err(ReadlineError::Eof) => Command::Quit,
         Err(_) => bail!(TuiError::InvalidInput),
@@ -37,11 +38,7 @@ pub fn get_selection(line: &str, index_start: usize, content_len: usize) -> Resu
     use crate::range::Range;
 
     let mut selected = Vec::new();
-    let selection: Vec<_> = line
-        .split_terminator(&[' ', ','])
-        .filter(|s| !s.is_empty())
-        .map(|s| s.trim())
-        .collect();
+    let selection: Vec<_> = line.split(&[' ', ',']).filter(|s| !s.is_empty()).collect();
 
     for s in selection {
         if let Ok(num) = s.parse::<usize>() {
