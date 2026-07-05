@@ -11,7 +11,12 @@ use tokio_stream::wrappers::LinesStream;
 use which::which;
 
 use super::{Site, utils};
-use crate::{anilist::Anilist, anime::get_episode_number, ui::Tui};
+use crate::anilist::AnilistId;
+use crate::{
+    anilist::Anilist,
+    anime::{AnimeId, EpisodeId, get_episode_number},
+    ui::Tui,
+};
 
 /// Stream anime in a media player
 #[derive(Parser, Debug)]
@@ -23,7 +28,7 @@ pub struct Args {
     /*  Common parameters */
     /// Override app id environment variable    
     #[arg(short, long, env = "ANIMEDL_ID", hide_env_values = true)]
-    pub anilist_id: Option<u32>,
+    pub anilist_id: Option<AnilistId>,
 
     /// Disable automatic proxy (useful for slow connections)
     #[arg(short = 'p', long)]
@@ -162,8 +167,8 @@ fn get_percentage(line: &str) -> Option<u32> {
 
 #[derive(Default, Debug)]
 struct EpisodeProgress {
-    anime_id: u32,
-    episode: u32,
+    anime_id: AnimeId,
+    episode: EpisodeId,
     percentage: u32,
     updated: bool,
 }
@@ -183,7 +188,7 @@ impl Progress {
         Self { anilist, queue }
     }
 
-    pub fn track(&mut self, anime_id: u32, episode: u32) {
+    pub fn track(&mut self, anime_id: AnimeId, episode: EpisodeId) {
         let progress = EpisodeProgress {
             anime_id,
             episode,

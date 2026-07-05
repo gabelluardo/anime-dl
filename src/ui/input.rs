@@ -2,7 +2,7 @@ use anyhow::{Result, bail};
 use owo_colors::OwoColorize;
 use rustyline::{ColorMode, DefaultEditor, config::Configurer};
 
-use crate::error::TuiError;
+use crate::{anime::EpisodeId, error::TuiError};
 
 /// Commands that can be parsed from user input
 pub enum Command {
@@ -32,7 +32,7 @@ pub fn get_command() -> Result<Command> {
 /// - "1,2,3" - individual selections
 /// - "1-3" - range selection
 /// - "1-" - open-ended range (uses content_len)
-pub fn get_selection(line: &str, index_start: usize, content_len: usize) -> Result<Vec<usize>> {
+pub fn get_selection(line: &str, index_start: usize, content_len: usize) -> Result<Vec<EpisodeId>> {
     use crate::range::Range;
 
     let mut selected = Vec::new();
@@ -44,8 +44,10 @@ pub fn get_selection(line: &str, index_start: usize, content_len: usize) -> Resu
 
     for s in selection {
         if let Ok(num) = s.parse::<usize>() {
-            selected.push(num)
-        } else if let Ok(range) = Range::parse(s, Some(content_len + index_start - 1)) {
+            selected.push(num.into())
+        } else if let Ok(range) =
+            Range::<EpisodeId>::parse(s, Some((content_len + index_start - 1).into()))
+        {
             selected.extend(range)
         } else {
             bail!(TuiError::InvalidInput)
@@ -71,6 +73,7 @@ mod tests {
     #[test_case("1-2, 4-6", vec![1, 2, 4, 5, 6]; "multiple ranges")]
     #[test]
     fn test_parse_input(input: &str, expected: Vec<usize>) {
+        let expected: Vec<_> = expected.into_iter().map(|n| n.into()).collect();
         let content_len = 6;
         let res = get_selection(input, 1, content_len).unwrap();
         assert_eq!(res, expected);

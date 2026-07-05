@@ -9,7 +9,12 @@ use tokio::{fs, io::AsyncWriteExt};
 use tokio_stream as stream;
 
 use super::{Site, utils};
-use crate::{anime::get_episode_number, range::Range, ui::Tui};
+use crate::anilist::AnilistId;
+use crate::{
+    anime::{EpisodeId, get_episode_number},
+    range::Range,
+    ui::Tui,
+};
 
 /// Download anime
 #[derive(Parser, Debug, Default)]
@@ -37,12 +42,12 @@ pub struct Args {
 
     /// Episodes to download (es. `1-4` or `1,2,3,4`) [default: 1]
     #[arg(short = 'r', long = "range")]
-    pub range: Option<Range<u32>>,
+    pub range: Option<Range<EpisodeId>>,
 
     /* Common parameters */
     /// Override app id environment variable    
     #[arg(short, long, env = "ANIMEDL_ID", hide_env_values = true)]
-    pub anilist_id: Option<u32>,
+    pub anilist_id: Option<AnilistId>,
 
     /// Disable automatic proxy (useful for slow connections)
     #[arg(short = 'p', long)]

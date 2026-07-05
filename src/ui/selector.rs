@@ -4,7 +4,12 @@ use anyhow::{Result, ensure};
 
 use super::input::{Command, get_command, get_selection};
 use super::table::{build_episodes_table, build_table, print_prompt, print_title};
-use crate::{anilist::WatchingAnime, anime::Anime, error::TuiError, range::Range};
+use crate::{
+    anilist::WatchingAnime,
+    anime::{Anime, EpisodeId},
+    error::TuiError,
+    range::Range,
+};
 
 /// Selects from a list of watching anime
 pub fn select_from_watching(series: &[WatchingAnime]) -> Result<Vec<&WatchingAnime>> {
@@ -29,7 +34,7 @@ pub fn select_from_watching(series: &[WatchingAnime]) -> Result<Vec<&WatchingAni
     let series: Vec<_> = match get_command()? {
         Command::Default(input) => get_selection(&input, 1, series.len())?
             .iter()
-            .filter_map(|i| series.get(i - 1))
+            .filter_map(|i| series.get(usize::from(*i) - 1))
             .collect(),
         Command::Unwatched => series.iter().filter(|s| s.watched() > 0).collect(),
         Command::Quit => exit(0),
@@ -57,7 +62,7 @@ pub fn select_series(series: &mut Vec<Anime>) -> Result<()> {
         Command::Default(input) => {
             *series = get_selection(&input, 1, series.len())?
                 .iter()
-                .filter_map(|i| series.get(i - 1).cloned())
+                .filter_map(|i| series.get(usize::from(*i) - 1).cloned())
                 .collect()
         }
         _ => exit(0),
@@ -69,7 +74,7 @@ pub fn select_series(series: &mut Vec<Anime>) -> Result<()> {
 
 /// Selects episodes from an anime
 pub fn select_episodes(anime: &Anime) -> Result<Vec<String>> {
-    fn icon(last: Option<i64>, index: u32) -> String {
+    fn icon(last: Option<EpisodeId>, index: u32) -> String {
         if last.is_some_and(|i| i > index.into()) {
             "✔".to_string()
         } else {
@@ -83,9 +88,9 @@ pub fn select_episodes(anime: &Anime) -> Result<Vec<String>> {
 
     match anime.range() {
         Some(Range { start, end }) => {
-            for i in 0..end {
+            for i in Range::new(EpisodeId(0), end) {
                 let index = start + i;
-                let watched = last_watched.is_some_and(|l| l > i.into());
+                let watched = last_watched.is_some_and(|l| l > i);
 
                 if next_to_watch.is_none() && !watched {
                     // rows.len() equals i at this point (before pushing the current row)
@@ -93,7 +98,7 @@ pub fn select_episodes(anime: &Anime) -> Result<Vec<String>> {
                     next_to_watch = Some(rows.len() + 1)
                 }
 
-                rows.push(vec![index.to_string(), icon(last_watched, i)]);
+                rows.push(vec![index.to_string(), icon(last_watched, i.into())]);
             }
         }
         _ => rows.push(vec![1.to_string(), icon(last_watched, 0)]),
@@ -107,8 +112,8 @@ pub fn select_episodes(anime: &Anime) -> Result<Vec<String>> {
 
     let episodes = match get_command()? {
         Command::Default(input) => {
-            let index_start = anime.next_episode() as usize;
-            let content_len = anime.last_episode() as usize;
+            let index_start = anime.next_episode().into();
+            let content_len = anime.last_episode().into();
 
             let selection = get_selection(&input, index_start, content_len)?;
 
@@ -116,9 +121,9 @@ pub fn select_episodes(anime: &Anime) -> Result<Vec<String>> {
         }
 
         Command::Unwatched => {
-            let index = next_to_watch.unwrap_or(anime.next_episode() as usize);
+            let index = next_to_watch.unwrap_or(anime.next_episode().into());
 
-            anime.select_from_index(index)
+            anime.select_from_index(index.into())
         }
 
         Command::Quit => exit(0),

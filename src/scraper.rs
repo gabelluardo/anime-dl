@@ -5,29 +5,50 @@ use futures::future::join_all;
 use owo_colors::OwoColorize;
 use reqwest::{Client, header, header::HeaderValue};
 
-use crate::{anime::Anime, archives::Archive};
+use crate::{
+    anilist::AnilistId,
+    anime::{Anime, AnimeId},
+    archives::Archive,
+};
 
 #[derive(Debug, Clone)]
 pub struct Search {
-    pub id: Option<u32>,
+    pub id: Option<AnimeId>,
     pub string: String,
+}
+
+impl Search {
+    pub fn new(string: impl Into<String>, id: Option<AnimeId>) -> Self {
+        Self {
+            id,
+            string: string.into(),
+        }
+    }
 }
 
 #[derive(Debug)]
 pub struct ScraperConfig {
     pub cookie: Option<String>,
     pub proxy: Option<String>,
+    pub anilist_id: Option<AnilistId>,
 }
 
 #[derive(Debug)]
-pub struct Scraper(Client);
+pub struct Scraper {
+    client: Client,
+    anilist_id: Option<AnilistId>,
+}
 
 impl Scraper {
     const CONNECTION_TIMEOUT: Duration = Duration::from_secs(10);
     const REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
 
     pub fn new(config: ScraperConfig) -> Self {
-        let ScraperConfig { cookie, proxy } = config;
+        let ScraperConfig {
+            cookie,
+            proxy,
+            anilist_id,
+        } = config;
 
         let mut headers = header::HeaderMap::new();
         if let Some(c) = cookie
@@ -51,19 +72,22 @@ impl Scraper {
 
         let client = builder.build().unwrap_or_default();
 
-        Self(client)
+        Self { client, anilist_id }
     }
 
     pub async fn search<T: Archive>(&self, searches: &[Search]) -> Result<Vec<Anime>> {
+        let anilist_id = self.anilist_id;
         let tasks = searches.iter().map(|search| {
-            let client = self.0.clone();
+            let client = self.client.clone();
             let search = search.clone();
 
             async move {
-                T::search(search, client).await.unwrap_or_else(|err| {
-                    eprintln!("{}", err.red());
-                    vec![]
-                })
+                T::search(search, client, anilist_id)
+                    .await
+                    .unwrap_or_else(|err| {
+                        eprintln!("{}", err.red());
+                        vec![]
+                    })
             }
         });
 
@@ -74,7 +98,7 @@ impl Scraper {
 
     #[cfg(test)]
     pub fn client(&self) -> Client {
-        self.0.clone()
+        self.client.clone()
     }
 }
 
@@ -145,11 +169,9 @@ mod tests {
         let config = ScraperConfig {
             cookie,
             proxy: None,
+            anilist_id: None,
         };
-        let search = vec![Search {
-            string: search_query.into(),
-            id: None,
-        }];
+        let search = vec![Search::new(search_query, None)];
 
         let anime = Scraper::new(config).search::<T>(&search).await?;
         let info = get_url(anime.first().unwrap().url());
@@ -169,6 +191,7 @@ mod tests {
         let config = ScraperConfig {
             cookie,
             proxy: None,
+            anilist_id: None,
         };
 
         let search: Vec<_> = search_queries

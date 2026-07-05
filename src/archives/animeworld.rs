@@ -4,8 +4,8 @@ use reqwest::{Client, Url};
 use scraper::Html;
 
 use crate::{
-    anilist::Anilist,
-    anime::Anime,
+    anilist::{Anilist, AnilistId},
+    anime::{Anime, AnimeId, EpisodeId},
     archives::Archive,
     error::{RequestError, ScraperError},
     range::Range,
@@ -27,7 +27,11 @@ impl Archive for AnimeWorld {
         Some(cookie)
     }
 
-    async fn search(search: Search, client: Client) -> Result<Vec<Anime>> {
+    async fn search(
+        search: Search,
+        client: Client,
+        anilist_id: Option<AnilistId>,
+    ) -> Result<Vec<Anime>> {
         let Search { id, string } = search;
 
         let search_results = {
@@ -56,7 +60,7 @@ impl Archive for AnimeWorld {
 
         ensure!(!search_results.is_empty(), "No anime found");
 
-        let anilist = Anilist::new(id)?;
+        let anilist = Anilist::new(anilist_id)?;
 
         let pool: Vec<_> = search_results
             .iter()
@@ -68,9 +72,9 @@ impl Archive for AnimeWorld {
                 let anime = Anime::new(name, url, id, range);
 
                 if let Some(i) = id
-                    && let Some((_, l)) = anilist.get_progress(i).await
+                    && let Some(p) = anilist.get_progress(i).await
                 {
-                    return Ok(anime.with_last_watched(l));
+                    return Ok(anime.with_last_watched(p.latest()));
                 }
 
                 Ok(anime)
@@ -97,7 +101,7 @@ impl Archive for AnimeWorld {
     }
 }
 
-type AnimeInfo = (String, String, Option<u32>, Option<Range<u32>>);
+type AnimeInfo = (String, String, Option<AnimeId>, Option<Range<EpisodeId>>);
 
 fn get_info(page: Html) -> Result<AnimeInfo> {
     let Some(name) = get_name(&page) else {
@@ -142,7 +146,7 @@ fn get_url(page: &Html) -> Option<String> {
     None
 }
 
-fn get_id(page: &Html) -> Option<u32> {
+fn get_id(page: &Html) -> Option<AnimeId> {
     let btn = selector::from(r#"a[id="anilist-button"]"#);
     let href = page.select(&btn).next_back()?.value().attr("href")?;
 
@@ -153,7 +157,7 @@ fn get_id(page: &Html) -> Option<u32> {
     Some(id)
 }
 
-fn get_range(page: &Html) -> Option<(u32, u32)> {
+fn get_range(page: &Html) -> Option<(EpisodeId, EpisodeId)> {
     let range = selector::from("div.range");
     let span = selector::from("span.rangetitle");
 
@@ -191,10 +195,10 @@ fn get_range(page: &Html) -> Option<(u32, u32)> {
         .select(&a)
         .filter_map(|a| a.inner_html().parse::<u32>().ok());
 
-    let start = values.next()?;
+    let start: EpisodeId = values.next()?.into();
     let mut end = start;
     for value in values {
-        end = value;
+        end = value.into();
     }
 
     Some((start, end))
@@ -259,7 +263,7 @@ mod tests {
                 <li class="episode">
                     <a data-episode-id="id" data-id="id" data-episode-num="12" data-num="12" data-base="12" data-comment="12" href="/play/anime_name/id">12</a>
                 </li>
-            </ul>"#, (1, 12); "html list")]
+            </ul>"#, (EpisodeId(1), EpisodeId(12)); "html list")]
         #[test_case( r#"
             <div class="range">
                 <span data-range-id="0" class="rangetitle active">1 - 55</span>           
@@ -272,7 +276,7 @@ mod tests {
                 <span data-range-id="7" class="rangetitle">363 - 412</span>           
                 <span data-range-id="8" class="rangetitle">413 - 462</span>           
                 <span data-range-id="9" class="rangetitle">463 - 500</span>           
-            </div>"#, (1, 500); "html span")]
+            </div>"#, (EpisodeId(1), EpisodeId(500)); "html span")]
         #[test_case(r#"
             <div class="range"></div>
             <ul class="episodes range acrive: data-range-id="0" style="display: block;">
@@ -312,9 +316,9 @@ mod tests {
                 <li class="episode">
                     <a data-episode-id="id" data-id="id" data-episode-num="12" data-num="12" data-base="12" data-comment="12" href="/play/anime_name/id">12</a>
                 </li>
-            </ul>"#, (1, 12); "html list with div")]
+            </ul>"#, (EpisodeId(1), EpisodeId(12)); "html list with div")]
         #[test]
-        fn test_parse_episodes(html: &str, expected: (u32, u32)) {
+        fn test_parse_episodes(html: &str, expected: (EpisodeId, EpisodeId)) {
             let fragment = Html::parse_fragment(html);
             let episodes = get_range(&fragment).unwrap();
 
@@ -329,15 +333,15 @@ mod tests {
             let config = ScraperConfig {
                 cookie,
                 proxy: None,
+                anilist_id: None,
             };
 
             let scraper = Scraper::new(config);
-            let search = Search {
-                string: "bunny girl".into(),
-                id: None,
-            };
+            let search = Search::new("bunny girl", None);
 
-            let anime = AnimeWorld::search(search, scraper.client()).await.unwrap();
+            let anime = AnimeWorld::search(search, scraper.client(), None)
+                .await
+                .unwrap();
             let info = get_url(anime.first().unwrap().url());
             assert_eq!(file, info)
         }

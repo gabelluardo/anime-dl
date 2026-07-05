@@ -34,7 +34,7 @@ mod utils {
 
     use super::Site;
     use crate::{
-        anilist::Anilist,
+        anilist::{Anilist, AnilistId},
         anime::Anime,
         archives::{AnimeWorld, Archive},
         error::RequestError,
@@ -65,7 +65,7 @@ mod utils {
                         acc
                     });
 
-                Search { string, id }
+                Search::new(string, id)
             })
             .collect();
 
@@ -77,10 +77,7 @@ mod utils {
             .join(" ")
             .split(',')
             .map(|s| s.trim().replace(' ', "+"))
-            .map(|s| Search {
-                string: s,
-                id: None,
-            })
+            .map(|s| Search::new(s, None))
             .collect();
 
         Ok(search)
@@ -89,9 +86,14 @@ mod utils {
     async fn search_site<T: Archive>(
         searches: &[Search],
         proxy: Option<String>,
+        anilist_id: Option<AnilistId>,
     ) -> Result<(Vec<Anime>, &'static str)> {
         let cookie = T::extract_cookie().await;
-        let config = ScraperConfig { proxy, cookie };
+        let config = ScraperConfig {
+            proxy,
+            cookie,
+            anilist_id,
+        };
 
         let anime = Scraper::new(config).search::<T>(searches).await?;
 
@@ -101,7 +103,7 @@ mod utils {
     pub async fn get_search_results(
         entries: Vec<String>,
         watching: bool,
-        anilist_id: Option<u32>,
+        anilist_id: Option<AnilistId>,
         no_proxy: bool,
         site: Option<Site>,
     ) -> Result<(Vec<Anime>, &'static str)> {
@@ -115,7 +117,9 @@ mod utils {
 
         let proxy = ProxyManager::proxy(no_proxy).await;
         let search_result = match site {
-            Some(Site::AW) | None => search_site::<AnimeWorld>(&searches, proxy).await?,
+            Some(Site::AW) | None => {
+                search_site::<AnimeWorld>(&searches, proxy, anilist_id).await?
+            }
         };
 
         Ok(search_result)

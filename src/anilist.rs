@@ -1,11 +1,31 @@
+use std::str::FromStr;
+
 use anyhow::{Result, anyhow};
 
+use derive_more::{Display, From, Into};
 use graphql_client::{GraphQLQuery, Response};
 use reqwest::{Client, header, header::HeaderValue};
 
-use crate::{config, ui::Tui};
+use crate::{
+    anime::{AnimeId, EpisodeId},
+    config,
+    ui::Tui,
+};
 
 const ENDPOINT: &str = "https://graphql.anilist.co";
+
+/// Identifies an AniList API client (OAuth application ID).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, From, Display)]
+#[display("{_0}")]
+pub struct AnilistId(u32);
+
+impl FromStr for AnilistId {
+    type Err = <u32 as FromStr>::Err;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        s.parse::<u32>().map(Self)
+    }
+}
 
 #[derive(Debug)]
 pub struct WatchingAnime {
@@ -23,8 +43,27 @@ impl WatchingAnime {
         self.watched.max(0) as u32
     }
 
-    pub fn id(&self) -> u32 {
-        self.id as u32
+    pub fn id(&self) -> AnimeId {
+        self.id.into()
+    }
+}
+
+pub struct Progress {
+    episodes: i64,
+    progress: i64,
+}
+
+impl Progress {
+    pub fn latest(&self) -> EpisodeId {
+        self.progress.into()
+    }
+
+    fn has_seen(&self, n: EpisodeId) -> bool {
+        self.progress >= n.into()
+    }
+
+    fn is_last(&self, n: EpisodeId) -> bool {
+        self.episodes <= n.into()
     }
 }
 
@@ -36,7 +75,7 @@ impl WatchingAnime {
 struct ProgressQuery;
 
 impl ProgressQuery {
-    async fn get(client: &Client, id: u32) -> Option<(i64, i64)> {
+    async fn get(client: &Client, id: AnimeId) -> Option<Progress> {
         let id = Some(id.into());
         let query = Self::build_query(progress_query::Variables { id });
         let response = client.post(ENDPOINT).json(&query).send().await.ok()?;
@@ -50,7 +89,7 @@ impl ProgressQuery {
         let episodes = media.episodes?;
         let progress = media.media_list_entry?.progress?;
 
-        Some((episodes, progress))
+        Some(Progress { episodes, progress })
     }
 }
 
@@ -64,14 +103,14 @@ struct ProgressMutation;
 impl ProgressMutation {
     async fn put(
         client: &Client,
-        id: u32,
-        progress: u32,
+        id: AnimeId,
+        progress: EpisodeId,
         status: progress_mutation::MediaListStatus,
     ) -> Result<()> {
         let variables = progress_mutation::Variables {
             status: Some(status),
             id: Some(id.into()),
-            progress: Some(progress as i64),
+            progress: Some(progress.into()),
         };
 
         let query = ProgressMutation::build_query(variables);
@@ -94,8 +133,8 @@ impl ProgressMutation {
 struct WatchingQuery;
 
 impl WatchingQuery {
-    async fn get(client: &Client, id: i64) -> Option<Vec<WatchingAnime>> {
-        let id = Some(id);
+    async fn get(client: &Client, id: UserId) -> Option<Vec<WatchingAnime>> {
+        let id = Some(id.into());
         let variables = watching_query::Variables { id };
         let query = WatchingQuery::build_query(variables);
         let response = client.post(ENDPOINT).json(&query).send().await.ok()?;
@@ -136,6 +175,9 @@ impl WatchingQuery {
     }
 }
 
+#[derive(Clone, Copy, Debug, From, Into)]
+struct UserId(i64);
+
 #[derive(GraphQLQuery, Debug)]
 #[graphql(
     schema_path = "schema/anilist_schema.json",
@@ -144,7 +186,7 @@ impl WatchingQuery {
 struct UserQuery;
 
 impl UserQuery {
-    async fn get(client: &Client) -> Option<i64> {
+    async fn get(client: &Client) -> Option<UserId> {
         let query = UserQuery::build_query(user_query::Variables);
         let response = client.post(ENDPOINT).json(&query).send().await.ok()?;
         let json = response
@@ -152,7 +194,7 @@ impl UserQuery {
             .await
             .ok()?;
 
-        json.data?.viewer.map(|d| d.id)
+        json.data?.viewer.map(|d| d.id.into())
     }
 }
 
@@ -162,8 +204,8 @@ pub struct Anilist {
 }
 
 impl Anilist {
-    pub fn new(client_id: Option<u32>) -> Result<Self> {
-        let client_id = client_id.unwrap_or(4047);
+    pub fn new(client_id: Option<AnilistId>) -> Result<Self> {
+        let client_id = client_id.unwrap_or(AnilistId(4047));
         let token = config::load("token").map_or_else(|| oauth_token(client_id), Ok)?;
 
         let mut headers = header::HeaderMap::new();
@@ -193,20 +235,18 @@ impl Anilist {
         Some(list)
     }
 
-    pub async fn get_progress(&self, id: u32) -> Option<(i64, i64)> {
-        let (episodes, progress) = ProgressQuery::get(&self.client, id).await?;
-
-        Some((episodes, progress))
+    pub async fn get_progress(&self, id: AnimeId) -> Option<Progress> {
+        ProgressQuery::get(&self.client, id).await
     }
 
-    pub async fn update(&mut self, id: u32, number: u32) -> Result<()> {
+    pub async fn update(&mut self, id: AnimeId, number: EpisodeId) -> Result<()> {
         use progress_mutation::MediaListStatus;
 
         let progress = self.get_progress(id).await;
         let status = match progress {
-            Some((_, last)) if last >= number.into() => return Ok(()),
-            Some((ep, _)) if ep <= number.into() => MediaListStatus::COMPLETED,
-            None | Some((_, _)) => MediaListStatus::CURRENT,
+            Some(p) if p.has_seen(number) => return Ok(()),
+            Some(p) if p.is_last(number) => MediaListStatus::COMPLETED,
+            None | Some(_) => MediaListStatus::CURRENT,
         };
 
         ProgressMutation::put(&self.client, id, number, status).await?;
@@ -215,7 +255,7 @@ impl Anilist {
     }
 }
 
-fn oauth_token(client_id: u32) -> Result<String> {
+fn oauth_token(client_id: AnilistId) -> Result<String> {
     let url = format!(
         "https://anilist.co/api/v2/oauth/authorize?response_type=token&client_id={client_id}"
     );
