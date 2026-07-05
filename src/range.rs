@@ -38,9 +38,10 @@ where
 
     pub fn parse(s: &str, end: Option<T>) -> Result<Self, <Self as FromStr>::Err> {
         let result = Self::from_str(s)?;
+        let is_open = s.trim_end().ends_with('-');
 
         if let Some(end) = end
-            && (result.end > end || result.end == result.start)
+            && (is_open || result.end > end)
         {
             return Ok(Self::new(result.start, end));
         }
@@ -116,6 +117,8 @@ mod tests {
     #[test_case("4-", Some(6), (4, 6); "expand open range from four")]
     #[test_case("4-8", Some(12), (4, 8); "keep bounded range within limit")]
     #[test_case("4-8", Some(6), (4, 6); "clamp bounded range to limit")]
+    #[test_case("3", Some(6), (3, 3); "single value not expanded")]
+    #[test_case("3", Some(10), (3, 3); "single value not expanded larger")]
     #[test]
     fn test_parse(input: &str, end: Option<u32>, expected: (u32, u32)) {
         let range = Range::parse(input, end).unwrap();
