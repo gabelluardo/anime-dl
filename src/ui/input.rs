@@ -1,6 +1,6 @@
 use anyhow::{Result, bail};
 use owo_colors::OwoColorize;
-use rustyline::{ColorMode, DefaultEditor, config::Configurer};
+use rustyline::{ColorMode, DefaultEditor, config::Configurer, error::ReadlineError};
 
 use crate::{anime::EpisodeId, error::TuiError};
 
@@ -20,6 +20,7 @@ pub fn get_command() -> Result<Command> {
         Ok(line) if line.len() == 1 && line.contains(['q', 'Q']) => Command::Quit,
         Ok(line) if line.len() == 1 && line.contains(['u', 'U']) => Command::Unwatched,
         Ok(line) => Command::Default(line),
+        Err(ReadlineError::Interrupted) | Err(ReadlineError::Eof) => Command::Quit,
         Err(_) => bail!(TuiError::InvalidInput),
     };
 
