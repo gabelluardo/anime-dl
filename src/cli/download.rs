@@ -1,5 +1,4 @@
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
 
 use anyhow::{Context, Result, anyhow};
 use clap::Parser;
@@ -80,7 +79,7 @@ pub async fn exec(args: Args) -> Result<()> {
         utils::get_search_results(entries, watching, anilist_id, proxy, site).await?;
 
     let ui = Tui::new();
-    let client = Arc::new(Client::new());
+    let client = Client::new();
 
     // Prepare all download tasks
     let pool = prepare_download_tasks(
@@ -109,7 +108,7 @@ fn prepare_download_tasks(
     ui: &Tui,
     interactive: bool,
     range: Option<Range<EpisodeId>>,
-    client: Arc<Client>,
+    client: Client,
     referrer: &str,
 ) -> Result<Vec<impl std::future::Future<Output = Result<()>>>> {
     let mut pool = Vec::new();
@@ -157,7 +156,7 @@ fn prepare_download_tasks(
 
 /// Download a single episode with progress tracking.
 async fn download_episode(
-    client: Arc<Client>,
+    client: Client,
     url: &str,
     referrer: &str,
     name: &str,
