@@ -206,7 +206,7 @@ pub struct Anilist {
 impl Anilist {
     pub fn new(client_id: Option<AnilistId>) -> Result<Self> {
         let client_id = client_id.unwrap_or(AnilistId(4047));
-        let token = config::load("token").map_or_else(|| oauth_token(client_id), Ok)?;
+        let token = config::load("anilist", "token").or_else(|_| oauth_token(client_id))?;
 
         let mut headers = header::HeaderMap::new();
         headers.insert(header::ACCEPT, HeaderValue::from_static("application/json"));
@@ -259,9 +259,9 @@ fn oauth_token(client_id: AnilistId) -> Result<String> {
     let url = format!(
         "https://anilist.co/api/v2/oauth/authorize?response_type=token&client_id={client_id}"
     );
-    let token = Tui::get_token(&url);
 
-    config::save("token", &token)?;
+    let token = Tui::get_token(&url)?;
+    config::save("anilist", "token", &token)?;
 
     Ok(token)
 }

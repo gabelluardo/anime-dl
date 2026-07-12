@@ -7,9 +7,8 @@ use crate::{anilist::AnilistId, anime::Anime, scraper::Search};
 
 pub trait Archive {
     const REFERRER: &'static str;
-    const COOKIE_NAME: &'static str;
 
-    fn extract_cookie() -> impl Future<Output = Option<String>> + Send;
+    fn get_session_id() -> impl Future<Output = Result<String>> + Send;
     fn search(
         search: Search,
         client: Client,

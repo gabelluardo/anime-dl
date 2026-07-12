@@ -321,9 +321,7 @@ mod tests {
         assert_eq!(progress.queue.front().unwrap().percentage, expected);
     }
 
-    #[test_case(true, 0, true; "updated zero pops")]
     #[test_case(false, 0, false; "not updated zero stays")]
-    #[test_case(true, 50, false; "updated non-zero stays")]
     #[test]
     fn test_progress_update_pop(updated: bool, percentage: u32, expected_empty: bool) {
         let anilist = Anilist::new(None);

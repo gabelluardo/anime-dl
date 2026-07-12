@@ -1,4 +1,5 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use anyhow::{Context, Result, anyhow};
 use clap::Parser;
@@ -50,8 +51,8 @@ pub struct Args {
     pub anilist_id: Option<AnilistId>,
 
     /// Disable automatic proxy (useful for slow connections)
-    #[arg(short = 'p', long)]
-    pub no_proxy: bool,
+    #[arg(short = 'p', long = "no-proxy", action = clap::ArgAction::SetFalse, default_value_t = true)]
+    pub proxy: bool,
 
     /// Search anime in remote archive
     #[arg(long, short = 'S', value_enum)]
@@ -70,88 +71,123 @@ pub async fn exec(args: Args) -> Result<()> {
         interactive,
         range,
         anilist_id,
-        no_proxy,
+        proxy,
         site,
         watching,
     } = args;
 
     let (search_result, referrer) =
-        utils::get_search_results(entries, watching, anilist_id, no_proxy, site).await?;
+        utils::get_search_results(entries, watching, anilist_id, proxy, site).await?;
 
     let ui = Tui::new();
-    let client = Client::new();
+    let client = Arc::new(Client::new());
 
+    // Prepare all download tasks
+    let pool = prepare_download_tasks(
+        &search_result,
+        &destination,
+        &ui,
+        interactive,
+        range,
+        client,
+        referrer,
+    )?;
+
+    // Execute downloads with concurrency limit
+    stream::iter(pool)
+        .buffer_unordered(max_concurrent.max(1))
+        .collect::<Vec<_>>()
+        .await;
+
+    Ok(())
+}
+
+/// Prepare all download tasks by processing search results and selecting episodes.
+fn prepare_download_tasks(
+    search_result: &[crate::anime::Anime],
+    destination: &Path,
+    ui: &Tui,
+    interactive: bool,
+    range: Option<Range<EpisodeId>>,
+    client: Arc<Client>,
+    referrer: &str,
+) -> Result<Vec<impl std::future::Future<Output = Result<()>>>> {
     let mut pool = Vec::new();
-    for anime in &search_result {
+    for anime in search_result {
         let episodes: Vec<String> = match range {
             Some(range) if !interactive => anime.select_from_range(range),
             _ => Tui::select_episodes(anime)?,
         };
 
         let root = {
-            let mut root = destination.clone();
+            let mut root = destination.to_path_buf();
             let name = get_dir_name(anime.url())?;
             let dir = camel_to_snake(&name);
             root.push(dir);
-
             root
         };
-        fs::create_dir_all(&root).await?;
 
         for url in episodes {
             let pb = ui.add_bar();
             let client = client.clone();
-            let name = anime.name();
+            let name = anime.name().to_string();
+            let referrer = referrer.to_string();
             let dest = {
                 let mut dest = root.clone();
                 let filename = get_filename(&url)?;
                 dest.push(filename);
-
                 dest
             };
             let tmp_dest = {
                 let mut tmp_dest = dest.clone();
                 tmp_dest.add_extension("tmp");
-
                 tmp_dest
             };
 
             let future = async move {
-                let source_size = get_source_size(&client, &url, referrer).await?;
-                let msg = get_progress_message(&url, name);
-                pb.set_position(0);
-                pb.set_length(source_size);
-                pb.set_message(msg);
-
-                let mut file = fs::OpenOptions::new()
-                    .write(true)
-                    .create(true)
-                    .truncate(true)
-                    .open(&tmp_dest)
-                    .await?;
-
-                let mut source = get(&client, &url, referrer).await?;
-                while let Some(chunk) = source.chunk().await? {
-                    file.write_all(&chunk).await?;
-                    pb.inc(chunk.len() as u64);
-                }
-
-                fs::copy(&tmp_dest, &dest).await?;
-                fs::remove_file(tmp_dest).await?;
-
-                pb.finish_with_message(pb.message() + " 👍");
-
-                anyhow::Ok(())
+                download_episode(client, &url, &referrer, &name, &dest, &tmp_dest, pb).await
             };
 
             pool.push(future);
         }
     }
 
-    stream::iter(pool)
-        .buffer_unordered(max_concurrent.max(1))
-        .collect::<Vec<_>>()
-        .await;
+    Ok(pool)
+}
+
+/// Download a single episode with progress tracking.
+async fn download_episode(
+    client: Arc<Client>,
+    url: &str,
+    referrer: &str,
+    name: &str,
+    dest: &PathBuf,
+    tmp_dest: &PathBuf,
+    pb: indicatif::ProgressBar,
+) -> Result<()> {
+    let source_size = get_source_size(&client, url, referrer).await?;
+    let msg = get_progress_message(url, name);
+    pb.set_position(0);
+    pb.set_length(source_size);
+    pb.set_message(msg);
+
+    let mut file = fs::OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .open(tmp_dest)
+        .await?;
+
+    let mut source = get(&client, url, referrer).await?;
+    while let Some(chunk) = source.chunk().await? {
+        file.write_all(&chunk).await?;
+        pb.inc(chunk.len() as u64);
+    }
+
+    fs::copy(tmp_dest, dest).await?;
+    fs::remove_file(tmp_dest).await?;
+
+    pb.finish_with_message(pb.message() + " 👍");
 
     Ok(())
 }

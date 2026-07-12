@@ -28,15 +28,15 @@ impl Search {
 
 #[derive(Debug)]
 pub struct ScraperConfig {
-    pub cookie: Option<String>,
-    pub proxy: Option<String>,
     pub anilist_id: Option<AnilistId>,
+    pub proxy: Option<String>,
+    pub session_id: Option<String>,
 }
 
 #[derive(Debug)]
 pub struct Scraper {
-    client: Client,
     anilist_id: Option<AnilistId>,
+    client: Client,
 }
 
 impl Scraper {
@@ -45,14 +45,14 @@ impl Scraper {
 
     pub fn new(config: ScraperConfig) -> Self {
         let ScraperConfig {
-            cookie,
-            proxy,
             anilist_id,
+            proxy,
+            session_id,
         } = config;
 
         let mut headers = header::HeaderMap::new();
-        if let Some(c) = cookie
-            && let Ok(value) = HeaderValue::from_str(&c)
+        if let Some(s) = session_id
+            && let Ok(value) = HeaderValue::from_str(&s)
         {
             headers.insert(header::COOKIE, value);
         }
@@ -163,30 +163,6 @@ mod tests {
             .into()
     }
 
-    #[test_case(
-        r#"<html><body><script>document.cookie="SecurityAW-E4=ccf64e38a09ed38849d9ae72e1931e5b ;  path=/";location.href="http://www.animeworld.so/?d=1";</script></body></html>"#,
-        "SecurityAW-E4=ccf64e38a09ed38849d9ae72e1931e5b ;";
-        "animeworld cookie"
-    )]
-    #[test_case(
-        r#"<script>document.cookie="SecurityAW-XY=session-token ; path=/";</script>"#,
-        "SecurityAW-XY=session-token ;";
-        "trim extra spaces before path"
-    )]
-    #[test]
-    fn test_find_cookie(text: &str, expected: &str) {
-        let res = text
-            .split("SecurityAW")
-            .nth(1)
-            .unwrap()
-            .split("path=/")
-            .next()
-            .map(|s| "SecurityAW".to_owned() + s.trim())
-            .unwrap();
-
-        assert_eq!(res, expected)
-    }
-
     #[test_case("bunny girl", None; "search without id")]
     #[test_case("bunny girl", Some(AnimeId(42)); "search with id")]
     #[test_case("", None; "empty search string")]
@@ -210,12 +186,12 @@ mod tests {
     }
 
     fn build_config(
-        cookie: Option<&str>,
+        session_id: Option<&str>,
         proxy: Option<&str>,
         anilist_id: Option<u32>,
     ) -> ScraperConfig {
         ScraperConfig {
-            cookie: cookie.map(String::from),
+            session_id: session_id.map(String::from),
             proxy: proxy.map(String::from),
             anilist_id: anilist_id.map(AnilistId::from),
         }
@@ -238,7 +214,7 @@ mod tests {
     #[tokio::test]
     async fn test_scraper_search_empty() {
         let config = ScraperConfig {
-            cookie: None,
+            session_id: None,
             proxy: None,
             anilist_id: None,
         };
@@ -259,9 +235,9 @@ mod tests {
     }
 
     async fn scraper_single<T: Archive>(search_query: &str, expected_file: &str) -> Result<()> {
-        let cookie = T::extract_cookie().await;
+        let session_id = T::get_session_id().await.ok();
         let config = ScraperConfig {
-            cookie,
+            session_id,
             proxy: None,
             anilist_id: None,
         };
@@ -281,9 +257,9 @@ mod tests {
         let mut expected = expected_files;
         expected.sort_unstable();
 
-        let cookie = T::extract_cookie().await;
+        let session_id = T::get_session_id().await.ok();
         let config = ScraperConfig {
-            cookie,
+            session_id,
             proxy: None,
             anilist_id: None,
         };

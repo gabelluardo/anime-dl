@@ -1,4 +1,4 @@
-use anyhow::{Ok, Result, anyhow, ensure};
+use anyhow::{Result, anyhow, ensure};
 use futures::stream::{self, StreamExt};
 use reqwest::{Client, Url};
 use scraper::Html;
@@ -7,6 +7,7 @@ use crate::{
     anilist::{Anilist, AnilistId},
     anime::{Anime, AnimeId, EpisodeId},
     archives::Archive,
+    config,
     error::{RequestError, ScraperError},
     range::Range,
     scraper::{Search, selector},
@@ -16,15 +17,23 @@ use crate::{
 pub struct AnimeWorld;
 impl Archive for AnimeWorld {
     const REFERRER: &'static str = "https://www.animeworld.ac";
-    const COOKIE_NAME: &'static str = "SecurityAW";
 
-    async fn extract_cookie() -> Option<String> {
-        let response = reqwest::get(Self::REFERRER).await.ok()?.text().await.ok()?;
-        let text = response.split(Self::COOKIE_NAME).nth(1)?;
-        let value = text.split("path=/").next()?.trim();
-        let cookie = Self::COOKIE_NAME.to_owned() + value;
+    async fn get_session_id() -> Result<String> {
+        let mut session_id = match config::load("animeworld", "session_id") {
+            Ok(s) if !s.is_empty() => s,
+            _ => {
+                let session_id = Tui::get_session_id("AnimeWorld")?;
+                config::save("animeworld", "session_id", &session_id)?;
 
-        Some(cookie)
+                session_id
+            }
+        };
+
+        if !session_id.starts_with("sessionId=") {
+            session_id = format!("sessionId={session_id};")
+        }
+
+        Ok(session_id)
     }
 
     async fn search(
@@ -82,7 +91,10 @@ impl Archive for AnimeWorld {
             .collect();
 
         let stream: Vec<_> = stream::iter(pool).buffer_unordered(8).collect().await;
-        let series: Vec<_> = stream.into_iter().filter_map(|a| a.ok()).collect();
+        let series: Vec<_> = stream
+            .into_iter()
+            .filter_map(|a: Result<Anime>| a.ok())
+            .collect();
 
         if let Some(id) = id
             && let Some(a) = series
@@ -522,12 +534,12 @@ mod tests {
         }
 
         #[tokio::test]
-        #[ignore]
+        #[ignore = "requires network access - use for manual testing only"]
         async fn test_remote() {
             let file = "SeishunButaYarouWaBunnyGirlSenpaiNoYumeWoMinai_Ep_01_SUB_ITA.mp4";
-            let cookie = AnimeWorld::extract_cookie().await;
+            let session_id = AnimeWorld::get_session_id().await.ok();
             let config = ScraperConfig {
-                cookie,
+                session_id,
                 proxy: None,
                 anilist_id: None,
             };

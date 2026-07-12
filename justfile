@@ -8,16 +8,17 @@ install:
     cargo install --locked --path . --target x86_64-unknown-linux-musl 
 
 test:
-    cargo nextest run
+    cargo nextest run --no-fail-fast
 
 test-ignored:
+    mkdir -p /tmp/.config/anime-dl
+    cp ~/.config/anime-dl/config.toml /tmp/.config/anime-dl/config.toml
     cargo nextest run --run-ignored=ignored-only
 
-test-all:
-    cargo nextest run --run-ignored=all
+test-all: test-ignored test
 
-test-all-musl:
-    cargo nextest run --run-ignored=all --target x86_64-unknown-linux-musl
+test-musl:
+    cargo nextest run --target x86_64-unknown-linux-musl
 
 coverage:
     cargo llvm-cov nextest --open

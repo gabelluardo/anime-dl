@@ -89,11 +89,11 @@ mod utils {
         proxy: Option<String>,
         anilist_id: Option<AnilistId>,
     ) -> Result<(Vec<Anime>, &'static str)> {
-        let cookie = T::extract_cookie().await;
+        let session_id = T::get_session_id().await?;
         let config = ScraperConfig {
             proxy,
-            cookie,
             anilist_id,
+            session_id: Some(session_id),
         };
 
         let anime = Scraper::new(config).search::<T>(searches).await?;
