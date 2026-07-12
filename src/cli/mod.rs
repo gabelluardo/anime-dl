@@ -31,6 +31,7 @@ pub enum Command {
 
 mod utils {
     use anyhow::{Result, anyhow};
+    use reqwest::Client;
 
     use super::Site;
     use crate::{
@@ -38,7 +39,7 @@ mod utils {
         anime::Anime,
         archives::{AnimeWorld, Archive},
         error::RequestError,
-        proxy::ProxyManager,
+        proxy::{ProxyConfig, get_random_proxy},
         scraper::{Scraper, ScraperConfig, Search},
         ui::Tui,
     };
@@ -104,7 +105,7 @@ mod utils {
         entries: Vec<String>,
         watching: bool,
         anilist_id: Option<AnilistId>,
-        no_proxy: bool,
+        proxy: bool,
         site: Option<Site>,
     ) -> Result<(Vec<Anime>, &'static str)> {
         let anilist = Anilist::new(anilist_id)?;
@@ -115,7 +116,13 @@ mod utils {
             get_from_input(entries)?
         };
 
-        let proxy = ProxyManager::proxy(no_proxy).await;
+        let proxy = if proxy {
+            let p = get_random_proxy(&Client::new(), ProxyConfig::new()).await?;
+            Some(p)
+        } else {
+            None
+        };
+
         let search_result = match site {
             Some(Site::AW) | None => {
                 search_site::<AnimeWorld>(&searches, proxy, anilist_id).await?

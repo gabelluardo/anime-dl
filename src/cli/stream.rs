@@ -31,8 +31,8 @@ pub struct Args {
     pub anilist_id: Option<AnilistId>,
 
     /// Disable automatic proxy (useful for slow connections)
-    #[arg(short = 'p', long)]
-    pub no_proxy: bool,
+    #[arg(short = 'p', long = "no-proxy", action = clap::ArgAction::SetFalse, default_value_t = true)]
+    pub proxy: bool,
 
     /// Search anime in remote archive
     #[arg(long, short = 'S', value_enum)]
@@ -47,13 +47,13 @@ pub async fn exec(args: Args) -> Result<()> {
     let Args {
         entries,
         anilist_id,
-        no_proxy,
+        proxy,
         site,
         watching,
     } = args;
 
     let (search_result, referrer) =
-        utils::get_search_results(entries, watching, anilist_id, no_proxy, site).await?;
+        utils::get_search_results(entries, watching, anilist_id, proxy, site).await?;
 
     let (cmd, cmd_referrer) = if let Ok(c) = which("mpv") {
         (c, format!("--referrer={referrer}"))
