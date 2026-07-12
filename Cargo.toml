@@ -38,7 +38,7 @@ rand = "0.10.1"
 rustyline = "18.0"
 scraper = "0.27.0"
 serde = "1.0.228"
-tabled = "0.20.0"
+tabled = "0.21.0"
 toml_edit = "0.25.11"
 which = "8.0.2"
 
