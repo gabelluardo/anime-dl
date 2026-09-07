@@ -1,0 +1,11 @@
+pub mod anilist;
+pub mod anime;
+pub mod app;
+pub mod archives;
+pub mod cli;
+pub mod config;
+pub mod error;
+pub mod proxy;
+pub mod range;
+pub mod scraper;
+pub mod ui;

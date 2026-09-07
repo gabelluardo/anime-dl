@@ -12,6 +12,10 @@ license = "GPL-3.0+"
 
 include = ["src/**/*", "schema/*", "build.rs", "LICENSE", "README.md"]
 
+[lib]
+name = "anime_dl"
+path = "src/lib.rs"
+
 [[bin]]
 name = "adl"
 path = "src/main.rs"
