@@ -1,0 +1,95 @@
+name: QA & sanity checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_LOG: info
+  RUST_BACKTRACE: 1
+
+jobs:
+  rust-sanity:
+    name: "Rust: Code sanity"
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: canonical/desktop-engineering/gh-actions/common/dpkg-install-speedup@main
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ github.token }}
+      - name: Rust code sanity check
+        uses: canonical/desktop-engineering/gh-actions/rust/code-sanity@main
+        with:
+          token: ${{ github.token }}
+
+  rust-tests:
+    name: ${{ matrix.os }} / Stable
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+          - os: macos-latest
+            target: x86_64-apple-darwin
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install packages (Ubuntu)
+        if: startsWith(matrix.os, 'ubuntu')
+        run: |
+          ci/ubuntu-install-packages
+
+      - name: Install nextest and cargo-llvm-cov
+        uses: taiki-e/install-action@v2
+        with:
+          tool: nextest,cargo-llvm-cov
+
+      - name: Run Tests
+        run: cargo nextest run --target ${{ matrix.target }}
+
+  rust-coverage:
+    name: "Rust: Coverage"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-unknown-linux-musl
+
+      - name: Install packages (Ubuntu)
+        run: |
+          ci/ubuntu-install-packages
+
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-llvm-cov
+
+      - name: Generate coverage
+        run: cargo llvm-cov --all-features --workspace --lcov --output-path coverage.lcov
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: coverage.lcov
+          fail_ci_if_error: false
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
